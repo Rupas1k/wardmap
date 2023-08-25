@@ -1,8 +1,8 @@
 import {action, makeAutoObservable} from "mobx";
-import wardStore from "./wardStore";
 
 class websocketStore {
-    constructor() {
+    constructor(mainStore) {
+        this.mainStore = mainStore
         makeAutoObservable(this)
         this.initWebsocket()
     }
@@ -24,11 +24,8 @@ class websocketStore {
     }
 
     onMessage(data) {
-        wardStore.wardData = JSON.parse(data)
+        this.mainStore.wardStore.wardData = JSON.parse(data)
     }
-
 }
 
-const store = new websocketStore()
-
-export default store
+export default websocketStore
