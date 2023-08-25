@@ -9,9 +9,15 @@ class websocketStore {
 
     initWebsocket() {
         this.websocket = new WebSocket("ws://localhost:5000/ws")
-        this.websocket.addEventListener("open", event => {this.onOpen()})
-        this.websocket.addEventListener("close", () => {this.onClose()})
-        this.websocket.addEventListener("message", ({data}) => {this.onMessage(data)})
+        this.websocket.addEventListener("open", event => {
+            this.onOpen()
+        })
+        this.websocket.addEventListener("close", () => {
+            this.onClose()
+        })
+        this.websocket.addEventListener("message", ({data}) => {
+            this.onMessage(data)
+        })
     }
 
     onOpen() {
@@ -20,11 +26,15 @@ class websocketStore {
     }
 
     onClose() {
-        setTimeout(this.initWebsocket, 5000)
+        setTimeout(() => this.initWebsocket(), 5000)
     }
 
     onMessage(data) {
-        this.mainStore.wardStore.wardData = JSON.parse(data)
+        const {wasmStore, wardStore} = this.mainStore
+        // wardStore.wardData = wasmStore.runWasm(JSON.parse(data).map(val => Object.values(val)))
+
+        wardStore.wardData = wasmStore.runWasm(JSON.parse(data))
+
     }
 }
 

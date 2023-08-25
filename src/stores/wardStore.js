@@ -7,7 +7,6 @@ class wardStore {
     }
 
     wardDataRequest(){
-        // console.log(this)
         if (this.mainStore.websocketStore.websocket.readyState !== WebSocket.CLOSED) this.mainStore.websocketStore.websocket.send('GET')
     }
 
