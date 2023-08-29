@@ -6,15 +6,31 @@ class wardStore {
         makeAutoObservable(this)
     }
 
-    wardDataRequest(){
-        if (this.mainStore.websocketStore.websocket.readyState !== WebSocket.CLOSED) this.mainStore.websocketStore.websocket.send('GET')
-    }
-
-    clearWardData(){
-        this.wardData = {}
-    }
-
     wardData = {}
+
+    wardDataHashTable = {}
+
+    clusterData = {}
+
+    wardDataRequest(){
+        const {websocketStore} = this.mainStore
+        if (websocketStore.websocket.readyState !== WebSocket.CLOSED) websocketStore.websocket.send('GET')
+    }
+
+    setWardData(data){
+        this.wardData = data
+    }
+
+    setWardDataHashTable(data){
+        this.wardDataHashTable = data
+    }
+
+    setClusterData(data){
+        this.clusterData = data
+    }
+
+
+
 }
 
 export default wardStore
