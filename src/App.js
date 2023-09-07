@@ -1,14 +1,24 @@
 import React from "react";
-import Info from "./components/Info";
-import MapComponent from "./components/Map";
+import Header from "./components/Header";
+import 'bootstrap/dist/css/bootstrap.css'
+import './sass/main.sass'
+import 'ol/ol.css'
+import Main from "./components/Main";
+import {observer} from "mobx-react";
+
+// import calculateVision from "./map/calculateVision";
 
 class App extends React.Component {
+    X = observer(() => {
+        // calculateVision([7008, 10477, 1])
+
+    })
     render() {
         return (
-            <div>
-                <MapComponent />
-                Works
-                <Info />
+            <div className="application" data-bs-theme="dark">
+                <Header/>
+                <Main/>
+                <this.X />
             </div>
         );
     }

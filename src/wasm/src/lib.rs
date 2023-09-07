@@ -6,7 +6,7 @@ use serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 use linfa::traits::*;
 use linfa_clustering::{AppxDbscan, Dbscan};
-use ndarray::{Array1, Array2};
+use ndarray::{Array2};
 
 #[wasm_bindgen]
 extern {
@@ -61,10 +61,4 @@ pub fn run_model(js_object: JsValue) -> JsValue {
     }
 
     serde_wasm_bindgen::to_value(&grouped_data).unwrap()
-}
-
-
-#[wasm_bindgen]
-pub fn greet() {
-    alert("Hello, dbscan-rust-wasm!");
 }

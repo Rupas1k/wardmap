@@ -1,7 +1,50 @@
 body
-  background-color: #fff
-  canvas
-    background-color: black
-  #map
-    width: 500px
-    height: 500px
+  margin: 0
+  padding: 0
+  #root
+    .application
+      display: flex
+      flex-direction: column
+      position: relative
+      nav
+        .brand
+          font-size: 18px
+          display: flex
+          align-items: center
+          img
+            width: 32px
+            height: 32px
+            margin-right: 5px
+      .main
+        height: calc(100vh - 58px)
+        //color: white
+        .row
+          .map-col > div
+            position: relative
+            .map-wrap
+              width: 100%
+              height: calc(100vh - 58px)
+              #map
+                height: inherit
+                width: 100%
+            .map-data
+              position: absolute
+              top: 10px
+              left: 10px
+              width: 100px
+              .layers
+                display: flex
+                flex-direction: column
+                align-items: center
+                button, label
+                  height: 50px
+                  width: 50px
+          .data-col
+            padding-top: 10px
+            .settings
+              .buttons-col
+                padding: 5px 0
+                display: flex
+                justify-content: space-around
+                .settings-list
+                  width: 70%

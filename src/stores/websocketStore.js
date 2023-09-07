@@ -1,4 +1,4 @@
-import {makeAutoObservable} from "mobx";
+import {makeAutoObservable, reaction} from "mobx";
 
 class websocketStore {
     constructor(mainStore) {
@@ -7,7 +7,7 @@ class websocketStore {
         this.initWebsocket()
     }
 
-    websocketResult = {}
+    websocket = null
 
     initWebsocket() {
         this.websocket = new WebSocket("ws://localhost:5000/ws")
@@ -22,30 +22,27 @@ class websocketStore {
         })
     }
 
-    onOpen() {
+    onOpen = () => {
         console.log("opened")
         this.websocket.send("opened")
     }
 
-    onClose() {
+    onClose = () => {
         setTimeout(() => this.initWebsocket(), 5000)
     }
 
-    async onMessage(data) {
-        const {wasmStore, wardStore} = this.mainStore
-        // wardStore.wardData = wasmStore.runWasm(JSON.parse(data).map(val => Object.values(val)))
-        // this.setWebsocketResult(JSON.parse(data))
-        this.websocketResult = JSON.parse(data)
-        const wardDataMap = new Map(this.websocketResult.map((ward) => [ward.id, ward]));
-        wardStore.setWardData(this.websocketResult)
-        wardStore.setWardDataHashTable(wardDataMap)
-        await wasmStore.runWasm(wardStore.wardData)
-    }
+    onMessage = async data => {
+        const {wasmStore, wardStore, mapStore} = this.mainStore
+        const websocketResult = JSON.parse(data)
+        const wardDataHashTable = new Map(websocketResult.map((ward) => [ward.id, ward]))
 
-
-    // setWebsocketResult(data){
-    //     this.websocketResult = data
-    // }
+        wardStore.setWardData(websocketResult)
+        wardStore.setWardDataHashTable(wardDataHashTable)
+        wardStore.setClusterData(await wasmStore.runWasm(wardStore.wardData))}
 }
+
+// setWebsocketResult(data){
+//     this.websocketResult = data
+// }
 
 export default websocketStore
