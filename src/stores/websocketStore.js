@@ -1,4 +1,4 @@
-import {makeAutoObservable, reaction} from "mobx";
+import {makeAutoObservable} from "mobx";
 
 class websocketStore {
     constructor(mainStore) {
@@ -17,8 +17,8 @@ class websocketStore {
         this.websocket.addEventListener("close", () => {
             this.onClose()
         })
-        this.websocket.addEventListener("message", ({data}) => {
-            this.onMessage(data).then(r => console.log("Done"))
+        this.websocket.addEventListener("message", async ({data}) => {
+            await this.onMessage(data).then(r => console.log("Done"))
         })
     }
 
@@ -32,17 +32,15 @@ class websocketStore {
     }
 
     onMessage = async data => {
-        const {wasmStore, wardStore, mapStore} = this.mainStore
+        const {wasmStore, wardStore} = this.mainStore
         const websocketResult = JSON.parse(data)
         const wardDataHashTable = new Map(websocketResult.map((ward) => [ward.id, ward]))
 
         wardStore.setWardData(websocketResult)
         wardStore.setWardDataHashTable(wardDataHashTable)
-        wardStore.setClusterData(await wasmStore.runWasm(wardStore.wardData))}
+        wardStore.setClusterData(await wasmStore.runWasm(wardStore.wardData))
+    }
 }
 
-// setWebsocketResult(data){
-//     this.websocketResult = data
-// }
 
 export default websocketStore

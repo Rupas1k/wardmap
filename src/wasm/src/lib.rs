@@ -28,7 +28,6 @@ pub fn run_model(js_object: JsValue) -> JsValue {
     pub struct JsParams {
         pub eps: f64,
         pub min_samples: usize,
-        pub appx: bool,
         pub wards: Vec<Ward>
     }
 
@@ -39,18 +38,11 @@ pub fn run_model(js_object: JsValue) -> JsValue {
         .collect::<Vec<_>>()
         .into();
 
-    let clusters =
-        if js_params.appx{
-            AppxDbscan::params(js_params.min_samples)
-                .tolerance(js_params.eps)
-                .transform(&arr)
-                .unwrap()
-        } else {
-            Dbscan::params(js_params.min_samples)
-                .tolerance(js_params.eps)
-                .transform(&arr)
-                .unwrap()
-        };
+    let clusters = AppxDbscan::params(js_params.min_samples)
+                    .tolerance(js_params.eps)
+                    .slack(1.)
+                    .transform(&arr)
+                    .unwrap();
 
     let mut grouped_data: HashMap<isize, Vec<f64>> = HashMap::new();
     for (idx, cluster_id_option) in clusters.iter().enumerate() {
