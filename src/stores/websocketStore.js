@@ -1,8 +1,9 @@
 import {makeAutoObservable} from "mobx";
+import runWasm from "../actions/runWasm";
 
 class websocketStore {
-    constructor(mainStore) {
-        this.mainStore = mainStore
+    constructor(rootStore) {
+        this.rootStore = rootStore
         makeAutoObservable(this)
         this.initWebsocket()
     }
@@ -24,7 +25,7 @@ class websocketStore {
 
     onOpen = () => {
         console.log("opened")
-        this.websocket.send("opened")
+        this.fetchWardData()
     }
 
     onClose = () => {
@@ -32,13 +33,12 @@ class websocketStore {
     }
 
     onMessage = async data => {
-        const {wasmStore, wardStore} = this.mainStore
-        const websocketResult = JSON.parse(data)
-        const wardDataHashTable = new Map(websocketResult.map((ward) => [ward.id, ward]))
+        const {wardStore} = this.rootStore
+        wardStore.setWardData(JSON.parse(data))
+    }
 
-        wardStore.setWardData(websocketResult)
-        wardStore.setWardDataHashTable(wardDataHashTable)
-        wardStore.setClusterData(await wasmStore.runWasm(wardStore.wardData))
+    fetchWardData = () => {
+        this.websocket.send("fetch")
     }
 }
 

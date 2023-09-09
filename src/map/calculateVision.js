@@ -21,7 +21,7 @@ const calculateVision = coordinates => {
 
     const x = Math.floor(coordinates[0])
     const y = Math.floor(coordinates[1])
-    const z = Math.ceil(coordinates[2])
+    const z = coordinates[2]
 
     const polygons = []
     const position = [x, y]

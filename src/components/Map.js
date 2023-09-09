@@ -1,6 +1,6 @@
 import React, {useEffect} from "react";
 import {observer} from "mobx-react"
-import {useStores} from "../stores/mainStore";
+import {useStores} from "../stores/rootStore";
 import {createMap, vectorLayer, vectorSource} from "../map/OLMap";
 import {Feature} from "ol";
 import {
@@ -19,9 +19,11 @@ import {mapSize} from "../map/constants";
 
 const {unit, pixel} = projections
 
+
 export default class MapComponent extends React.Component {
 
     MapView = observer(() => {
+        // const {mapStore} = useStores()
         const {mapStore} = useStores()
         const mapClickEvent = e => {
             const pixelv = mapStore.map.getEventPixel(e.originalEvent);

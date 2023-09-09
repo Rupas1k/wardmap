@@ -1,13 +1,21 @@
 import {makeAutoObservable, reaction} from "mobx";
+import runWasm from "../actions/runWasm";
 
 class wardStore {
-    constructor(mainStore) {
-        this.mainStore = mainStore
+    constructor(rootStore) {
+        this.rootStore = rootStore
         makeAutoObservable(this)
         reaction(
+            () => this.wardData,
+            async data => {
+                this.setWardDataHashTable(new Map(data.map((ward) => [ward.id, ward])))
+                this.setClusterData(await runWasm({eps: 64, min_samples: 5}, data))
+            }
+        )
+        reaction(
             () => this.clusterData,
-            (data) => {
-                this.mainStore.mapStore.setClusterFeatures()
+            data => {
+                this.rootStore.mapStore.setClusterFeatures()
             }
         )
     }
@@ -18,25 +26,17 @@ class wardStore {
 
     clusterData = []
 
-    wardDataRequest= () => {
-        const {websocketStore} = this.mainStore
-        if (websocketStore.websocket.readyState !== WebSocket.CLOSED) websocketStore.websocket.send('GET')
-    }
-
     setWardData = data => {
         this.wardData = data
-    }
-
-    setWardDataHashTable = data => {
-        this.wardDataHashTable = data
     }
 
     setClusterData = data => {
         this.clusterData = data
     }
 
-
-
+    setWardDataHashTable = data => {
+        this.wardDataHashTable = data
+    }
 }
 
 export default wardStore

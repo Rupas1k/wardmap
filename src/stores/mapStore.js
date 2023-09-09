@@ -14,8 +14,8 @@ class mapStore {
 
     visionFeature = null
 
-    constructor(mainStore) {
-        this.mainStore = mainStore
+    constructor(rootStore) {
+        this.rootStore = rootStore
         makeAutoObservable(this);
 
         reaction(
@@ -53,7 +53,7 @@ class mapStore {
     }
 
     setClusterFeatures = () => {
-        const {wardStore} = this.mainStore
+        const {wardStore} = this.rootStore
         const {pixel, unit} = projections
         let features = []
         wardStore.clusterData.forEach((cluster, key) => {

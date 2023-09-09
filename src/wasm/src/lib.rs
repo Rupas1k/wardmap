@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use serde_wasm_bindgen;
 use wasm_bindgen::prelude::*;
 use linfa::traits::*;
-use linfa_clustering::{AppxDbscan, Dbscan};
+use linfa_clustering::{AppxDbscan};
 use ndarray::{Array2};
 
 #[wasm_bindgen]
