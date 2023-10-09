@@ -16,7 +16,7 @@ const radius = 1600
 // const {unit, pixel} = projections
 
 const calculateVision = coordinates => {
-    const grid_size = 64 / 2
+    const grid_size = 64
     const cells = Math.ceil(y_size / grid_size)
 
     const x = Math.floor(coordinates[0])
@@ -33,32 +33,20 @@ const calculateVision = coordinates => {
         [x + radius, y - radius],
     ])
 
-    const x0 = Math.floor((x - radius) / grid_size)
-    const y0 = cells - Math.floor((y + radius) / grid_size) - 1
+    const x0 = Math.floor((x - radius) / grid_size) - 1
+    const y0 = cells - Math.floor((y + radius) / grid_size) - 1 - 1
 
-    // for(let i = 0; i < 283; i++){
-    //     for(let j = 0; j < 283; j++){
-    //         if(elevation[j][283 - i - 1] == 0){
-    //             polygons.push(new Feature({
-    //                 geometry: new OlPolygon([[
-    //                     [x_min + (j) * 64, y_min + (283 - i - 1) * 64],
-    //                     [x_min + (j + 1) * 64, y_min + (283 - i - 1) * 64],
-    //                     [x_min + (j + 1) * 64, y_min + (283 - i + 1 - 1) * 64],
-    //                     [x_min + (j) * 64, y_min + (283 - i + 1 - 1) * 64],
-    //                 ]]).transform(unit, pixel)
-    //             }))
-    //         }
-    //     }
-    // }
+    console.log(z)
+
     for (let i = y0; i < y0 + Math.floor((2 * radius) / grid_size) + 1; i++){
         for (let j = x0; j < x0 + Math.floor((2 * radius) / grid_size) + 1; j++){
             if (j > 0 && j < cells && cells - i - 1 < cells && i < cells && i > 0 && cells - i - 1 > 0){
-                if(elevation[j][cells - i - 1]  > z * 128 + 64 || (trees[cells - i - 1][j] > -1 && trees[cells - i - 1][j] + 128 + 64 > z * 128)){
+                if(elevation[cells - i - 1][j]  > z * 128 + 64 || (trees[cells - i - 1][j] > -1 && trees[cells - i - 1][j] + 128 + 64 > z * 128)){
                     polygons.push([
-                        [(j) * grid_size, (cells - i - 1) * grid_size],
-                        [(j + 1) * grid_size, (cells - i - 1) * grid_size],
-                        [(j + 1) * grid_size, (cells - (i + 1) - 1) * grid_size],
-                        [(j) * grid_size, (cells - (i + 1) - 1) * grid_size],
+                        [(j - 0.5) * grid_size, (cells - i - 1) * grid_size],
+                        [(j + 1 - 0.5) * grid_size, (cells - i - 1) * grid_size],
+                        [(j + 1 - 0.5) * grid_size, (cells - (i + 1) - 1) * grid_size],
+                        [(j - 0.5) * grid_size, (cells - (i + 1) - 1) * grid_size],
                     ])
                 }
             }

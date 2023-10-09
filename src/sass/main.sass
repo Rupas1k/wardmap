@@ -3,6 +3,8 @@ body
   padding: 0
   #root
     .application
+      min-height: 100vh
+      max-height: 100vh
       display: flex
       flex-direction: column
       position: relative
@@ -17,8 +19,10 @@ body
             margin-right: 5px
       .main
         height: calc(100vh - 58px)
+        max-height: calc(100vh - 58px)
         //color: white
         .row
+          max-height: inherit
           .map-col > div
             position: relative
             .map-wrap
@@ -41,6 +45,8 @@ body
                   width: 50px
           .data-col
             padding-top: 10px
+            max-height: inherit
+            overflow: auto
             .settings
               .buttons-col
                 padding: 5px 0
@@ -48,3 +54,12 @@ body
                 justify-content: space-around
                 .settings-list
                   width: 70%
+              .ward-list
+                .entry-row
+                  display: flex
+                  flex-direction: row
+                  justify-content: space-around
+                  margin: 5px
+                  padding: 5px
+                .entry-row:hover
+                  border: 1px solid black

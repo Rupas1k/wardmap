@@ -1,6 +1,6 @@
 import React from "react";
-import MapComponent from "./Map";
-import Settings from "./Settings";
+import MapComponent from "../components/Map";
+import Settings from "../components/Settings";
 import {Container, Row, Col} from "react-bootstrap";
 import {RootStoreProvider} from "../stores/rootStore";
 

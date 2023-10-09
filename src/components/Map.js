@@ -16,6 +16,9 @@ import calculateVision from "../map/calculateVision";
 import {projections} from "../map/projections";
 import {mapSize} from "../map/constants";
 
+import trees from "../map/data/trees.json"
+import elevation from "../map/data/elevation.json"
+
 
 const {unit, pixel} = projections
 
@@ -24,7 +27,7 @@ export default class MapComponent extends React.Component {
 
     MapView = observer(() => {
         // const {mapStore} = useStores()
-        const {mapStore} = useStores()
+        const {mapStore, wardStore} = useStores()
         const mapClickEvent = e => {
             const pixelv = mapStore.map.getEventPixel(e.originalEvent);
             let feature = null
@@ -35,6 +38,10 @@ export default class MapComponent extends React.Component {
             });
 
             if (feature) {
+                mapStore.currentFeature = feature
+                console.log(mapStore.currentFeature)
+                // console.log(feature.getProperties().data.cluster)
+
                 const coordinates = feature.getProperties().data.coordinates
                 const x = parseInt(coordinates[0] - mapSize.units.x0)
                 const y = parseInt(coordinates[1] - mapSize.units.y0)
@@ -61,21 +68,22 @@ export default class MapComponent extends React.Component {
                     geometry: intersectionGeometry,
                 });
 
+
                 // const features = []
-                //
                 // const x_min = mapSize.units.x0
                 // const y_min = mapSize.units.y0
-                //
-                // for(let i = 0; i < 566; i++){
-                //     for(let j = 0; j < 566; j++){
-                //         if(trees[j][566 - i - 1] > -1){
+                // const cells = 283 // 283 566
+                // const gridsize = 64
+                // for(let i = 0; i < cells; i++){
+                //     for(let j = 0; j < cells; j++){
+                //         if(trees[cells - i - 1][j] > -1){
                 //             features.push(new Feature({
                 //                 geometry: new Polygon([[
-                //                     [x_min + (j) * 32, y_min + (566 - i - 1) * 32],
-                //                     [x_min + (j + 1) * 32, y_min + (566 - i - 1) * 32],
-                //                     [x_min + (j + 1) * 32, y_min + (566 - i + 1 - 1) * 32],
-                //                     [x_min + (j) * 32, y_min + (566 - i + 1 - 1) * 32],
-                //                     [x_min + (j) * 32, y_min + (566 - i - 1) * 32]
+                //                     [x_min + (j - 0.5) * gridsize, y_min + (cells - i - 1 - 1) * gridsize],
+                //                     [x_min + (j + 1 - 0.5) * gridsize, y_min + (cells - i - 1 - 1) * gridsize],
+                //                     [x_min + (j + 1 - 0.5) * gridsize, y_min + (cells - i + 1 - 1 - 1) * gridsize],
+                //                     [x_min + (j - 0.5) * gridsize, y_min + (cells - i + 1 - 1 - 1) * gridsize],
+                //                     [x_min + (j - 0.5) * gridsize, y_min + (cells - i - 1 - 1) * gridsize]
                 //                 ]]).transform(unit, pixel)
                 //             }))
                 //         }
@@ -84,9 +92,47 @@ export default class MapComponent extends React.Component {
                 // console.log(mapStore.features)
                 // mapStore.features = features
 
+                //
+                // const features = []
+                // const x_min = mapSize.units.x0
+                // const y_min = mapSize.units.y0
+                // const cells = 283 // 283 566
+                // const gridsize = 64
+                // for(let i = 0; i < cells; i++){
+                //     for(let j = 0; j < cells; j++){
+                //         if(elevation[cells - i - 1][j] / 128 >= 3){
+                //             features.push(new Feature({
+                //                 geometry: new Polygon([[
+                //                     [x_min + (j - 0.5) * gridsize, y_min + (cells - i - 1- 0.5) * gridsize],
+                //                     [x_min + (j + 1- 0.5) * gridsize, y_min + (cells - i - 1- 0.5) * gridsize],
+                //                     [x_min + (j + 1- 0.5) * gridsize, y_min + (cells - i + 1 - 1- 0.5) * gridsize],
+                //                     [x_min + (j- 0.5) * gridsize, y_min + (cells - i + 1 - 1- 0.5) * gridsize],
+                //                     [x_min + (j- 0.5) * gridsize, y_min + (cells - i - 1- 0.5) * gridsize],
+                //                 ]]).transform(unit, pixel)
+                //             }))
+                //         }
+                //     }
+                // }
+                // mapStore.features = features
+
+
+                // const clusterFeatures = []
+                // feature.getProperties().data.cluster.forEach(ward_id => {
+                //     let ward = wardStore.wardDataHashTable.get(ward_id)
+                //     clusterFeatures.push(new Feature({
+                //         geometry: new Point([ward.x_pos, ward.y_pos]).transform(unit, pixel),
+                //     }))
+                //     console.log(ward.id)
+                // })
+                // mapStore.setFeatures(clusterFeatures)
+                //
+                // console.log(feature.getProperties().data.cluster[0].average_rank)
+
+
                 mapStore.setVisionFeature(intersectionFeature)
             } else {
                 mapStore.setVisionFeature(new Feature())
+                mapStore.currentFeature = null
             }
         }
         useEffect(() => {

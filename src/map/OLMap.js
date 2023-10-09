@@ -4,6 +4,8 @@ import {Vector as VectorSource, XYZ} from "ol/source";
 import {projections} from "./projections"
 import {mapSize, minZoom, maxZoom} from "./constants";
 import {defaults} from "ol/control"
+import {Style, Fill, Circle, Stroke} from "ol/style"
+import mainStyle from "./styles";
 
 const {pixel, unit} = projections
 
@@ -28,6 +30,7 @@ const tileLayer = new TileLayer({
 export const vectorSource = new VectorSource()
 export const vectorLayer = new VectorLayer({
     source: vectorSource,
+    style: mainStyle
 })
 
 export const createMap = () => {

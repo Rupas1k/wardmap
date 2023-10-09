@@ -2,6 +2,8 @@ import {makeAutoObservable, reaction} from "mobx";
 import {Feature} from "ol";
 import {Point} from "ol/geom";
 import {projections} from "../map/projections";
+import wardStore from "./wardStore";
+import {coordinates} from "ol/geom/flat/reverse";
 
 class mapStore {
     map = null
@@ -13,6 +15,8 @@ class mapStore {
     features = []
 
     visionFeature = null
+
+    currentFeature = null
 
     constructor(rootStore) {
         this.rootStore = rootStore
@@ -55,7 +59,7 @@ class mapStore {
     setClusterFeatures = () => {
         const {wardStore} = this.rootStore
         const {pixel, unit} = projections
-        let features = []
+        const features = []
         wardStore.clusterData.forEach((cluster, key) => {
             if (key === -1) return
             let coord = [0, 0, null]
@@ -75,16 +79,24 @@ class mapStore {
                 data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
             })
 
-            // feature.setStyle(new Style({
-            //     image: new Icon({
-            //         src: "./img/observer.svg",
-            //         scale: 0.4,
-            //     })
-            // }))
-
             features.push(feature)
 
 
+        })
+        this.setFeatures(features)
+    }
+
+    setClusters = () => {
+        const {wardStore} = this.rootStore
+        const {pixel, unit} = projections
+        const features = []
+        wardStore.clusters.forEach(cluster => {
+            let coord = [cluster.x_pos, cluster.y_pos, cluster["z_pos"]]
+            const feature = new Feature({
+                geometry: new Point([coord[0], coord[1]]).transform(unit, pixel),
+                data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
+            })
+            features.push(feature)
         })
         this.setFeatures(features)
     }

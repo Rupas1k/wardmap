@@ -11,9 +11,9 @@ class rootStore{
     }
 }
 
-const StoresContext = React.createContext();
-
 let root = null
+
+const StoresContext = React.createContext(root);
 
 export const RootStoreProvider = ({ children }) => {
     root = root ?? new rootStore()
