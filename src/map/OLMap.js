@@ -1,13 +1,14 @@
 import {Map, View} from "ol";
-import {Tile as TileLayer, Vector as VectorLayer} from "ol/layer";
+import {defaults} from "ol/control"
 import {Vector as VectorSource, XYZ} from "ol/source";
+import {Tile as TileLayer, Vector as VectorLayer} from "ol/layer";
+
 import {projections} from "./projections"
 import {mapSize, minZoom, maxZoom} from "./constants";
-import {defaults} from "ol/control"
-import {Style, Fill, Circle, Stroke} from "ol/style"
 import mainStyle from "./styles";
 
-const {pixel, unit} = projections
+
+const {pixel} = projections
 
 const view = new View({
     projection: pixel,

@@ -9,25 +9,25 @@ class wardStore {
             () => this.wardData,
             async data => {
                 this.setWardDataHashTable(new Map(data.map((ward) => [ward.id, ward])))
-                this.setClusterData(await runWasm(this.clusterParams, data))
+                this.setWasmClusters(await runWasm(this.wasmClusterParams, data))
             }
         )
 
         reaction(
             () => ({
-                eps: this.clusterParams.eps,
-                min_samples: this.clusterParams.min_samples
+                eps: this.wasmClusterParams.eps,
+                min_samples: this.wasmClusterParams.min_samples
             }),
             async params => {
                 this.setWardDataHashTable(new Map(this.wardData.map((ward) => [ward.id, ward])))
-                this.setClusterData(await runWasm(params, this.wardData))
+                this.setWasmClusters(await runWasm(params, this.wardData))
             }
         )
 
         reaction(
-            () => this.clusterData,
+            () => this.wasmClusters,
             data => {
-                this.rootStore.mapStore.setClusterFeatures()
+                this.rootStore.mapStore.setWasmClusters()
             }
         )
 
@@ -39,27 +39,24 @@ class wardStore {
         )
     }
 
-    clusterParams = observable({
+    wasmClusterParams = observable({
         eps: 32,
         min_samples: 10
     })
 
     wardData = []
-
     wardDataHashTable = new Map()
 
-    clusterData = []
-
+    wasmClusters = []
     clusters = []
 
-    // fixedClusterData = []
 
     setWardData = data => {
         this.wardData = data
     }
 
-    setClusterData = data => {
-        this.clusterData = data
+    setWasmClusters = data => {
+        this.wasmClusters = data
     }
 
     setClusters = data => {
@@ -71,12 +68,12 @@ class wardStore {
     }
 
     setEps = eps => {
-        this.clusterParams.eps = parseInt(eps)
+        this.wasmClusterParams.eps = parseInt(eps)
         console.log(eps)
     }
 
     setMinSamples = minSamples => {
-        this.clusterParams.min_samples = parseInt(minSamples)
+        this.wasmClusterParams.min_samples = parseInt(minSamples)
     }
 }
 

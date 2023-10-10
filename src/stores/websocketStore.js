@@ -24,7 +24,6 @@ class websocketStore {
 
     onOpen = () => {
         console.log("opened")
-        // this.fetchWardData()
         this.fetchClusters()
     }
 

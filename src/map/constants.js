@@ -11,5 +11,10 @@ export const mapSize = {
     }
 }
 
+export const observer_radius = {
+    day: 1600,
+    night: 0
+}
+
 export const minZoom = 1
 export const maxZoom = 6

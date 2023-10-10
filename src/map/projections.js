@@ -1,4 +1,5 @@
 import {Projection, addCoordinateTransforms} from "ol/proj";
+
 import {mapSize} from "./constants";
 
 export const projections = {

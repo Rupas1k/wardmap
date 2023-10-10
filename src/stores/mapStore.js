@@ -2,20 +2,14 @@ import {makeAutoObservable, reaction} from "mobx";
 import {Feature} from "ol";
 import {Point} from "ol/geom";
 import {projections} from "../map/projections";
-import wardStore from "./wardStore";
-import {coordinates} from "ol/geom/flat/reverse";
 
 class mapStore {
     map = null
-
     vectorLayer = null
-
     vectorSource = null
 
     features = []
-
     visionFeature = null
-
     currentFeature = null
 
     constructor(rootStore) {
@@ -56,7 +50,7 @@ class mapStore {
         this.visionFeature = feature
     }
 
-    setClusterFeatures = () => {
+    setWasmClusters = () => {
         const {wardStore} = this.rootStore
         const {pixel, unit} = projections
         const features = []
