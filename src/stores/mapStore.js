@@ -1,16 +1,18 @@
 import {makeAutoObservable, reaction} from "mobx";
 import {Feature} from "ol";
 import {Point} from "ol/geom";
+import layers from "../map/layers";
 import {projections} from "../map/projections";
 
 class mapStore {
     map = null
-    vectorLayer = null
-    vectorSource = null
 
     features = []
     visionFeature = null
     currentFeature = null
+
+    maps = ['divine_sanctum', 'default']
+    current_map = 0
 
     constructor(rootStore) {
         this.rootStore = rootStore
@@ -26,16 +28,14 @@ class mapStore {
         reaction(
             () => this.visionFeature,
             (curr, prev) => {
-                if (prev !== null) this.vectorSource.removeFeature(prev)
-                this.vectorSource.addFeature(this.visionFeature)
+                if (prev !== null) layers.wards.getSource().removeFeature(prev)
+                layers.wards.getSource().addFeature(this.visionFeature)
             }
         )
     }
 
-    setMap = (mapInstance, vectorLayer, vectorSource) => {
+    setMap = mapInstance => {
         this.map = mapInstance;
-        this.vectorSource = vectorSource
-        this.vectorLayer = vectorLayer
     }
 
     setFeatures = (features) => {
@@ -58,7 +58,7 @@ class mapStore {
         const {wardStore} = this.rootStore
         const {pixel, unit} = projections
         const features = []
-        wardStore.clusterData.forEach((cluster, key) => {
+        wardStore.wasmClusters.forEach((cluster, key) => {
             if (key === -1) return
             let coord = [0, 0, null]
             let i = 0
@@ -89,7 +89,7 @@ class mapStore {
         const {pixel, unit} = projections
         const features = []
         wardStore.clusters.forEach(cluster => {
-            let coord = [cluster.x_pos, cluster.y_pos, cluster["z_pos"]]
+            let coord = [cluster.x_pos, cluster.y_pos, cluster.z_pos]
             const feature = new Feature({
                 geometry: new Point([coord[0], coord[1]]).transform(unit, pixel),
                 data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
@@ -101,8 +101,13 @@ class mapStore {
 
     updateMap = () => {
         this.visionFeature = new Feature()
-        this.vectorSource.clear()
-        this.vectorSource.addFeatures(this.features)
+        layers.wards.getSource().clear()
+        layers.wards.getSource().addFeatures(this.features)
+    }
+
+    switchMap = () => {
+        this.current_map = this.current_map < this.maps.length - 1 ? this.current_map + 1 : 0
+        layers.tiles.getSource().setUrl(`img/tiles/${this.maps[this.current_map]}/734d/{z}/{x}/{y}.png`)
     }
 }
 

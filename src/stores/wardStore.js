@@ -8,6 +8,7 @@ class wardStore {
         reaction(
             () => this.wardData,
             async data => {
+                console.log(data)
                 this.setWardDataHashTable(new Map(data.map((ward) => [ward.id, ward])))
                 this.setWasmClusters(await runWasm(this.wasmClusterParams, data))
             }
@@ -27,7 +28,7 @@ class wardStore {
         reaction(
             () => this.wasmClusters,
             data => {
-                this.rootStore.mapStore.setWasmClusters()
+                // this.rootStore.mapStore.setWasmClusters()
             }
         )
 
@@ -41,7 +42,7 @@ class wardStore {
 
     wasmClusterParams = observable({
         eps: 32,
-        min_samples: 10
+        min_samples: 5
     })
 
     wardData = []
@@ -69,7 +70,6 @@ class wardStore {
 
     setEps = eps => {
         this.wasmClusterParams.eps = parseInt(eps)
-        console.log(eps)
     }
 
     setMinSamples = minSamples => {

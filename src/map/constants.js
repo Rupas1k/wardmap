@@ -11,9 +11,12 @@ export const mapSize = {
     }
 }
 
-export const grid_size = 64
+export const mapCenter = [(mapSize.pixels.x) / 2, (mapSize.pixels.y) / 2]
+export const mapExtent = [-5000, -2000, mapSize.pixels.x + 5000, mapSize.pixels.y + 2000]
 
-export const observer_radius = {
+export const gridSize = 64
+
+export const observerRadius = {
     day: 1600,
     night: 0
 }

@@ -32,21 +32,14 @@ const getPointColor = feature => {
     const green = 128 - (destroyed_ratio - 0.25) * 255
     const blue = 0
 
-    // if(destroyed_ratio <= 0.1){
-    //     return [255, 0, 255, opacity]
-    // }
-    // else{
-    // if (feature.getProperties().data.cluster.time_placed < 1800){
-        return [red, green, blue, opacity]
-    // }
-    // return [0, 0, 0, 0]
-    // }
+    return [red, green, blue, opacity]
+
 }
 
 const mainStyle = feature => {
 
-    if(feature.getGeometry().getType() === "Point"){
-
+    if(feature.getGeometry().getType() === "Point" && feature.getProperties().data.cluster.amount !== undefined){
+        // console.log(feature.getProperties().data.cluster)
         return new Style({
             image: new Circle({
                 radius: 5.5,

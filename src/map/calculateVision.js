@@ -4,11 +4,12 @@ import {
 } from 'visibility-polygon';
 
 
-import {mapSize, observer_radius, grid_size} from "./constants";
+import {mapSize, observerRadius, gridSize} from "./constants";
 import {projections} from "./projections";
 
 import trees from "./data/trees.json"
 import elevation from "./data/elevation.json"
+
 import {intersect, polygon} from "turf";
 import {Circle, Polygon} from "ol/geom";
 import {Feature} from "ol";
@@ -19,11 +20,11 @@ const {unit, pixel} = projections
 const x_min = mapSize.units.x0
 const y_min = mapSize.units.y0
 const y_size = mapSize.units.y
-const radius = observer_radius.day
+const radius = observerRadius.day
 
 
 const calculateVisibilityPolygon = (x, y, z) => {
-    const cells = Math.ceil(y_size / grid_size)
+    const cells = Math.ceil(y_size / gridSize)
     const polygons = []
 
     polygons.push([
@@ -33,18 +34,18 @@ const calculateVisibilityPolygon = (x, y, z) => {
         [x + radius, y - radius],
     ])
 
-    const x0 = Math.floor((x - radius) / grid_size) - 1
-    const y0 = cells - Math.floor((y + radius) / grid_size) - 1 - 1
+    const x0 = Math.floor((x - radius) / gridSize) - 1
+    const y0 = cells - Math.floor((y + radius) / gridSize) - 1 - 1
 
-    for (let i = y0; i < y0 + Math.floor((2 * radius) / grid_size) + 1; i++) {
-        for (let j = x0; j < x0 + Math.floor((2 * radius) / grid_size) + 1; j++) {
+    for (let i = y0; i < y0 + Math.floor((2 * radius) / gridSize) + 1; i++) {
+        for (let j = x0; j < x0 + Math.floor((2 * radius) / gridSize) + 1; j++) {
             if (j > 0 && j < cells && cells - i - 1 < cells && i < cells && i > 0 && cells - i - 1 > 0) {
-                if (elevation[cells - i - 1][j] > z * 128 + 64 || (trees[cells - i - 1][j] > -1 && trees[cells - i - 1][j] + 128 + 64 > z * 128)) {
+                if (elevation[cells - i - 1][j] > z * 128 + 64 || (trees[cells - i - 1][j] > -1 && trees[cells - i - 1][j] + 128 + 64 > z * 128))  { // || (trees[cells-i-1][j+1] > -1 && trees[cells-i-1][j-1] > -1) || (trees[cells-i-1+1][j] > -1 && trees[cells-i-1-1][j] > -1)
                     polygons.push([
-                        [(j - 0.5) * grid_size, (cells - i - 1) * grid_size],
-                        [(j + 1 - 0.5) * grid_size, (cells - i - 1) * grid_size],
-                        [(j + 1 - 0.5) * grid_size, (cells - (i + 1) - 1) * grid_size],
-                        [(j - 0.5) * grid_size, (cells - (i + 1) - 1) * grid_size],
+                        [(j - 0.5) * gridSize, (cells - i - 0.7) * gridSize],
+                        [(j + 1 - 0.5) * gridSize, (cells - i - 0.7) * gridSize],
+                        [(j + 1 - 0.5) * gridSize, (cells - (i + 1) - 0.7) * gridSize],
+                        [(j - 0.5) * gridSize, (cells - (i + 1) - 0.7) * gridSize],
                     ])
                 }
             }

@@ -25,6 +25,7 @@ class websocketStore {
     onOpen = () => {
         console.log("opened")
         this.fetchClusters()
+        this.fetchWardData()
     }
 
     onClose = () => {
@@ -36,7 +37,7 @@ class websocketStore {
         const {type, data} = JSON.parse(response)
         switch (type) {
             case "wards":
-                wardStore.setWardData(data)
+                wardStore.setWardData(JSON.parse(data))
                 break
             case "clusters":
                 const clusters = data.map(cluster_string => JSON.parse(cluster_string));

@@ -25,6 +25,15 @@ body
           max-height: inherit
           .map-col > div
             position: relative
+            .debug-buttons
+              display: flex
+              flex-direction: column
+              margin: 5px
+              position: absolute
+              z-index: 9999
+              .btn
+                padding: 2px
+                margin-bottom: 5px
             .map-wrap
               width: 100%
               height: calc(100vh - 58px)
