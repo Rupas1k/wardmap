@@ -18,7 +18,7 @@ class mapStore {
 
         reaction(
             () => this.features,
-            features => {
+            () => {
                 this.updateMap()
             }
         )
@@ -48,6 +48,10 @@ class mapStore {
 
     setVisionFeature = feature => {
         this.visionFeature = feature
+    }
+
+    setCurrentFeature = feature => {
+        this.currentFeature = feature
     }
 
     setWasmClusters = () => {

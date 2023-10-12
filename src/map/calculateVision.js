@@ -4,11 +4,17 @@ import {
 } from 'visibility-polygon';
 
 
-import {mapSize, observer_radius} from "./constants";
+import {mapSize, observer_radius, grid_size} from "./constants";
+import {projections} from "./projections";
 
 import trees from "./data/trees.json"
 import elevation from "./data/elevation.json"
+import {intersect, polygon} from "turf";
+import {Circle, Polygon} from "ol/geom";
+import {Feature} from "ol";
+import {fromCircle} from "ol/geom/Polygon";
 
+const {unit, pixel} = projections
 
 const x_min = mapSize.units.x0
 const y_min = mapSize.units.y0
@@ -16,14 +22,8 @@ const y_size = mapSize.units.y
 const radius = observer_radius.day
 
 
-const calculateVision = coordinates => {
-    const grid_size = 64
+const calculateVisibilityPolygon = (x, y, z) => {
     const cells = Math.ceil(y_size / grid_size)
-
-    const x = Math.floor(coordinates[0])
-    const y = Math.floor(coordinates[1])
-    const z = coordinates[2]
-
     const polygons = []
 
     polygons.push([
@@ -55,6 +55,24 @@ const calculateVision = coordinates => {
     computed.push(computed[0])
 
     return computed.map(coord => [coord[0] + x_min, coord[1] + y_min])
+}
+
+const calculateVision = (x, y, z) => {
+    const visibilityPolygon = new Feature({
+        geometry: new Polygon([calculateVisibilityPolygon(x, y, z)])
+    })
+    const circle = new Feature({
+        geometry: new fromCircle(new Circle([x + x_min, y + y_min], radius), 128)
+    })
+
+    const turfVisibilityPolygon = polygon([visibilityPolygon.getGeometry().getCoordinates()[0]]);
+    const turfCircle = polygon([circle.getGeometry().getCoordinates()[0]]);
+
+    const intersection_coordinates = intersect(turfVisibilityPolygon, turfCircle).geometry.coordinates[0];
+
+    return new Feature({
+        geometry: new Polygon([intersection_coordinates]).transform(unit, pixel),
+    });
 }
 
 export default calculateVision
