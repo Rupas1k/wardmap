@@ -6,6 +6,7 @@ import {createMap} from "../map/OLMap";
 import {click} from "../map/events";
 import debugMapTrees from "../actions/debug/debugMapTrees";
 import debugMapElevations from "../actions/debug/debugMapElevations";
+import {Button} from "react-bootstrap";
 
 
 export default class MapComponent extends React.Component {
@@ -32,11 +33,11 @@ export default class MapComponent extends React.Component {
         const {mapStore} = useStores()
         return(
             <div className="debug-buttons">
-                <input type="button" className="map-switch btn btn-secondary" value="Switch Map" onClick={mapStore.switchMap}/>
-                <input type="button" className="map-switch btn btn-secondary" value="Set Data" onClick={mapStore.setClusters}/>
-                <input type="button" className="map-switch btn btn-secondary" value="Debug Wasm" onClick={mapStore.setWasmClusters}/>
-                <input type="button" className="map-switch btn btn-secondary" value="Debug Trees" onClick={debugMapTrees}/>
-                <input type="button" className="map-switch btn btn-secondary" value="Debug Elevations" onClick={() => debugMapElevations(4)}/>
+                <Button className="map-switch btn-secondary" onClick={mapStore.switchMap}>Switch Map</Button>
+                <Button className="map-switch btn-secondary" onClick={mapStore.setClusters}>Set Data</Button>
+                <Button className="map-switch btn-secondary" onClick={mapStore.setWasmClusters}>Debug Wasm</Button>
+                <Button className="map-switch btn-secondary" onClick={debugMapTrees}>Debug Trees</Button>
+                <Button className="map-switch btn-secondary" onClick={() => debugMapElevations(4)}>Debug Elevations</Button>
             </div>
         )
     })

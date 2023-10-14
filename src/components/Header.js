@@ -4,7 +4,7 @@ import {Container, Nav, Navbar} from "react-bootstrap";
 export default class Header extends React.Component {
     render() {
         return (
-            <Navbar expand="lg" className="bg-body-tertiary">
+            <Navbar expand="sm" className="bg-body-tertiary">
                 <Container>
                     <Navbar.Brand href="/">
                         <div className="brand">

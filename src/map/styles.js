@@ -24,7 +24,7 @@ const defaultStyle = [
 const getPointColor = feature => {
     // const duration_delta = (feature.getProperties().data.cluster.duration - 280) / 360 * 255
     const destroyed_ratio = feature.getProperties().data.cluster.is_destroyed / feature.getProperties().data.cluster.amount
-    const amount_ratio = (feature.getProperties().data.cluster.amount - 300) / 600
+    const amount_ratio = (feature.getProperties().data.cluster.amount - 200) / 400
 
     const opacity = amount_ratio > -0.3 ? 0.7 + amount_ratio : 0.4
 

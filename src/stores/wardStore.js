@@ -8,9 +8,8 @@ class wardStore {
         reaction(
             () => this.wardData,
             async data => {
-                console.log(data)
-                this.setWardDataHashTable(new Map(data.map((ward) => [ward.id, ward])))
-                this.setWasmClusters(await runWasm(this.wasmClusterParams, data))
+                // this.setWardDataHashTable(new Map(data.map((ward) => [ward.id, ward])))
+                // this.setWasmClusters(await runWasm(this.wasmClusterParams, data))
             }
         )
 
@@ -28,7 +27,7 @@ class wardStore {
         reaction(
             () => this.wasmClusters,
             data => {
-                // this.rootStore.mapStore.setWasmClusters()
+                this.rootStore.mapStore.setWasmClusters()
             }
         )
 
