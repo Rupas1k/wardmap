@@ -2,7 +2,7 @@ import {Feature} from "ol";
 import {Polygon} from "ol/geom";
 
 import {mapSize, gridSize} from "../../map/constants";
-import trees from "../../map/data/trees.json"
+import elevations from "../../map/data/elevations.json"
 
 import {projections} from "../../map/projections";
 import layers from "../../map/layers";
@@ -17,7 +17,8 @@ const debugMapTrees = mapStore => {
 
     for(let i = 0; i < cells; i++){
         for(let j = 0; j < cells; j++){
-            if(trees[cells - i - 1][j] > -1){
+            // if(trees[cells - i - 1][j] > -1){
+            if(elevations[cells - i - 1][j] & 1){
                 features.push(new Feature({
                     geometry: new Polygon([[
                         [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.7) * gridSize],

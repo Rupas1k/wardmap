@@ -7,8 +7,7 @@ import {
 import {mapSize, observerRadius, gridSize} from "./constants";
 import {projections} from "./projections";
 
-import trees from "./data/trees.json"
-import elevation from "./data/elevation.json"
+import elevations from "./data/elevations.json"
 
 import {intersect, polygon} from "turf";
 import {Circle, Polygon} from "ol/geom";
@@ -40,7 +39,8 @@ const calculateVisibilityPolygon = (x, y, z) => {
     for (let i = y0; i < y0 + Math.floor((2 * radius) / gridSize) + 1; i++) {
         for (let j = x0; j < x0 + Math.floor((2 * radius) / gridSize) + 1; j++) {
             if (j > 0 && j < cells && cells - i - 1 < cells && i < cells && i > 0 && cells - i - 1 > 0) {
-                if (elevation[cells - i - 1][j] > z * 128 + 64 || (trees[cells - i - 1][j] > -1 && trees[cells - i - 1][j] + 128 + 64 > z * 128))  { // || (trees[cells-i-1][j+1] > -1 && trees[cells-i-1][j-1] > -1) || (trees[cells-i-1+1][j] > -1 && trees[cells-i-1-1][j] > -1)
+                // if (elevation[cells - i - 1][j] > z * 128 + 64 || (trees[cells - i - 1][j] > -1 && trees[cells - i - 1][j] + 128 + 64 > z * 128))  { // || (trees[cells-i-1][j+1] > -1 && trees[cells-i-1][j-1] > -1) || (trees[cells-i-1+1][j] > -1 && trees[cells-i-1-1][j] > -1)
+                if ((elevations[cells - i - 1][j] >> 1) > z * 128 + 64 || ((elevations[cells - i - 1][j] & 1) === 1 && (elevations[cells - i - 1][j] >> 1) + 128 + 64 > z * 128))  { // || (trees[cells-i-1][j+1] > -1 && trees[cells-i-1][j-1] > -1) || (trees[cells-i-1+1][j] > -1 && trees[cells-i-1-1][j] > -1)
                     polygons.push([
                         [(j - 0.5) * gridSize, (cells - i - 0.7) * gridSize],
                         [(j + 1 - 0.5) * gridSize, (cells - i - 0.7) * gridSize],

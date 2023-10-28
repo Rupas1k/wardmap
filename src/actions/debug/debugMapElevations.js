@@ -2,7 +2,7 @@ import {Feature} from "ol";
 import {Polygon} from "ol/geom";
 
 import {gridSize, mapSize} from "../../map/constants";
-import elevation from "../../map/data/elevation.json"
+import elevations from "../../map/data/elevations.json"
 
 import {projections} from "../../map/projections";
 import layers from "../../map/layers";
@@ -17,7 +17,8 @@ const debugMapElevations = z => {
 
     for(let i = 0; i < cells; i++){
         for(let j = 0; j < cells; j++){
-            if(elevation[cells - i - 1][j] / 128 >= z){
+            // if(elevation[cells - i - 1][j] / 128 >= z){
+            if((elevations[cells - i - 1][j] >> 1) / 128 >= z){
                 features.push(new Feature({
                     geometry: new Polygon([[
                         [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.5) * gridSize],
