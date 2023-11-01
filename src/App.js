@@ -7,8 +7,6 @@ import Header from "./components/Header";
 
 import Main from "./pages/Main";
 import About from "./pages/About";
-import Stats from "./pages/Stats";
-import Blog from "./pages/Blog";
 
 
 class App extends React.Component {
@@ -20,8 +18,6 @@ class App extends React.Component {
                 <BrowserRouter>
                     <Routes>
                         <Route path="/" element={<Main/>}/>
-                        <Route path="/stats" element={<Stats/>}/>
-                        <Route path="/blog" element={<Blog/>}/>
                         <Route path="/about" element={<About/>}/>
                     </Routes>
                 </BrowserRouter>

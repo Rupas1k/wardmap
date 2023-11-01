@@ -110,7 +110,7 @@ export default class MapData extends React.Component {
                                 <div className="data">
                                     {cluster_data ? (
                                         <div className="data-content">
-                                            {cluster_data[page].advantage}
+                                            {cluster_data[page].advantage || "--"}
                                             {/*<span className="delta red">{cluster_data[page].advantage - average[page].advantage}</span>*/}
                                         </div>
                                     ) : "--"}
@@ -119,12 +119,6 @@ export default class MapData extends React.Component {
                         </Col>
                     </Row>
                 </Container>
-                {/*<Container fluid className="lists">*/}
-                {/*    <Row>*/}
-                {/*        <Col className="col-6">Best wards</Col>*/}
-                {/*        <Col className="col-6">Worst wards</Col>*/}
-                {/*    </Row>*/}
-                {/*</Container>*/}
             </div>
         );
 
