@@ -3,6 +3,9 @@ import {Feature} from "ol";
 import {Point} from "ol/geom";
 import layers from "../map/layers";
 import {projections} from "../map/projections";
+import calculateVision from "../map/calculateVision";
+import {mapSize} from "../map/constants";
+import mainStyle from "../map/styles";
 
 class mapStore {
     map = null
@@ -11,8 +14,13 @@ class mapStore {
     visionFeature = null
     currentFeature = null
 
+    sides = ['radiant', 'dire', 'all']
+    currentSide = 2
+
     maps = ['divine_sanctum', 'default']
-    current_map = 0
+    currentMap = 0
+
+    averageValues = null
 
     constructor(rootStore) {
         this.rootStore = rootStore
@@ -26,10 +34,32 @@ class mapStore {
         )
 
         reaction(
+            () => this.currentFeature,
+            current => {
+                if(current){
+                    const coordinates = current.getProperties().data.coordinates
+                    const x = Math.floor(coordinates[0] - mapSize.units.x0)
+                    const y = Math.floor(coordinates[1] - mapSize.units.y0)
+                    const z = (coordinates[2] - 16384) / 128
+                    this.setVisionFeature(calculateVision(x, y, z))
+                } else {
+                    this.setVisionFeature(new Feature())
+                }
+            }
+        )
+
+        reaction(
             () => this.visionFeature,
             (curr, prev) => {
                 if (prev !== null) layers.wards.getSource().removeFeature(prev)
                 layers.wards.getSource().addFeature(this.visionFeature)
+            }
+        )
+
+        reaction(
+            () => this.currentSide,
+            () => {
+                this.updateStyle()
             }
         )
     }
@@ -89,12 +119,16 @@ class mapStore {
         const {pixel, unit} = projections
         const features = []
         wardStore.clusters.forEach(cluster => {
-            let coord = [cluster.x_pos, cluster.y_pos, cluster.z_pos]
-            const feature = new Feature({
-                geometry: new Point([coord[0], coord[1]]).transform(unit, pixel),
-                data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
-            })
-            features.push(feature)
+            if (cluster.cluster_id === -1){
+                this.setAverageValues(cluster)
+            } else {
+                let coord = [cluster.x_pos, cluster.y_pos, cluster.z_pos]
+                const feature = new Feature({
+                    geometry: new Point([coord[0], coord[1]]).transform(unit, pixel),
+                    data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
+                })
+                features.push(feature)
+            }
         })
         this.setFeatures(features)
     }
@@ -103,11 +137,24 @@ class mapStore {
         this.visionFeature = new Feature()
         layers.wards.getSource().clear()
         layers.wards.getSource().addFeatures(this.features)
+        this.updateStyle()
+    }
+
+    updateStyle = () => {
+        layers.wards.setStyle(feature => mainStyle(feature, this.sides[this.currentSide]))
     }
 
     switchMap = () => {
-        this.current_map = this.current_map < this.maps.length - 1 ? this.current_map + 1 : 0
-        layers.tiles.getSource().setUrl(`img/tiles/${this.maps[this.current_map]}/734d/{z}/{x}/{y}.png`)
+        this.currentMap = this.currentMap < this.maps.length - 1 ? this.currentMap + 1 : 0
+        layers.tiles.getSource().setUrl(`img/tiles/${this.maps[this.currentMap]}/734d/{z}/{x}/{y}.png`)
+    }
+
+    setCurrentSide = side => {
+        this.currentSide = side
+    }
+
+    setAverageValues = average => {
+        this.averageValues = average
     }
 }
 

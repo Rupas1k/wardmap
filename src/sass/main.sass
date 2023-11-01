@@ -1,3 +1,4 @@
+// #289627
 body
   margin: 0
   padding: 0
@@ -9,6 +10,12 @@ body
       flex-direction: column
       position: relative
       nav
+        position: relative
+        z-index: 9999999
+        //background: radial-gradient(circle, #32383d, #212529)
+        //background: radial-gradient(circle, #472C53, #1A1A1A)
+        //background: radial-gradient(ellipse at top, #3B1473, #1A1A1A)
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2)
         .brand
           font-size: 18px
           display: flex
@@ -54,8 +61,13 @@ body
           .data-col
             padding-top: 10px
             max-height: inherit
-            overflow: auto
             position: relative
+            box-shadow: -3px 10px 15px rgba(0, 0, 0, 0.2)
+            background: linear-gradient(to bottom, #343A3F, #2A2D33)
+            overflow: auto
+            .buttons
+              width: 100%
+              border: 1px solid #212529
             .not-selected
               position: absolute
               top: 50%
@@ -64,21 +76,78 @@ body
               transform: translate(-50%, -50%)
             .section-name
               margin-top: 10px
+            .cluster-list
+              .cluster-row
+                display: flex
+                flex-direction: row
+                justify-content: space-between
+                background-color: #6c757d
+                padding: 5px 10px
+                margin: 5px 0
+                border-radius: 5px
+              .cluster-row:hover
+                background-color: #212529
+                cursor: pointer
+              .current
+                background-color: #212529
             .cluster-info
-              .row
-                hr
-                  width: 100%
-                .col
-                  position: relative
-                  border-radius: 5px
-                  margin: 10px
-                  height: 100px
-                  background-color: gray
-                  display: flex
-                  flex-direction: column
-                  .name
-                    font-style: italic
-                    position: absolute
-                  .data
-                    margin: auto
-                    font-size: 32px
+              .side-switches
+                display: flex
+                flex-direction: row
+                button
+                  //background-color: #212529
+                  //border: 1px solid black
+                  &:first-child
+                    border-radius: 10px 0 0 0
+                  &:last-child
+                    border-radius: 0 10px 0 0
+              .data-rows
+                background-color: #2A2D33
+                border-radius: 0 0 10px 10px
+                >.row
+                  >.col
+                    padding: 8px
+                    .col-data
+                      position: relative
+                      border-radius: 5px
+                      height: 120px
+                      background-color: #212529
+                      box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3)  /* Soft shadow */
+                      display: flex
+                      flex-direction: column
+                      justify-content: center
+                      //align-items: center
+                      .name
+                        font-size: 20px
+                        font-style: italic
+                        position: absolute
+                        left: 10px
+                        top: 5px
+                      .data
+                        font-size: 32px
+                        display: flex
+                        flex-direction: row
+                        justify-content: space-around
+                        .data-content
+                          display: flex
+                          flex-direction: row
+                          align-items: center
+                          border-radius: 10px
+                          justify-content: center
+                          &:first-child
+                            border-color: green
+                          &:last-child
+                            border-color: red
+                          .delta
+                            color: grey
+                            font-size: 16px
+                            margin-left: 5px
+                          .green
+                            color: green
+                          .red
+                            color: red
+              .lists
+                font-size: 20px
+                margin-top: 10px
+                background-color: #2A2D33
+                border-radius: 10px

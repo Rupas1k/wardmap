@@ -1,15 +1,21 @@
-import React, {useEffect} from "react";
+import React from "react";
 import {observer} from "mobx-react"
 import {Container, Row, Col, ButtonGroup, Button} from "react-bootstrap";
 import {useStores} from "../stores/rootStore";
 
+const timeFormat = seconds => {
+    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
+}
+
 export default class MapData extends React.Component {
-    Switches = observer(() => {
+
+    DataSwitches = observer(() => {
+        const {mapStore} = useStores()
         return (
-            <ButtonGroup>
-                <Button className="btn-secondary">Ward Data</Button>
-                <Button className="btn-secondary">Average</Button>
-                <Button className="btn-secondary">List </Button>
+            <ButtonGroup className="side-switches">
+                <Button className="btn-dark" onClick={() => mapStore.setCurrentSide(0)} disabled={mapStore.currentSide === 0}>Radiant</Button>
+                <Button className="btn-dark" onClick={() => mapStore.setCurrentSide(1)} disabled={mapStore.currentSide === 1}>Dire</Button>
+                <Button className="btn-dark" onClick={() => mapStore.setCurrentSide(2)} disabled={mapStore.currentSide === 2}>All</Button>
             </ButtonGroup>
         )
     })
@@ -18,98 +24,114 @@ export default class MapData extends React.Component {
         const {mapStore} = useStores()
 
         const cluster_data = mapStore.currentFeature !== null ? mapStore.currentFeature.getProperties().data.cluster : null
+        const average = mapStore.averageValues
+
+        const page = mapStore.sides[mapStore.currentSide]
 
         const cluster_info = (
             <div className="cluster-info">
-                <Col className="section-name">
-                    <h1>Ward Data</h1>
-                </Col>
-                {/*<div>Cluster Id: {cluster_data ? cluster_data.cluster_id : "--"}</div>*/}
-                <Row>
-                    <Col>
-                        <div className="name">Duration</div>
-                        <div className="data">{cluster_data ? cluster_data.duration : "--"}</div>
-                    </Col>
-                    <Col>
-                        <div className="name">Time Placed</div>
-                        <div className="data">
-                            {cluster_data ? (
-                                <>
-                                    {String(Math.floor(cluster_data.time_placed / 60)).padStart(2, "0")}:
-                                    {String(cluster_data.time_placed % 60).padStart(2, "0")}
-                                </>
-                            ) : "--"}
-                        </div>
-                    </Col>
-                    <Col>
-                        <div className="name">Amount</div>
-                        <div className="data">{cluster_data ? cluster_data.amount : "--"}</div>
-                    </Col>
-                </Row>
-                <Row>
-                    <Col>
-                        <div className="name">Radiant Networth</div>
-                        <div className="data">{cluster_data ? cluster_data.radiant_networth : "--"}</div>
-                    </Col>
-                    <Col>
-                        <div className="name">Dire Networth</div>
-                        <div className="data">{cluster_data ? cluster_data.dire_networth : "--"}</div>
-                    </Col>
-                    <Col>
-                        <div className="name">Advantage</div>
-                        <div className="data">
-                            {cluster_data ? Math.abs(cluster_data.dire_networth - cluster_data.radiant_networth) : "--"}
-                        </div>
-                    </Col>
-                </Row>
-                <Row>
-                    <Col>
-                        <div className="name">Survived</div>
-                        <div className="data">{cluster_data ? `${((1 - cluster_data.is_destroyed / cluster_data.amount) * 100).toFixed(2)}%` : "--"}</div>
-                    </Col>
-                    <Col>
-                        <div className="name">Dire</div>
-                        <div className="data">{cluster_data ? cluster_data.dire_networth : "--"}</div>
-                    </Col>
-                    <Col>
-                        <div className="name">Advantage</div>
-                        <div className="data">
-                            {cluster_data ? Math.abs(cluster_data.dire_networth - cluster_data.radiant_networth) : "--"}
-                        </div>
-                    </Col>
-                </Row>
-                <Row>
-                    <Col>
-                        <div className="name">Radiant</div>
-                        <div className="data">{cluster_data ? cluster_data.is_radiant : "--"}</div>
-                    </Col>
-                    <Col>
-                        <div className="name">Dire</div>
-                        <div className="data">{cluster_data ? cluster_data.amount - cluster_data.is_radiant : "--"}</div>
-                    </Col>
-                    <Col>
-                        <div className="name">Total</div>
-                        <div className="data">
-                            {cluster_data ? cluster_data.amount : "--"}
-                        </div>
-                    </Col>
-                </Row>
+                <this.DataSwitches/>
+                <Container className="data-rows" fluid>
+                    <Row>
+                        <Col className="col-lg-12 col-xl-4">
+                            <div className="col-data">
+                                <div className="name">Amount</div>
+                                <div className="data">
+                                    {cluster_data ? (
+                                        <div className="data-content">
+                                            {cluster_data[page].amount}
+                                            {/*<span className="delta">-12</span>*/}
+                                        </div>
+                                    ) : "--"}
+                                </div>
+                            </div>
+                        </Col>
+                        <Col className="col-lg-12 col-xl-4">
+                            <div className="col-data">
+                                <div className="name">Destroyed</div>
+                                <div className="data">
+                                    {cluster_data ? (
+                                        <div className="data-content">
+                                            {cluster_data[page].destroyed}
+                                            {/*<span className="delta green">+00:53</span>*/}
+                                        </div>
+                                    ) : "--"}
+                                </div>
+                            </div>
+                        </Col>
+                        <Col className="col-lg-12 col-xl-4">
+                            <div className="col-data">
+                                <div className="name">% Survived</div>
+                                <div className="data">
+                                    {cluster_data ? (
+                                        <div className="data-content">
+                                            {((1 - cluster_data[page].destroyed / cluster_data[page].amount) * 100).toFixed(2)}%
+                                            {/*<span className="delta">-12</span>*/}
+                                        </div>
+                                    ) : "--"}
+                                </div>
+                            </div>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col className="col-lg-12 col-xl-4">
+                            <div className="col-data">
+                                <div className="name">Duration</div>
+                                <div className="data">
+                                    {cluster_data ? (
+                                        <div className="data-content">
+                                            {timeFormat(cluster_data[page].duration)}
+                                            {/*<span className="delta green">+00:53</span>*/}
+                                            <span className={`delta ${cluster_data[page].duration >= average[page].duration ? 'green' : 'red'}`}>
+                                                {cluster_data[page].duration >= average[page].duration ? '+' : '-'}{timeFormat(Math.abs(cluster_data[page].duration - average[page].duration))}
+                                            </span>
+                                        </div>
+                                    ) : "--"}
+                                </div>
+                            </div>
+                        </Col>
+                        <Col className="col-lg-12 col-xl-4">
+                            <div className="col-data">
+                                <div className="name">Time Placed</div>
+                                <div className="data">
+                                    {cluster_data ? (
+                                        <div className="data-content">
+                                            {String(Math.floor(cluster_data[page].time_placed / 60)).padStart(2, "0")}:
+                                            {String(cluster_data[page].time_placed % 60).padStart(2, "0")}
+                                            {/*<span className="delta green">+13:17</span>*/}
+                                        </div>
+                                    ) : "--"}
+                                </div>
+                            </div>
+                        </Col>
+                        <Col className="col-lg-12 col-xl-4">
+                            <div className="col-data">
+                                <div className="name">Gold lead</div>
+                                <div className="data">
+                                    {cluster_data ? (
+                                        <div className="data-content">
+                                            {cluster_data[page].advantage}
+                                            {/*<span className="delta red">{cluster_data[page].advantage - average[page].advantage}</span>*/}
+                                        </div>
+                                    ) : "--"}
+                                </div>
+                            </div>
+                        </Col>
+                    </Row>
+                </Container>
+                {/*<Container fluid className="lists">*/}
+                {/*    <Row>*/}
+                {/*        <Col className="col-6">Best wards</Col>*/}
+                {/*        <Col className="col-6">Worst wards</Col>*/}
+                {/*    </Row>*/}
+                {/*</Container>*/}
             </div>
         );
 
         return (
-            <Container>
-                <Row>
-                    <Col>
-                        {cluster_info}
-                    </Col>
-                </Row>
-                <Row>
-                    <Col>
-                        <pre>{mapStore.currentFeature ? JSON.stringify(mapStore.currentFeature.getProperties().data.cluster, null, 4) : null}</pre>
-                    </Col>
-                </Row>
-            </Container>
+            <>
+                {cluster_info}
+            </>
         )
     })
 
@@ -119,22 +141,8 @@ export default class MapData extends React.Component {
     })
 
     render() {
-        const {Switches, ClusterData, NoWard} = this
-
         return (
-            <Container>
-                {/*<NoWard/>*/}
-                <Row>
-                    <Col>
-                        <Switches/>
-                    </Col>
-                </Row>
-                <Row>
-                    <Col>
-                        <ClusterData/>
-                    </Col>
-                </Row>
-            </Container>
+            <this.ClusterData/>
         )
     }
 }

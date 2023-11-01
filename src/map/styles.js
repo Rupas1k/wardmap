@@ -21,40 +21,54 @@ const defaultStyle = [
     }),
 ]
 
-const getPointColor = feature => {
-    // const duration_delta = (feature.getProperties().data.cluster.duration - 280) / 360 * 255
-    const destroyed_ratio = feature.getProperties().data.cluster.is_destroyed / feature.getProperties().data.cluster.amount
-    const amount_ratio = (feature.getProperties().data.cluster.amount - 200) / 400
+const getPointColor = (feature, side) => {
+    const destroyedRatio = feature.getProperties().data.cluster[side].destroyed / feature.getProperties().data.cluster[side].amount
 
-    const opacity = amount_ratio > -0.3 ? 0.7 + amount_ratio : 0.4
-
-    const red = 128 + (destroyed_ratio - 0.25) * 255
-    const green = 128 - (destroyed_ratio - 0.25) * 255
+    const red = 128 + (destroyedRatio - 0.3) * 255
+    const green = 128 - (destroyedRatio - 0.3) * 255
     const blue = 0
 
-    return [red, green, blue, opacity]
-
+    return destroyedRatio > 0 && destroyedRatio < 1 ? [red, green, blue, 1] : destroyedRatio === 0 ? '#FF00FF' : destroyedRatio === 1 ? '#800000' : '#fff'
 }
 
-const mainStyle = feature => {
+const getPointRadius = (feature, side) => {
+    const amountRatio = (feature.getProperties().data.cluster[side].amount - 10) / 10
+    const returnValue = 5 + amountRatio
+    return Math.min(Math.max(returnValue, 4), 6)
+}
 
-    if(feature.getGeometry().getType() === "Point" && feature.getProperties().data.cluster.amount !== undefined){
-        // console.log(feature.getProperties().data.cluster)
-        return new Style({
-            image: new Circle({
-                radius: 5.5,
-                fill: new Fill({
-                    color: getPointColor(feature)
-                }),
-                stroke: new Stroke({
-                    width: 1.8,
-                    color: '#151515',
+const mainStyle = (feature, side) => {
+    if (feature.getGeometry().getType() === "Point") {
+        if (feature.getProperties().data.cluster[side].amount === 0) {
+            return new Style({
+                image: new Circle({
+                    radius: 4,
+                    fill: new Fill({
+                        color: 'grey'
+                    }),
+                    stroke: new Stroke({
+                        width: 1.8,
+                        color: '#000',
+                    })
                 })
             })
-        })
+        } else {
+            return new Style({
+                image: new Circle({
+                    radius: getPointRadius(feature, side),
+                    fill: new Fill({
+                        color: getPointColor(feature, side)
+                    }),
+                    stroke: new Stroke({
+                        width: 2,
+                        color: '#151515',
+                    })
+                })
+            })
+        }
     }
 
-    if(feature.getGeometry().getType() === "Polygon"){
+    if (feature.getGeometry().getType() === "Polygon") {
         return new Style({
             fill: new Fill({
                 color: [188, 156, 60, 0.5],

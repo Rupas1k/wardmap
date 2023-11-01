@@ -11,7 +11,7 @@ class rootStore{
     }
 }
 
-let root = null
+export let root = null
 
 const StoresContext = React.createContext(root);
 

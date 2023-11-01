@@ -3,6 +3,11 @@ import {Vector as VectorSource, XYZ} from "ol/source";
 
 import {projections} from "./projections";
 import mainStyle from "./styles";
+import {Fill, Style} from "ol/style";
+
+// import {Feature} from "ol";
+// import {Polygon} from "ol/geom";
+// import {Fill, Stroke, Style} from "ol/style";
 
 const {pixel} = projections
 
@@ -16,7 +21,7 @@ const layers = {
     }),
     wards: new VectorLayer({
         source: new VectorSource(),
-        style: mainStyle
+        style: [feature => mainStyle(feature, 'all')]
     }),
     trees: new VectorLayer({
         source: new VectorSource()

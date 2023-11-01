@@ -1,6 +1,5 @@
 import React, {useEffect} from "react";
 import {observer} from "mobx-react"
-
 import {useStores} from "../stores/rootStore";
 import {createMap} from "../map/OLMap";
 import {click} from "../map/events";
@@ -37,7 +36,7 @@ export default class MapComponent extends React.Component {
                 <Button className="map-switch btn-secondary" onClick={mapStore.setClusters}>Set Data</Button>
                 <Button className="map-switch btn-secondary" onClick={mapStore.setWasmClusters}>Debug Wasm</Button>
                 <Button className="map-switch btn-secondary" onClick={debugMapTrees}>Debug Trees</Button>
-                <Button className="map-switch btn-secondary" onClick={() => debugMapElevations(4)}>Debug Elevations</Button>
+                <Button className="map-switch btn-secondary" onClick={() => debugMapElevations(2)}>Debug Elevations</Button>
             </div>
         )
     })

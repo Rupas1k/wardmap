@@ -8,12 +8,12 @@ export default class Main extends React.Component {
     render() {
         return (
             <RootStoreProvider>
-                <Container className="container-fluid main" fluid>
+                <Container className="main" fluid>
                     <Row>
-                        <Col className="col-md-7 col-12 p-0 map-col bg-body">
+                        <Col className="col-lg-7 col-12 p-0 map-col bg-body">
                             <MapComponent/>
                         </Col>
-                        <Col className="col-md-5 col-12 data-col bg-body-secondary">
+                        <Col className="col-lg-5 col-12 data-col bg-body-secondary">
                             <MapData/>
                         </Col>
                     </Row>
