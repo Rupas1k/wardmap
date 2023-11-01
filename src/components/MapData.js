@@ -28,16 +28,18 @@ export default class MapData extends React.Component {
 
         const page = mapStore.sides[mapStore.currentSide]
 
+        const {DataSwitches} = this
+
         const cluster_info = (
             <div className="cluster-info">
-                <this.DataSwitches/>
+                <DataSwitches/>
                 <Container className="data-rows" fluid>
                     <Row>
                         <Col className="col-lg-12 col-xl-4">
                             <div className="col-data">
                                 <div className="name">Amount</div>
                                 <div className="data">
-                                    {cluster_data ? (
+                                    {cluster_data && cluster_data[page].amount ? (
                                         <div className="data-content">
                                             {cluster_data[page].amount}
                                             {/*<span className="delta">-12</span>*/}
@@ -50,7 +52,7 @@ export default class MapData extends React.Component {
                             <div className="col-data">
                                 <div className="name">Destroyed</div>
                                 <div className="data">
-                                    {cluster_data ? (
+                                    {cluster_data && cluster_data[page].destroyed ? (
                                         <div className="data-content">
                                             {cluster_data[page].destroyed}
                                             {/*<span className="delta green">+00:53</span>*/}
@@ -63,7 +65,7 @@ export default class MapData extends React.Component {
                             <div className="col-data">
                                 <div className="name">% Survived</div>
                                 <div className="data">
-                                    {cluster_data ? (
+                                    {cluster_data && cluster_data[page].amount ? (
                                         <div className="data-content">
                                             {((1 - cluster_data[page].destroyed / cluster_data[page].amount) * 100).toFixed(2)}%
                                             {/*<span className="delta">-12</span>*/}
@@ -78,7 +80,7 @@ export default class MapData extends React.Component {
                             <div className="col-data">
                                 <div className="name">Duration</div>
                                 <div className="data">
-                                    {cluster_data ? (
+                                    {cluster_data && cluster_data[page].duration ? (
                                         <div className="data-content">
                                             {timeFormat(cluster_data[page].duration)}
                                             {/*<span className="delta green">+00:53</span>*/}
@@ -94,7 +96,7 @@ export default class MapData extends React.Component {
                             <div className="col-data">
                                 <div className="name">Time Placed</div>
                                 <div className="data">
-                                    {cluster_data ? (
+                                    {cluster_data && cluster_data[page].time_placed ? (
                                         <div className="data-content">
                                             {String(Math.floor(cluster_data[page].time_placed / 60)).padStart(2, "0")}:
                                             {String(cluster_data[page].time_placed % 60).padStart(2, "0")}
@@ -108,9 +110,9 @@ export default class MapData extends React.Component {
                             <div className="col-data">
                                 <div className="name">Gold lead</div>
                                 <div className="data">
-                                    {cluster_data ? (
+                                    {cluster_data && cluster_data[page].advantage ? (
                                         <div className="data-content">
-                                            {cluster_data[page].advantage || "--"}
+                                            {<span className={cluster_data[page].advantage >= 0 ? "green" : "red"}>{cluster_data[page].advantage || "--"}</span>}
                                             {/*<span className="delta red">{cluster_data[page].advantage - average[page].advantage}</span>*/}
                                         </div>
                                     ) : "--"}
@@ -119,6 +121,7 @@ export default class MapData extends React.Component {
                         </Col>
                     </Row>
                 </Container>
+
             </div>
         );
 
@@ -135,8 +138,10 @@ export default class MapData extends React.Component {
     })
 
     render() {
+        const {ClusterData} = this
+
         return (
-            <this.ClusterData/>
+            <ClusterData/>
         )
     }
 }

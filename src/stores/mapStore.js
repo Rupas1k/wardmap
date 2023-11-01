@@ -1,18 +1,23 @@
-import {makeAutoObservable, reaction} from "mobx";
+import {makeAutoObservable, reaction, autorun} from "mobx";
 import {Feature} from "ol";
-import {Point} from "ol/geom";
+import {Point, Polygon} from "ol/geom";
 import layers from "../map/layers";
 import {projections} from "../map/projections";
 import calculateVision from "../map/calculateVision";
-import {mapSize} from "../map/constants";
+import {gridSize, mapSize} from "../map/constants";
 import mainStyle from "../map/styles";
+
+const {unit, pixel} = projections
 
 class mapStore {
     map = null
 
+    elevations = null
+
     features = []
     visionFeature = null
     currentFeature = null
+    averageValues = null
 
     sides = ['radiant', 'dire', 'all']
     currentSide = 2
@@ -20,11 +25,14 @@ class mapStore {
     maps = ['divine_sanctum', 'default']
     currentMap = 0
 
-    averageValues = null
 
     constructor(rootStore) {
         this.rootStore = rootStore
         makeAutoObservable(this);
+
+        autorun(async () => {
+            this.setElevations(await this.fetchElevations())
+        })
 
         reaction(
             () => this.features,
@@ -41,7 +49,7 @@ class mapStore {
                     const x = Math.floor(coordinates[0] - mapSize.units.x0)
                     const y = Math.floor(coordinates[1] - mapSize.units.y0)
                     const z = (coordinates[2] - 16384) / 128
-                    this.setVisionFeature(calculateVision(x, y, z))
+                    this.setVisionFeature(calculateVision(this.elevations, x, y, z))
                 } else {
                     this.setVisionFeature(new Feature())
                 }
@@ -62,6 +70,14 @@ class mapStore {
                 this.updateStyle()
             }
         )
+    }
+
+    fetchElevations = async () => {
+        return (await fetch("/data/elevations.json")).json()
+    }
+
+    setElevations = (elevations) => {
+        this.elevations = elevations
     }
 
     setMap = mapInstance => {
@@ -155,6 +171,65 @@ class mapStore {
 
     setAverageValues = average => {
         this.averageValues = average
+    }
+
+    debugMapElevations = z => {
+        const features = []
+        const x_min = mapSize.units.x0
+        const y_min = mapSize.units.y0
+        const cells = Math.ceil(mapSize.units.y / gridSize) // 283 566
+
+        for(let i = 0; i < cells; i++){
+            for(let j = 0; j < cells; j++){
+                // if(elevation[cells - i - 1][j] / 128 >= z){
+                if((this.elevations[cells - i - 1][j] >> 1) / 128 >= z){
+                    features.push(new Feature({
+                        geometry: new Polygon([[
+                            [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.5) * gridSize],
+                            [x_min + (j + 1 - 0.5) * gridSize, y_min + (cells - i - 1 - 0.5) * gridSize],
+                            [x_min + (j + 1 - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.5) * gridSize],
+                            [x_min + (j - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.5) * gridSize],
+                            [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.5) * gridSize],
+                        ]]).transform(unit, pixel)
+                    }))
+                }
+            }
+        }
+
+        if (layers.elevations.getSource().getFeatures().length){
+            layers.elevations.getSource().clear()
+        } else {
+            layers.elevations.getSource().addFeatures(features)
+        }
+    }
+
+    debugMapTrees = () => {
+        const features = []
+        const x_min = mapSize.units.x0
+        const y_min = mapSize.units.y0
+        const cells = Math.ceil(mapSize.units.y / gridSize) // 283 566
+
+        for(let i = 0; i < cells; i++){
+            for(let j = 0; j < cells; j++){
+                // if(trees[cells - i - 1][j] > -1){
+                if(this.elevations[cells - i - 1][j] & 1){
+                    features.push(new Feature({
+                        geometry: new Polygon([[
+                            [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.7) * gridSize],
+                            [x_min + (j + 1 - 0.5) * gridSize, y_min + (cells - i - 1 - 0.7) * gridSize],
+                            [x_min + (j + 1 - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.7) * gridSize],
+                            [x_min + (j - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.7) * gridSize],
+                            [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.7) * gridSize]
+                        ]]).transform(unit, pixel)
+                    }))
+                }
+            }
+        }
+        if (layers.trees.getSource().getFeatures().length){
+            layers.trees.getSource().clear()
+        } else {
+            layers.trees.getSource().addFeatures(features)
+        }
     }
 }
 
