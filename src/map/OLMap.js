@@ -9,7 +9,7 @@ const {pixel} = projections
 
 export const createMap = () => {
     return new Map({
-        layers: [layers.tiles, layers.wards, layers.trees, layers.elevations],
+        layers: [layers.tiles, layers.shade, layers.wards, layers.trees, layers.elevations],
         target: 'map',
         view: new View({
             projection: pixel,
@@ -18,9 +18,11 @@ export const createMap = () => {
             zoom: minZoom,
             minZoom: minZoom,
             maxZoom: maxZoom,
+            enableRotation: false
         }),
         controls: defaults({
-            zoom: false
+            zoom: false,
+            rotate: false
         })
     })
 }

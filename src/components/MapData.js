@@ -35,7 +35,7 @@ export default class MapData extends React.Component {
                 <DataSwitches/>
                 <Container className="data-rows" fluid>
                     <Row>
-                        <Col className="col-lg-12 col-xl-4">
+                        <Col className="col-lg-6 col-xl-4 col-6">
                             <div className="col-data">
                                 <div className="name">Amount</div>
                                 <div className="data">
@@ -48,7 +48,7 @@ export default class MapData extends React.Component {
                                 </div>
                             </div>
                         </Col>
-                        <Col className="col-lg-12 col-xl-4">
+                        <Col className="col-lg-6 col-xl-4 col-6">
                             <div className="col-data">
                                 <div className="name">Destroyed</div>
                                 <div className="data">
@@ -61,7 +61,7 @@ export default class MapData extends React.Component {
                                 </div>
                             </div>
                         </Col>
-                        <Col className="col-lg-12 col-xl-4">
+                        <Col className="col-lg-6 col-xl-4 col-6">
                             <div className="col-data">
                                 <div className="name">% Survived</div>
                                 <div className="data">
@@ -74,9 +74,7 @@ export default class MapData extends React.Component {
                                 </div>
                             </div>
                         </Col>
-                    </Row>
-                    <Row>
-                        <Col className="col-lg-12 col-xl-4">
+                        <Col className="col-lg-6 col-xl-4 col-6">
                             <div className="col-data">
                                 <div className="name">Duration</div>
                                 <div className="data">
@@ -92,7 +90,7 @@ export default class MapData extends React.Component {
                                 </div>
                             </div>
                         </Col>
-                        <Col className="col-lg-12 col-xl-4">
+                        <Col className="col-lg-6 col-xl-4 col-6">
                             <div className="col-data">
                                 <div className="name">Time Placed</div>
                                 <div className="data">
@@ -106,7 +104,7 @@ export default class MapData extends React.Component {
                                 </div>
                             </div>
                         </Col>
-                        <Col className="col-lg-12 col-xl-4">
+                        <Col className="col-lg-6 col-xl-4 col-6">
                             <div className="col-data">
                                 <div className="name">Gold lead</div>
                                 <div className="data">
@@ -121,7 +119,16 @@ export default class MapData extends React.Component {
                         </Col>
                     </Row>
                 </Container>
-
+                <Container fluid>
+                    <Row>
+                        <Col>About</Col>
+                    </Row>
+                    <Row>
+                        {/*<Col>123</Col>*/}
+                        {/*<Col>123</Col>*/}
+                        {/*<Col>123</Col>*/}
+                    </Row>
+                </Container>
             </div>
         );
 

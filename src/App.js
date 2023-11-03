@@ -2,6 +2,7 @@ import React from "react";
 import 'bootstrap/dist/css/bootstrap.css'
 import './sass/main.sass'
 import 'ol/ol.css'
+import "rc-slider/assets/index.css"
 import {BrowserRouter, Route, Routes} from "react-router-dom";
 import Header from "./components/Header";
 

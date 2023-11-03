@@ -1,4 +1,5 @@
 import {makeAutoObservable} from "mobx";
+import mapStore from "./mapStore";
 
 class websocketStore {
     constructor(rootStore) {
@@ -10,7 +11,7 @@ class websocketStore {
     websocket = null
 
     initWebsocket() {
-        this.websocket = new WebSocket("ws://localhost:5000/ws")
+        this.websocket = new WebSocket("ws://192.168.1.196:5000/ws")
         this.websocket.addEventListener("open", () => {
             this.onOpen()
         })
@@ -24,8 +25,9 @@ class websocketStore {
 
     onOpen = () => {
         console.log("opened")
-        this.fetchClusters()
-        this.fetchWardData()
+        // this.fetchClusters()
+        // this.fetchWardData()
+        // this.fetchMetaData()
     }
 
     onClose = () => {
@@ -33,7 +35,7 @@ class websocketStore {
     }
 
     onMessage = async response => {
-        const {wardStore} = this.rootStore
+        const {wardStore, mapStore} = this.rootStore
         const {type, data} = JSON.parse(response)
         switch (type) {
             case "wards":
@@ -41,8 +43,11 @@ class websocketStore {
                 break
             case "clusters":
                 const clusters = data.map(cluster_string => JSON.parse(cluster_string));
-                wardStore.setClusters(clusters)
+                // wardStore.setClusters(clusters)
                 break
+            case "metadata":
+                const about = JSON.parse(data)
+                console.log(about)
         }
     }
 
@@ -52,6 +57,10 @@ class websocketStore {
 
     fetchClusters = () => {
         this.websocket.send(JSON.stringify({type: "clusters"}))
+    }
+
+    fetchMetaData = () => {
+        this.websocket.send(JSON.stringify({type: "metadata"}))
     }
 }
 

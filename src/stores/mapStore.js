@@ -1,4 +1,4 @@
-import {makeAutoObservable, reaction, autorun} from "mobx";
+import {makeAutoObservable, reaction} from "mobx";
 import {Feature} from "ol";
 import {Point, Polygon} from "ol/geom";
 import layers from "../map/layers";
@@ -14,25 +14,33 @@ class mapStore {
 
     elevations = null
 
+    rawClusters = null
+
     features = []
     visionFeature = null
     currentFeature = null
     averageValues = null
 
+    shade = 0
+
     sides = ['radiant', 'dire', 'all']
     currentSide = 2
 
-    maps = ['divine_sanctum', 'default']
-    currentMap = 0
+    maps = ['default', 'divine_sanctum']
+    currentMap = 1
 
 
     constructor(rootStore) {
         this.rootStore = rootStore
         makeAutoObservable(this);
 
-        autorun(async () => {
-            this.setElevations(await this.fetchElevations())
-        })
+        reaction(
+            () => this.shade,
+            () => {
+                layers.shade.getStyle().getFill().setColor([0, 0, 0, this.shade / 100])
+                layers.shade.changed()
+            }
+        )
 
         reaction(
             () => this.features,
@@ -72,8 +80,16 @@ class mapStore {
         )
     }
 
+    setShade = shade => {
+        this.shade = shade
+    }
+
+    fetchClusters = async () => {
+        return await (await fetch("http://192.168.1.196:5000/get_clusters")).json()
+    }
+
     fetchElevations = async () => {
-        return (await fetch("/data/elevations.json")).json()
+        return await (await fetch("/data/elevations.json")).json()
     }
 
     setElevations = (elevations) => {
@@ -100,6 +116,22 @@ class mapStore {
         this.currentFeature = feature
     }
 
+    updateMap = () => {
+        this.visionFeature = new Feature()
+        layers.wards.getSource().clear()
+        layers.wards.getSource().addFeatures(this.features)
+        this.updateStyle()
+    }
+
+    updateStyle = () => {
+        layers.wards.setStyle(feature => mainStyle(feature, this.sides[this.currentSide]))
+    }
+
+    switchMap = () => {
+        this.setCurrentMap(this.currentMap < this.maps.length - 1 ? this.currentMap + 1 : 0)
+        layers.tiles.getSource().setUrl(`img/tiles/${this.maps[this.currentMap]}/734d/{z}/{x}/{y}.png`)
+    }
+
     setWasmClusters = () => {
         const {wardStore} = this.rootStore
         const {pixel, unit} = projections
@@ -117,24 +149,19 @@ class mapStore {
             })
             coord[0] /= i
             coord[1] /= i
-
             const feature = new Feature({
                 geometry: new Point([coord[0], coord[1]]).transform(unit, pixel),
                 data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
             })
-
             features.push(feature)
-
-
         })
         this.setFeatures(features)
     }
 
     setClusters = () => {
-        const {wardStore} = this.rootStore
         const {pixel, unit} = projections
         const features = []
-        wardStore.clusters.forEach(cluster => {
+        this.rawClusters.forEach(cluster => {
             if (cluster.cluster_id === -1){
                 this.setAverageValues(cluster)
             } else {
@@ -149,20 +176,8 @@ class mapStore {
         this.setFeatures(features)
     }
 
-    updateMap = () => {
-        this.visionFeature = new Feature()
-        layers.wards.getSource().clear()
-        layers.wards.getSource().addFeatures(this.features)
-        this.updateStyle()
-    }
-
-    updateStyle = () => {
-        layers.wards.setStyle(feature => mainStyle(feature, this.sides[this.currentSide]))
-    }
-
-    switchMap = () => {
-        this.currentMap = this.currentMap < this.maps.length - 1 ? this.currentMap + 1 : 0
-        layers.tiles.getSource().setUrl(`img/tiles/${this.maps[this.currentMap]}/734d/{z}/{x}/{y}.png`)
+    setRawClusters = clusters => {
+        this.rawClusters = clusters
     }
 
     setCurrentSide = side => {
@@ -173,6 +188,10 @@ class mapStore {
         this.averageValues = average
     }
 
+    setCurrentMap = currentMap => {
+        this.currentMap = currentMap
+    }
+
     debugMapElevations = z => {
         const features = []
         const x_min = mapSize.units.x0
@@ -181,7 +200,6 @@ class mapStore {
 
         for(let i = 0; i < cells; i++){
             for(let j = 0; j < cells; j++){
-                // if(elevation[cells - i - 1][j] / 128 >= z){
                 if((this.elevations[cells - i - 1][j] >> 1) / 128 >= z){
                     features.push(new Feature({
                         geometry: new Polygon([[
@@ -211,7 +229,6 @@ class mapStore {
 
         for(let i = 0; i < cells; i++){
             for(let j = 0; j < cells; j++){
-                // if(trees[cells - i - 1][j] > -1){
                 if(this.elevations[cells - i - 1][j] & 1){
                     features.push(new Feature({
                         geometry: new Polygon([[

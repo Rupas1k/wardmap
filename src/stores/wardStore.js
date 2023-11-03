@@ -5,6 +5,7 @@ class wardStore {
     constructor(rootStore) {
         this.rootStore = rootStore
         makeAutoObservable(this)
+
         reaction(
             () => this.wardData,
             async data => {
@@ -30,13 +31,6 @@ class wardStore {
                 // this.rootStore.mapStore.setWasmClusters()
             }
         )
-
-        reaction(
-            () => this.clusters,
-            data => {
-                this.rootStore.mapStore.setClusters()
-            }
-        )
     }
 
     wasmClusterParams = observable({
@@ -48,7 +42,6 @@ class wardStore {
     wardDataHashTable = new Map()
 
     wasmClusters = []
-    clusters = []
 
 
     setWardData = data => {
