@@ -1,11 +1,9 @@
 import React from "react";
-import websocketStore from "./websocketStore";
 import wardStore from "./wardStore";
 import mapStore from "./mapStore";
 
 class rootStore{
     constructor() {
-        this.websocketStore = new websocketStore(this)
         this.wardStore = new wardStore(this)
         this.mapStore = new mapStore(this)
     }
