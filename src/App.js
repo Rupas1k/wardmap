@@ -4,7 +4,7 @@ import './sass/main.sass'
 import 'ol/ol.css'
 import "rc-slider/assets/index.css"
 import {BrowserRouter, Route, Routes} from "react-router-dom";
-import Header from "./components/Header";
+import Header from "./components/common/Header";
 
 import Main from "./pages/Main";
 import About from "./pages/About";

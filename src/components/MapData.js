@@ -4,10 +4,17 @@ import {Container, Row, Col, ButtonGroup, Button} from "react-bootstrap";
 import {useStores} from "../stores/rootStore";
 
 import LineChart, {labels} from "./charts/LineChart";
+import ClusterCol from "./ClusterCol";
 
 
 const timeFormat = seconds => {
-    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
+    const absSeconds = Math.abs(seconds);
+    const minutes = Math.floor(absSeconds / 60);
+    const secondsRemainder = absSeconds % 60;
+
+    const sign = seconds < 0 ? '-' : '';
+
+    return `${sign}${String(minutes).padStart(2, "0")}:${String(secondsRemainder).padStart(2, "0")}`;
 }
 
 export default class MapData extends React.Component {
@@ -42,112 +49,57 @@ export default class MapData extends React.Component {
                 <div className="rows">
                     <Container className="data-rows" fluid>
                         <Row>
-                            <Col className="col-lg-6 col-xl-4 col-6">
-                                <div className="col-data">
-                                    <div className="name">Amount</div>
-                                    <div className="data">
-                                        {cluster_data && cluster_data[page].amount ? (
-                                            <div className="data-content">
-                                                {cluster_data[page].amount}
-                                                {/*<span className="delta">-12</span>*/}
-                                            </div>
-                                        ) : "--"}
-                                    </div>
-                                </div>
-                            </Col>
-                            <Col className="col-lg-6 col-xl-4 col-6">
-                                <div className="col-data">
-                                    <div className="name">Destroyed</div>
-                                    <div className="data">
-                                        {cluster_data && cluster_data[page].destroyed ? (
-                                            <div className="data-content">
-                                                {cluster_data[page].destroyed}
-                                                {/*<span className="delta green">+00:53</span>*/}
-                                            </div>
-                                        ) : "--"}
-                                    </div>
-                                </div>
-                            </Col>
-                            <Col className="col-lg-6 col-xl-4 col-6">
-                                <div className="col-data">
-                                    <div className="name">% Survived</div>
-                                    <div className="data">
-                                        {cluster_data && cluster_data[page].amount ? (
-                                            <div className="data-content">
-                                                {((1 - cluster_data[page].destroyed / cluster_data[page].amount) * 100).toFixed(2)}%
-                                                {/*<span className="delta">-12</span>*/}
-                                            </div>
-                                        ) : "--"}
-                                    </div>
-                                </div>
-                            </Col>
-                            <Col className="col-lg-6 col-xl-4 col-6">
-                                <div className="col-data">
-                                    <div className="name">Duration</div>
-                                    <div className="data">
-                                        {cluster_data && cluster_data[page].duration ? (
-                                            <div className="data-content">
-                                                {timeFormat(cluster_data[page].duration)}
-                                                {/*<span className="delta green">+00:53</span>*/}
-                                                <span
-                                                    className={`delta ${cluster_data[page].duration >= average[page].duration ? 'green' : 'red'}`}>
-                                                {cluster_data[page].duration >= average[page].duration ? '+' : '-'}{timeFormat(Math.abs(cluster_data[page].duration - average[page].duration))}
-                                            </span>
-                                            </div>
-                                        ) : "--"}
-                                    </div>
-                                </div>
-                            </Col>
-                            <Col className="col-lg-6 col-xl-4 col-6">
-                                <div className="col-data">
-                                    <div className="name">Time Placed</div>
-                                    <div className="data">
-                                        {cluster_data && cluster_data[page].time_placed ? (
-                                            <div className="data-content">
-                                                {String(Math.floor(cluster_data[page].time_placed / 60)).padStart(2, "0")}:
-                                                {String(cluster_data[page].time_placed % 60).padStart(2, "0")}
-                                                {/*<span className="delta green">+13:17</span>*/}
-                                            </div>
-                                        ) : "--"}
-                                    </div>
-                                </div>
-                            </Col>
-                            <Col className="col-lg-6 col-xl-4 col-6">
-                                <div className="col-data">
-                                    <div className="name">Gold lead</div>
-                                    <div className="data">
-                                        {cluster_data && cluster_data[page].advantage ? (
-                                            <div className="data-content">
-                                                {<span
-                                                    className={cluster_data[page].advantage >= 0 ? "green" : "red"}>{cluster_data[page].advantage || "--"}</span>}
-                                                {/*<span className="delta red">{cluster_data[page].advantage - average[page].advantage}</span>*/}
-                                            </div>
-                                        ) : "--"}
-                                    </div>
-                                </div>
-                            </Col>
+                            <ClusterCol
+                                name="Amount"
+                                data={cluster_data && cluster_data[page] ? cluster_data[page].amount : "--"}
+                            />
+                            <ClusterCol
+                                name="Destroyed"
+                                data={cluster_data && cluster_data[page] ? cluster_data[page].destroyed : "--"}
+                            />
+                            <ClusterCol
+                                name="% Survived"
+                                data={cluster_data && cluster_data[page] ? `${((1 - cluster_data[page].destroyed / cluster_data[page].amount) * 100).toFixed(2)}%` : "--"}
+                            />
+                            <ClusterCol
+                                name="Duration"
+                                data={cluster_data && cluster_data[page] ? timeFormat(cluster_data[page].duration) : "--"}
+                                // delta={`${cluster_data[page].duration >= average[page].duration ? '+' : '-'}${timeFormat(Math.abs(cluster_data[page].duration - average[page].duration))}`}
+                            />
+                            <ClusterCol
+                                name="Time Placed"
+                                data={cluster_data && cluster_data[page] ? timeFormat(cluster_data[page].time_placed) : "--"}
+                            />
+                            <ClusterCol
+                                name="Gold lead"
+                                data={cluster_data && cluster_data[page] && cluster_data[page].advantage ?
+                                    <span className={cluster_data[page].advantage >= 0 ? "green" : "red"}>
+                                        {cluster_data[page].advantage || "--"}
+                                    </span>
+                                    : "--"}
+                            />
                         </Row>
                         <Row>
                             <Col className="col-lg-6 col-12" style={{height: "300px"}}>
-                                {/*<LineChart*/}
-                                {/*    data={{*/}
-                                {/*        labels: labels.timeline,*/}
-                                {/*        datasets: [{*/}
-                                {/*            data: cluster_data ? cluster_data.graphs.wards : {}*/}
-                                {/*        }]*/}
-                                {/*    }}*/}
-                                {/*    options={{*/}
-                                {/*        plugins: {*/}
-                                {/*            title: {*/}
-                                {/*                display: true,*/}
-                                {/*                text: "Amount by minute"*/}
-                                {/*            },*/}
-                                {/*            legend: {*/}
-                                {/*                display: false*/}
-                                {/*            }*/}
-                                {/*        }*/}
-                                {/*    }}*/}
-                                {/*/>*/}
+                                <LineChart
+                                    data={{
+                                        labels: labels.timeline,
+                                        datasets: [{
+                                            data: cluster_data ? cluster_data.graphs.wards : {}
+                                        }]
+                                    }}
+                                    options={{
+                                        plugins: {
+                                            title: {
+                                                display: true,
+                                                text: "Amount by minute"
+                                            },
+                                            legend: {
+                                                display: false
+                                            }
+                                        }
+                                    }}
+                                />
                             </Col>
                             {/*<Col className="col-lg-6 col-12"><LineChart /></Col>*/}
                             <Col>
@@ -168,55 +120,6 @@ export default class MapData extends React.Component {
                             {/*<Col className="col-lg-6 col-12"><LineChart /></Col>*/}
                         </Row>
                     </Container>
-                    {/*{mapStore.metadata ? (*/}
-                    {/*    <Container fluid className="data-rows">*/}
-                    {/*        <Row>*/}
-                    {/*            <Col><h1>About</h1></Col>*/}
-                    {/*        </Row>*/}
-                    {/*        /!*<Row>*!/*/}
-                    {/*        /!*    <Col>This map*!/*/}
-                    {/*        /!*        represents {(mapStore.metadata.entries_in_dataset / mapStore.metadata.total_entries * 100).toFixed(2)}%*!/*/}
-                    {/*        /!*        of wards in {mapStore.metadata.matches_amount} matches</Col>*!/*/}
-                    {/*        /!*</Row>*!/*/}
-                    {/*        <Row>*/}
-                    {/*            <Col>*/}
-                    {/*                <div className="col-data">*/}
-                    {/*                    <div className="data">*/}
-                    {/*                        <div className="name">Total entries</div>*/}
-                    {/*                        <div className="data-content">{mapStore.metadata.total_entries}</div>*/}
-                    {/*                    </div>*/}
-                    {/*                </div>*/}
-                    {/*            </Col>*/}
-                    {/*            <Col>*/}
-                    {/*                <div className="col-data">*/}
-                    {/*                    <div className="data">*/}
-                    {/*                        <div className="name">Clustered entries</div>*/}
-                    {/*                        <div className="data-content">{mapStore.metadata.entries_in_dataset}</div>*/}
-                    {/*                    </div>*/}
-                    {/*                </div>*/}
-                    {/*            </Col>*/}
-                    {/*            <Col>*/}
-                    {/*                <div className="col-data">*/}
-                    {/*                    <div className="data">*/}
-                    {/*                        <div className="name">%</div>*/}
-                    {/*                        <div*/}
-                    {/*                            className="data-content">{(mapStore.metadata.entries_in_dataset / mapStore.metadata.total_entries * 100).toFixed(2)}</div>*/}
-                    {/*                    </div>*/}
-                    {/*                </div>*/}
-                    {/*            </Col>*/}
-                    {/*            <Col>*/}
-                    {/*                <div className="col-data">*/}
-                    {/*                    <div className="data">*/}
-                    {/*                        <div className="name">Matches</div>*/}
-                    {/*                        <div className="data-content">{mapStore.metadata.matches_amount}</div>*/}
-                    {/*                    </div>*/}
-                    {/*                </div>*/}
-                    {/*            </Col>*/}
-                    {/*            /!*<Col>123</Col>*!/*/}
-                    {/*            /!*<Col>123</Col>*!/*/}
-                    {/*        </Row>*/}
-                    {/*    </Container>*/}
-                    {/*) : null}*/}
                 </div>
             </div>
         );

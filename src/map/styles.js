@@ -39,7 +39,8 @@ const getPointRadius = (feature, side) => {
 
 const mainStyle = (feature, side) => {
     if (feature.getGeometry().getType() === "Point") {
-        if (feature.getProperties().data.cluster[side].amount === 0) {
+        // if (feature.getProperties().data.cluster[side].amount === 0) {
+        if (feature.getProperties().data.cluster[side] === null) {
             return new Style({
                 image: new Circle({
                     radius: 4,

@@ -169,8 +169,8 @@ class mapStore {
         const features = []
         this.rawClusters.forEach(cluster => {
             if (cluster.cluster_id === -1){
-                console.log(cluster)
                 this.setAverageValues(cluster)
+                console.log(123, cluster)
             } else {
                 let coord = [cluster.x_pos, cluster.y_pos, cluster.z_pos]
                 const feature = new Feature({
