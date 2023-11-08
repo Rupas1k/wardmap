@@ -18,7 +18,9 @@ export default class MapComponent extends React.Component {
             layers.tiles.getSource().setUrl(`img/tiles/${mapStore.maps[mapStore.currentMap]}/734d/{z}/{x}/{y}.png`)
             const fetchMapData = async () => {
                 mapStore.setElevations(await mapStore.fetchElevations())
-                mapStore.setRawClusters((await mapStore.fetchClusters()).map(cluster_string => JSON.parse(cluster_string)))
+                const response = await(await mapStore.fetchClusters())
+                // mapStore.setMetadata(JSON.parse(response.metadata))
+                mapStore.setRawClusters(response.data.map(cluster_string => JSON.parse(cluster_string)))
                 mapStore.setClusters()
             }
 

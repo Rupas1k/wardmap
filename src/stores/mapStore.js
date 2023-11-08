@@ -14,6 +14,7 @@ class mapStore {
 
     elevations = null
 
+    metadata = null
     rawClusters = null
 
     features = []
@@ -53,6 +54,7 @@ class mapStore {
             () => this.currentFeature,
             current => {
                 if(current){
+                    console.log(this.currentFeature.getProperties().data.cluster.players)
                     const coordinates = current.getProperties().data.coordinates
                     const x = Math.floor(coordinates[0] - mapSize.units.x0)
                     const y = Math.floor(coordinates[1] - mapSize.units.y0)
@@ -82,6 +84,10 @@ class mapStore {
 
     setShade = shade => {
         this.shade = shade
+    }
+
+    setMetadata = metadata => {
+        this.metadata = metadata
     }
 
     fetchClusters = async () => {
@@ -163,6 +169,7 @@ class mapStore {
         const features = []
         this.rawClusters.forEach(cluster => {
             if (cluster.cluster_id === -1){
+                console.log(cluster)
                 this.setAverageValues(cluster)
             } else {
                 let coord = [cluster.x_pos, cluster.y_pos, cluster.z_pos]

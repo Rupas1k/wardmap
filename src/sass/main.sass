@@ -66,7 +66,7 @@ body
             max-height: inherit
             position: relative
             box-shadow: -3px 10px 15px rgba(0, 0, 0, 0.2)
-            background: linear-gradient(to bottom, #343A3F, #2A2D33)
+            background: linear-gradient(to bottom, #343A3F, #212529)
             overflow: auto
             @media(max-width: 992px)
               max-height: none
@@ -107,7 +107,11 @@ body
                     border-radius: 0 10px 0 0
               .data-rows
                 background-color: #2A2D33
-                border-radius: 0 0 10px 10px
+                &:first-child
+                  border-radius: 0 0 10px 10px
+                  margin-bottom: 10px
+                //&:last-child
+                //  border-radius: 10px
                 >.row
                   >.col
                     padding: 8px

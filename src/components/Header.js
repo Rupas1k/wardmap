@@ -14,10 +14,10 @@ export default class Header extends React.Component {
                     </Navbar.Brand>
                     {/*<Nav className="me-auto">*/}
                     <Nav className="">
-                        {/*<Nav.Link href="/">Map</Nav.Link>*/}
+                        <Nav.Link href="/">Map</Nav.Link>
                         {/*<Nav.Link href="/stats">Stats</Nav.Link>*/}
                         {/*<Nav.Link href="/blog">Blog</Nav.Link>*/}
-                        {/*<Nav.Link href="/about">About</Nav.Link>*/}
+                        <Nav.Link href="/about">About</Nav.Link>
                     </Nav>
                 </Container>
             </Navbar>
