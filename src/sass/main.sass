@@ -1,7 +1,7 @@
-// #289627
 body
   margin: 0
   padding: 0
+
   #root
     .application
       min-height: 100vh
@@ -9,79 +9,115 @@ body
       display: flex
       flex-direction: column
       position: relative
+
       nav
         position: relative
-        z-index: 9999999
-        //background: radial-gradient(circle, #32383d, #212529)
-        //background: radial-gradient(circle, #472C53, #1A1A1A)
+        z-index: 9999
         //background: radial-gradient(ellipse at top, #3B1473, #1A1A1A)
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2)
+
         .brand
           font-size: 18px
           display: flex
           align-items: center
+
           img
             width: 32px
             height: 32px
             margin-right: 5px
+
       .main
         height: calc(100vh - 58px)
         max-height: calc(100vh - 58px)
+        min-height: calc(100vh - 58px)
+
         .row
           max-height: inherit
+
           .map-col > div
             position: relative
+
+            .settings
+              z-index: 9999
+              position: absolute
+              margin: 10px
+              padding: 12px
+
+              svg
+                display: block
+
             .debug-buttons
+              left: 50px
               display: flex
               flex-direction: column
-              margin: 5px
+              margin: 10px
               position: absolute
               z-index: 9999
+              background-color: #373b3e
+              padding: 5px
+              border-radius: 5px
+              min-width: 120px
+
+              .shade
+                display: flex
+                flex-direction: column
+                justify-content: space-around
+
               .btn
                 padding: 2px
                 margin-bottom: 5px
+
             .map-wrap
               width: 100%
               height: calc(100vh - 58px)
               @media (max-width: 992px)
                 max-height: 60vh
                 height: 60vh
+
               #map
                 height: inherit
                 width: 100%
+
             .map-data
               position: absolute
               top: 10px
               left: 10px
               width: 100px
+
               .layers
                 display: flex
                 flex-direction: column
                 align-items: center
+
                 button, label
                   height: 50px
                   width: 50px
+
           .data-col
             padding-top: 10px
             max-height: inherit
             position: relative
             box-shadow: -3px 10px 15px rgba(0, 0, 0, 0.2)
-            background: linear-gradient(to bottom, #343A3F, #212529)
+            //background: linear-gradient(to bottom, #343A3F, #212529)
             overflow: auto
             @media(max-width: 992px)
               max-height: none
               overflow: hidden
+
             .buttons
               width: 100%
               border: 1px solid #212529
+
             .not-selected
               position: absolute
               top: 50%
               left: 50%
               font-size: 28px
               transform: translate(-50%, -50%)
+
             .section-name
               margin-top: 10px
+
             .cluster-list
               .cluster-row
                 display: flex
@@ -91,68 +127,151 @@ body
                 padding: 5px 10px
                 margin: 5px 0
                 border-radius: 5px
+
               .cluster-row:hover
                 background-color: #212529
                 cursor: pointer
+
               .current
                 background-color: #212529
+
             .cluster-info
               .side-switches
                 display: flex
                 flex-direction: row
+
                 button
                   &:first-child
                     border-radius: 10px 0 0 0
+
                   &:last-child
                     border-radius: 0 10px 0 0
+
               .data-rows
                 background-color: #2A2D33
+
                 &:first-child
                   border-radius: 0 0 10px 10px
                   margin-bottom: 10px
-                //&:last-child
-                //  border-radius: 10px
-                >.row
-                  >.col
+
+                > .row
+                  > .col
                     padding: 8px
+
                     .col-data
                       position: relative
                       border-radius: 5px
-                      height: 120px
+                      height: 130px
                       background-color: #212529
-                      box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3)
+                      //box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3)
                       display: flex
                       flex-direction: column
                       justify-content: center
+
                       .name
                         font-size: 20px
-                        font-style: italic
+                        //font-style: italic
                         position: absolute
                         left: 10px
                         top: 5px
+
                       .data
                         font-size: 32px
                         display: flex
                         flex-direction: row
                         justify-content: space-around
+
                         .data-content
                           display: flex
                           flex-direction: row
                           align-items: center
                           border-radius: 10px
                           justify-content: center
+
                           &:first-child
                             border-color: green
+
                           &:last-child
                             border-color: red
+
                           .delta
                             color: grey
                             font-size: 16px
                             margin-left: 5px
+
                           .green
                             color: green
+
                           .red
                             color: red
+
+                    .graphs
+                      display: flex
+                      flex-direction: column
+
+                      h3
+                        margin: 5px
+                        padding: 5px
+
+                      .graph
+                        border-radius: 5px
+                        height: 300px
+                        background-color: #212529
+                        padding: 5px
+
+                        + .graph
+                          margin-top: 16px
+
+                    .players-list
+                      + .players-list
+                        margin-top: 16px
+
+                      display: flex
+                      flex-direction: column
+                      border-radius: 5px
+                      overflow: hidden
+                      background-color: #212529
+
+                      .content
+                        height: 300px
+                        max-height: 300px
+                        display: flex
+                        flex-direction: column
+                        margin: auto 0
+                        overflow: auto
+
+                        .players-list-header
+                          display: flex
+                          flex-direction: row
+                          justify-content: space-between
+                          padding: 5px 10px
+                          background-color: #373b3e
+                          position: sticky
+                          top: 0
+                          span
+                            flex: 1
+                            &:nth-child(2)
+                              text-align: center
+                            &:last-child
+                              text-align: right
+                              justify-self: center
+
+
+                        .player-row
+                          display: flex
+                          flex-direction: row
+                          justify-content: space-between
+                          padding: 5px 10px
+                          background-color: #212529
+                          width: 100%
+                          span
+                            flex: 1
+                            &:nth-child(2)
+                              text-align: center
+                            &:last-child
+                              text-align: right
+                              justify-self: center
+
               .lists
                 font-size: 20px
                 margin-top: 10px

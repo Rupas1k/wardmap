@@ -1,20 +1,20 @@
 import React from "react";
 import {observer} from "mobx-react"
 import {Container, Row, Col, ButtonGroup, Button} from "react-bootstrap";
-import {useStores} from "../stores/rootStore";
 
+import {useStores} from "../stores/rootStore";
 import LineChart, {labels} from "./charts/LineChart";
 import ClusterCol from "./ClusterCol";
 
 
 const timeFormat = seconds => {
-    const absSeconds = Math.abs(seconds);
-    const minutes = Math.floor(absSeconds / 60);
-    const secondsRemainder = absSeconds % 60;
+    const absSeconds = Math.abs(seconds)
+    const minutes = Math.floor(absSeconds / 60)
+    const secondsRemainder = absSeconds % 60
 
-    const sign = seconds < 0 ? '-' : '';
+    const sign = seconds < 0 ? '-' : ''
 
-    return `${sign}${String(minutes).padStart(2, "0")}:${String(secondsRemainder).padStart(2, "0")}`;
+    return `${sign}${String(minutes).padStart(2, "0")}:${String(secondsRemainder).padStart(2, "0")}`
 }
 
 export default class MapData extends React.Component {
@@ -43,7 +43,7 @@ export default class MapData extends React.Component {
 
         const {DataSwitches} = this
 
-        const cluster_info = (
+        return (
             <div className="cluster-info">
                 <DataSwitches/>
                 <div className="rows">
@@ -64,14 +64,18 @@ export default class MapData extends React.Component {
                             <ClusterCol
                                 name="Duration"
                                 data={cluster_data && cluster_data[page] ? timeFormat(cluster_data[page].duration) : "--"}
-                                // delta={`${cluster_data[page].duration >= average[page].duration ? '+' : '-'}${timeFormat(Math.abs(cluster_data[page].duration - average[page].duration))}`}
+                                delta={cluster_data && cluster_data[page] ? (
+                                    <span style={{color: cluster_data[page].duration >= average[page].duration ? 'green' : 'red'}}>
+                                        {`${cluster_data[page].duration >= average[page].duration ? '+' : '-'}${timeFormat(Math.abs(cluster_data[page].duration - average[page].duration))}`}
+                                    </span>
+                                ) : ""}
                             />
                             <ClusterCol
                                 name="Time Placed"
                                 data={cluster_data && cluster_data[page] ? timeFormat(cluster_data[page].time_placed) : "--"}
                             />
                             <ClusterCol
-                                name="Gold lead"
+                                name="Gold Advantage"
                                 data={cluster_data && cluster_data[page] && cluster_data[page].advantage ?
                                     <span className={cluster_data[page].advantage >= 0 ? "green" : "red"}>
                                         {cluster_data[page].advantage || "--"}
@@ -80,54 +84,60 @@ export default class MapData extends React.Component {
                             />
                         </Row>
                         <Row>
-                            <Col className="col-lg-6 col-12" style={{height: "300px"}}>
-                                <LineChart
-                                    data={{
-                                        labels: labels.timeline,
-                                        datasets: [{
-                                            data: cluster_data ? cluster_data.graphs.wards : {}
-                                        }]
-                                    }}
-                                    options={{
-                                        plugins: {
-                                            title: {
-                                                display: true,
-                                                text: "Amount by minute"
-                                            },
-                                            legend: {
-                                                display: false
-                                            }
-                                        }
-                                    }}
-                                />
+                            <Col className="col-lg-6 col-12">
+                                <div className="graphs">
+                                    {/*<h3>Graphs</h3>*/}
+                                    <div className="graph">
+                                        <LineChart
+                                            data={{
+                                                labels: labels.timeline,
+                                                datasets: [{
+                                                    data: cluster_data && cluster_data[page] ? cluster_data[page].graphs.wards : {}
+                                                }]
+                                            }}
+                                            options={{
+                                                plugins: {
+                                                    title: {
+                                                        display: true,
+                                                        text: "Amount by minute"
+                                                    },
+                                                    legend: {
+                                                        display: false
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
                             </Col>
-                            {/*<Col className="col-lg-6 col-12"><LineChart /></Col>*/}
-                            <Col>
-                                <table width="100%">
-                                    {cluster_data && cluster_data.players ? cluster_data.players.map(player => {
-                                        return (
-                                            <tr>
-                                                <td>{player.player_placed_id}</td>
-                                                <td>{player.amount}</td>
-                                            </tr>
-                                        )
-                                    }) : "--"}
-                                </table>
+                            <Col className="col-lg-6 col-12">
+                                <div className="players-list">
+                                    <div className="content">
+                                        {cluster_data && cluster_data[page] ? (
+                                            <>
+                                                <div className="players-list-header">
+                                                    <span className="player-name">Player name</span>
+                                                    {/*<span className="player-name">Duration</span>*/}
+                                                    <span className="player-amount">Amount</span>
+                                                </div>
+                                                {cluster_data[page].players.map(player => (
+                                                    <div className="player-row" key={player.id}>
+                                                        <span className="player-name">{player.name}</span>
+                                                        {/*<span className="player-name">1:42</span>*/}
+                                                        <span className="player-amount">{player.amount}</span>
+                                                    </div>
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <span style={{"margin": "auto"}}>--</span>
+                                        )}
+                                    </div>
+                                </div>
                             </Col>
-                        </Row>
-                        <Row>
-                            {/*<Col className="col-lg-6 col-12" style={{height: "300px"}}><LineChart /></Col>*/}
-                            {/*<Col className="col-lg-6 col-12"><LineChart /></Col>*/}
                         </Row>
                     </Container>
                 </div>
             </div>
-        );
-
-        return (
-            <>
-                {cluster_info}
-            </>
         )
     })
 
@@ -138,7 +148,6 @@ export default class MapData extends React.Component {
 
     render() {
         const {ClusterData} = this
-
         return (
             <ClusterData/>
         )

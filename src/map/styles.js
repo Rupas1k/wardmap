@@ -24,17 +24,18 @@ const defaultStyle = [
 const getPointColor = (feature, side) => {
     const destroyedRatio = feature.getProperties().data.cluster[side].destroyed / feature.getProperties().data.cluster[side].amount
 
-    const red = 128 + (destroyedRatio - 0.3) * 255
-    const green = 128 - (destroyedRatio - 0.3) * 255
+    const red = (destroyedRatio + 0.2) * 256
+    const green = 256 - (destroyedRatio + 0.2) * 256
     const blue = 0
 
-    return destroyedRatio > 0 && destroyedRatio < 1 ? [red, green, blue, 1] : destroyedRatio === 0 ? '#FF00FF' : destroyedRatio === 1 ? '#800000' : '#fff'
+    // return destroyedRatio > 0 && destroyedRatio < 1 ? [red, green, blue, 1] : destroyedRatio === 0 ? '#FF00FF' : destroyedRatio === 1 ? '#800000' : '#fff'
+    return [red, green, blue, 1]
 }
 
 const getPointRadius = (feature, side) => {
-    const amountRatio = (feature.getProperties().data.cluster[side].amount - 10) / 10
-    const returnValue = 5 + amountRatio
-    return Math.min(Math.max(returnValue, 4), 6)
+    const amountRatio = (feature.getProperties().data.cluster[side].amount - 20) / 20
+    const returnValue = 4.5 + amountRatio
+    return Math.min(Math.max(returnValue, 3), 6)
 }
 
 const mainStyle = (feature, side) => {
@@ -61,8 +62,8 @@ const mainStyle = (feature, side) => {
                         color: getPointColor(feature, side)
                     }),
                     stroke: new Stroke({
-                        width: 2,
-                        color: '#151515',
+                        width: 1.5,
+                        // color: feature.getProperties().data.cluster[side].destroyed / feature.getProperties().data.cluster[side].amount > 0 ? "#151515" : "#FF00FF",
                     })
                 })
             })

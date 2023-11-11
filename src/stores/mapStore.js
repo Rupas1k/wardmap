@@ -30,6 +30,8 @@ class mapStore {
     maps = ['default', 'divine_sanctum']
     currentMap = 1
 
+    settingsVisibility = 0
+
 
     constructor(rootStore) {
         this.rootStore = rootStore
@@ -54,7 +56,6 @@ class mapStore {
             () => this.currentFeature,
             current => {
                 if(current){
-                    console.log(this.currentFeature.getProperties().data.cluster.players)
                     const coordinates = current.getProperties().data.coordinates
                     const x = Math.floor(coordinates[0] - mapSize.units.x0)
                     const y = Math.floor(coordinates[1] - mapSize.units.y0)
@@ -82,6 +83,10 @@ class mapStore {
         )
     }
 
+    switchSettingsVisibility = () => {
+        this.settingsVisibility = !this.settingsVisibility
+    }
+
     setShade = shade => {
         this.shade = shade
     }
@@ -95,7 +100,7 @@ class mapStore {
     }
 
     fetchElevations = async () => {
-        return await (await fetch("/data/elevations.json")).json()
+        return await (await fetch("static/data/0/elevations.json")).json()
     }
 
     setElevations = (elevations) => {
@@ -135,7 +140,7 @@ class mapStore {
 
     switchMap = () => {
         this.setCurrentMap(this.currentMap < this.maps.length - 1 ? this.currentMap + 1 : 0)
-        layers.tiles.getSource().setUrl(`img/tiles/${this.maps[this.currentMap]}/734d/{z}/{x}/{y}.png`)
+        layers.tiles.getSource().setUrl(`static/img/tiles/0/${this.maps[this.currentMap]}/{z}/{x}/{y}.png`)
     }
 
     setWasmClusters = () => {
@@ -170,7 +175,6 @@ class mapStore {
         this.rawClusters.forEach(cluster => {
             if (cluster.cluster_id === -1){
                 this.setAverageValues(cluster)
-                console.log(123, cluster)
             } else {
                 let coord = [cluster.x_pos, cluster.y_pos, cluster.z_pos]
                 const feature = new Feature({
