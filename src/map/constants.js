@@ -23,4 +23,4 @@ export const observerRadius = {
 }
 
 export const minZoom = 1
-export const maxZoom = 6
+export const maxZoom = 4

@@ -30,9 +30,7 @@ ChartJS.register(
     Legend
 )
 
-
 class App extends React.Component {
-
     render() {
         return (
             <div className="application bg-body text-light" data-bs-theme="dark">
@@ -40,6 +38,7 @@ class App extends React.Component {
                 <BrowserRouter>
                     <Routes>
                         <Route path="/" element={<Main/>}/>
+                        <Route path="/league/:leagueId" element={<Main/>}/>
                         <Route path="/about" element={<About/>}/>
                     </Routes>
                 </BrowserRouter>

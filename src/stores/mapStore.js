@@ -12,98 +12,55 @@ const {unit, pixel} = projections
 class mapStore {
     map = null
 
+    league = null
+
     elevations = null
 
-    metadata = null
-    rawClusters = null
-
     features = []
-    visionFeature = null
     currentFeature = null
     averageValues = null
 
-    shade = 0
-
     sides = ['radiant', 'dire', 'all']
     currentSide = 2
-
-    maps = ['default', 'divine_sanctum']
-    currentMap = 1
-
-    settingsVisibility = 0
-
 
     constructor(rootStore) {
         this.rootStore = rootStore
         makeAutoObservable(this);
 
         reaction(
-            () => this.shade,
-            () => {
-                layers.shade.getStyle().getFill().setColor([0, 0, 0, this.shade / 100])
-                layers.shade.changed()
-            }
-        )
-
-        reaction(
             () => this.features,
             () => {
-                this.updateMap()
+                layers.vision.getSource().clear()
+                layers.wards.getSource().clear()
+                layers.wards.getSource().addFeatures(this.features)
             }
         )
 
         reaction(
             () => this.currentFeature,
             current => {
+                layers.vision.getSource().clear()
                 if(current){
                     const coordinates = current.getProperties().data.coordinates
                     const x = Math.floor(coordinates[0] - mapSize.units.x0)
                     const y = Math.floor(coordinates[1] - mapSize.units.y0)
                     const z = (coordinates[2] - 16384) / 128
-                    this.setVisionFeature(calculateVision(this.elevations, x, y, z))
-                } else {
-                    this.setVisionFeature(new Feature())
+                    layers.vision.getSource().addFeature((calculateVision(this.elevations, x, y, z)))
                 }
             }
         )
-
-        reaction(
-            () => this.visionFeature,
-            (curr, prev) => {
-                if (prev !== null) layers.wards.getSource().removeFeature(prev)
-                layers.wards.getSource().addFeature(this.visionFeature)
-            }
-        )
-
-        reaction(
-            () => this.currentSide,
-            () => {
-                this.updateStyle()
-            }
-        )
     }
 
-    switchSettingsVisibility = () => {
-        this.settingsVisibility = !this.settingsVisibility
+    setCurrentSide = side =>{
+        this.currentSide = side
+        layers.wards.setStyle(feature => mainStyle(feature, this.sides[this.currentSide]))
     }
 
-    setShade = shade => {
-        this.shade = shade
+    setLeague = league => {
+        this.league = league
     }
 
-    setMetadata = metadata => {
-        this.metadata = metadata
-    }
-
-    fetchClusters = async () => {
-        return await (await fetch("http://192.168.1.196:5000/get_clusters")).json()
-    }
-
-    fetchElevations = async () => {
-        return await (await fetch("static/data/0/elevations.json")).json()
-    }
-
-    setElevations = (elevations) => {
+    setElevations = elevations => {
         this.elevations = elevations
     }
 
@@ -111,36 +68,16 @@ class mapStore {
         this.map = mapInstance;
     }
 
-    setFeatures = (features) => {
+    setFeatures = features => {
         this.features = features
-    }
-
-    addFeature = feature => {
-        this.features.push(feature)
-    }
-
-    setVisionFeature = feature => {
-        this.visionFeature = feature
     }
 
     setCurrentFeature = feature => {
         this.currentFeature = feature
     }
 
-    updateMap = () => {
-        this.visionFeature = new Feature()
-        layers.wards.getSource().clear()
-        layers.wards.getSource().addFeatures(this.features)
-        this.updateStyle()
-    }
-
-    updateStyle = () => {
-        layers.wards.setStyle(feature => mainStyle(feature, this.sides[this.currentSide]))
-    }
-
-    switchMap = () => {
-        this.setCurrentMap(this.currentMap < this.maps.length - 1 ? this.currentMap + 1 : 0)
-        layers.tiles.getSource().setUrl(`static/img/tiles/0/${this.maps[this.currentMap]}/{z}/{x}/{y}.png`)
+    setAverageValues = average => {
+        this.averageValues = average
     }
 
     setWasmClusters = () => {
@@ -169,10 +106,10 @@ class mapStore {
         this.setFeatures(features)
     }
 
-    setClusters = () => {
+    setClusters = rawClusters => {
         const {pixel, unit} = projections
         const features = []
-        this.rawClusters.forEach(cluster => {
+        rawClusters.forEach(cluster => {
             if (cluster.cluster_id === -1){
                 this.setAverageValues(cluster)
             } else {
@@ -187,21 +124,6 @@ class mapStore {
         this.setFeatures(features)
     }
 
-    setRawClusters = clusters => {
-        this.rawClusters = clusters
-    }
-
-    setCurrentSide = side => {
-        this.currentSide = side
-    }
-
-    setAverageValues = average => {
-        this.averageValues = average
-    }
-
-    setCurrentMap = currentMap => {
-        this.currentMap = currentMap
-    }
 
     debugMapElevations = z => {
         const features = []

@@ -14,17 +14,26 @@ body
         position: relative
         z-index: 9999
         //background: radial-gradient(ellipse at top, #3B1473, #1A1A1A)
+        background-color: #181d27 !important
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2)
+        justify-content: space-between
 
-        .brand
-          font-size: 18px
-          display: flex
-          align-items: center
+        .header-container
+          margin: 0 50px
 
-          img
-            width: 32px
-            height: 32px
-            margin-right: 5px
+          .dropdown-menu
+            background-color: #181d27
+
+          .brand
+            font-size: 21px
+            line-height: 0
+            display: flex
+            align-items: center
+
+            img
+              width: 32px
+              height: 32px
+              margin-right: 5px
 
       .main
         height: calc(100vh - 58px)
@@ -135,24 +144,27 @@ body
               .current
                 background-color: #212529
 
+            .side-switches
+              display: flex
+              flex-direction: row
+
+              button
+                &:first-child
+                  border-radius: 10px 0 0 0
+
+                &:last-child
+                  border-radius: 0 10px 0 0
+
             .cluster-info
-              .side-switches
-                display: flex
-                flex-direction: row
-
-                button
-                  &:first-child
-                    border-radius: 10px 0 0 0
-
-                  &:last-child
-                    border-radius: 0 10px 0 0
 
               .data-rows
                 background-color: #2A2D33
+                border-radius: 5px
 
                 &:first-child
-                  border-radius: 0 0 10px 10px
+                  border-radius: 0 0 5px 5px
                   margin-bottom: 10px
+
 
                 > .row
                   > .col
@@ -215,12 +227,26 @@ body
 
                       .graph
                         border-radius: 5px
-                        height: 300px
+                        height: 350px
                         background-color: #212529
-                        padding: 5px
+                        display: flex
+                        flex-direction: column
+                        //padding: 5px
 
                         + .graph
                           margin-top: 16px
+
+                        .graph-header
+                          display: flex
+                          flex-direction: row
+                          padding: 5px 10px
+                          background-color: #373b3e
+                          //background-color: #181d27
+                          border-radius: 5px 5px 0 0
+
+                        .graph-content
+                          height: 100%
+                          padding: 5px
 
                     .players-list
                       + .players-list
@@ -233,8 +259,8 @@ body
                       background-color: #212529
 
                       .content
-                        height: 300px
-                        max-height: 300px
+                        height: 350px
+                        max-height: 350px
                         display: flex
                         flex-direction: column
                         margin: auto 0
@@ -248,10 +274,13 @@ body
                           background-color: #373b3e
                           position: sticky
                           top: 0
+
                           span
                             flex: 1
+
                             &:nth-child(2)
                               text-align: center
+
                             &:last-child
                               text-align: right
                               justify-self: center
@@ -264,10 +293,13 @@ body
                           padding: 5px 10px
                           background-color: #212529
                           width: 100%
+
                           span
                             flex: 1
+
                             &:nth-child(2)
                               text-align: center
+
                             &:last-child
                               text-align: right
                               justify-self: center

@@ -9,7 +9,7 @@ const {pixel} = projections
 
 export const createMap = () => {
     return new Map({
-        layers: [layers.tiles, layers.shade, layers.wards, layers.trees, layers.elevations],
+        layers: [layers.tiles, layers.shade, layers.vision, layers.wards, layers.trees, layers.elevations],
         target: 'map',
         view: new View({
             projection: pixel,

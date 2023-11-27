@@ -31,20 +31,34 @@ const calculateVisibilityPolygon = (elevations, x, y, z) => {
         [x + radius, y - radius],
     ])
 
-    const x0 = Math.floor((x - radius) / gridSize) - 1
-    const y0 = cells - Math.floor((y + radius) / gridSize) - 1 - 1
+    // const x0 = Math.floor((x - radius) / gridSize) - 1
+    // const y0 = cells - Math.floor((y + radius) / gridSize) - 1 - 1
+
+    const x0 = Math.round((x - radius) / gridSize)
+    const y0 = cells - Math.round((y + radius) / gridSize) - 1
+
+    const curr_x = Math.round(x / gridSize)
+    const curr_y = cells - Math.round(y / gridSize) - 1
+
+    // polygons.push([
+    //     [(curr_x) * gridSize, (cells - curr_y) * gridSize],
+    //     [(curr_x + 1) * gridSize, (cells - curr_y) * gridSize],
+    //     [(curr_x + 1) * gridSize, (cells - (curr_y + 1)) * gridSize],
+    //     [(curr_x) * gridSize, (cells - (curr_y + 1) ) * gridSize],
+    // ])
 
     for (let i = y0; i < y0 + Math.floor((2 * radius) / gridSize) + 1; i++) {
         for (let j = x0; j < x0 + Math.floor((2 * radius) / gridSize) + 1; j++) {
-            if (j > 0 && j < cells && cells - i - 1 < cells && i < cells && i > 0 && cells - i - 1 > 0) {
-                // if (elevation[cells - i - 1][j] > z * 128 + 64 || (trees[cells - i - 1][j] > -1 && trees[cells - i - 1][j] + 128 + 64 > z * 128))  { // || (trees[cells-i-1][j+1] > -1 && trees[cells-i-1][j-1] > -1) || (trees[cells-i-1+1][j] > -1 && trees[cells-i-1-1][j] > -1)
-                if ((elevations[cells - i - 1][j] >> 1) > z * 128 + 64 || ((elevations[cells - i - 1][j] & 1) === 1 && (elevations[cells - i - 1][j] >> 1) + 128 + 64 > z * 128))  { // || (trees[cells-i-1][j+1] > -1 && trees[cells-i-1][j-1] > -1) || (trees[cells-i-1+1][j] > -1 && trees[cells-i-1-1][j] > -1)
-                    polygons.push([
-                        [(j - 0.5) * gridSize, (cells - i - 0.7) * gridSize],
-                        [(j + 1 - 0.5) * gridSize, (cells - i - 0.7) * gridSize],
-                        [(j + 1 - 0.5) * gridSize, (cells - (i + 1) - 0.7) * gridSize],
-                        [(j - 0.5) * gridSize, (cells - (i + 1) - 0.7) * gridSize],
-                    ])
+            if (j > 0 && j < cells && cells - i - 1 < cells && i < cells && i > 0 && cells - i - 1 > 0){
+                if (!((elevations[cells - curr_y - 1][curr_x] & 1) && (Math.abs(curr_x - j) < 2 && Math.abs(curr_y - i) < 2))) {
+                    if ((elevations[cells - i - 1][j] >> 1) > z * 128 + 64 || ((elevations[cells - i - 1][j] & 1) === 1 && (elevations[cells - i - 1][j] >> 1) + 128 + 32 > z * 128)) {
+                        polygons.push([
+                            [(j - 0.5) * gridSize, (cells - i - 0.7) * gridSize],
+                            [(j + 1 - 0.5) * gridSize, (cells - i - 0.7) * gridSize],
+                            [(j + 1 - 0.5) * gridSize, (cells - (i + 1) - 0.7) * gridSize],
+                            [(j - 0.5) * gridSize, (cells - (i + 1) - 0.7) * gridSize],
+                        ])
+                    }
                 }
             }
         }

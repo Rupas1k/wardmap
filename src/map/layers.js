@@ -17,6 +17,7 @@ const layers = {
             url: null,
             projection: pixel,
             wrapX: false,
+            // transition: 0
         }),
     }),
     wards: new VectorLayer({
@@ -28,6 +29,10 @@ const layers = {
     }),
     elevations: new VectorLayer({
         source: new VectorSource()
+    }),
+    vision: new VectorLayer({
+        source: new VectorSource(),
+        style: mainStyle
     }),
     shade: new VectorLayer({
         style: new Style({
