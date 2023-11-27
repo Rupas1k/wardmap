@@ -2,12 +2,11 @@ import {makeAutoObservable, reaction} from "mobx";
 import {Feature} from "ol";
 import {Point, Polygon} from "ol/geom";
 import layers from "../map/layers";
-import {projections} from "../map/projections";
+import {pixelProjection, unitProjection} from "../map/projections";
 import calculateVision from "../map/calculateVision";
 import {gridSize, mapSize} from "../map/constants";
 import mainStyle from "../map/styles";
 
-const {unit, pixel} = projections
 
 class mapStore {
     map = null
@@ -82,7 +81,6 @@ class mapStore {
 
     setWasmClusters = () => {
         const {wardStore} = this.rootStore
-        const {pixel, unit} = projections
         const features = []
         wardStore.wasmClusters.forEach((cluster, key) => {
             if (key === -1) return
@@ -98,7 +96,7 @@ class mapStore {
             coord[0] /= i
             coord[1] /= i
             const feature = new Feature({
-                geometry: new Point([coord[0], coord[1]]).transform(unit, pixel),
+                geometry: new Point([coord[0], coord[1]]).transform(unitProjection, pixelProjection),
                 data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
             })
             features.push(feature)
@@ -107,7 +105,6 @@ class mapStore {
     }
 
     setClusters = rawClusters => {
-        const {pixel, unit} = projections
         const features = []
         rawClusters.forEach(cluster => {
             if (cluster.cluster_id === -1){
@@ -115,7 +112,7 @@ class mapStore {
             } else {
                 let coord = [cluster.x_pos, cluster.y_pos, cluster.z_pos]
                 const feature = new Feature({
-                    geometry: new Point([coord[0], coord[1]]).transform(unit, pixel),
+                    geometry: new Point([coord[0], coord[1]]).transform(unitProjection, pixelProjection),
                     data: {"cluster": cluster, "coordinates": [coord[0], coord[1], coord[2]]},
                 })
                 features.push(feature)
@@ -141,7 +138,7 @@ class mapStore {
                             [x_min + (j + 1 - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.5) * gridSize],
                             [x_min + (j - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.5) * gridSize],
                             [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.5) * gridSize],
-                        ]]).transform(unit, pixel)
+                        ]]).transform(unitProjection, pixelProjection)
                     }))
                 }
             }
@@ -170,7 +167,7 @@ class mapStore {
                             [x_min + (j + 1 - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.7) * gridSize],
                             [x_min + (j - 0.5) * gridSize, y_min + (cells - i + 1 - 1 - 0.7) * gridSize],
                             [x_min + (j - 0.5) * gridSize, y_min + (cells - i - 1 - 0.7) * gridSize]
-                        ]]).transform(unit, pixel)
+                        ]]).transform(unitProjection, pixelProjection)
                     }))
                 }
             }

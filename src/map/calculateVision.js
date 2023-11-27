@@ -5,19 +5,18 @@ import {
 
 
 import {mapSize, observerRadius, gridSize} from "./constants";
-import {projections} from "./projections";
+import {pixelProjection, unitProjection} from "./projections";
 
 import {intersect, polygon} from "turf";
 import {Circle, Polygon} from "ol/geom";
 import {Feature} from "ol";
 import {fromCircle} from "ol/geom/Polygon";
 
-const {unit, pixel} = projections
 
 const x_min = mapSize.units.x0
 const y_min = mapSize.units.y0
 const y_size = mapSize.units.y
-const radius = observerRadius.day
+const radius = observerRadius
 
 
 const calculateVisibilityPolygon = (elevations, x, y, z) => {
@@ -84,7 +83,7 @@ const calculateVision = (elevations, x, y, z) => {
     const intersectionCoordinates = intersect(turfVisibilityPolygon, turfCircle).geometry.coordinates[0];
 
     return new Feature({
-        geometry: new Polygon([intersectionCoordinates]).transform(unit, pixel),
+        geometry: new Polygon([intersectionCoordinates]).transform(unitProjection, pixelProjection),
     });
 }
 

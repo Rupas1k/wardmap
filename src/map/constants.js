@@ -17,10 +17,7 @@ export const mapExtent = [-2500, -1500, mapSize.pixels.x + 2500, mapSize.pixels.
 
 export const gridSize = 64
 
-export const observerRadius = {
-    day: 1600,
-    night: 0
-}
+export const observerRadius = 1600
 
 export const minZoom = 1
 export const maxZoom = 4

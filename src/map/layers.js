@@ -1,21 +1,19 @@
 import {Tile as TileLayer, Vector as VectorLayer} from "ol/layer";
 import {Vector as VectorSource, XYZ} from "ol/source";
 
-import {projections} from "./projections";
+import {pixelProjection} from "./projections";
 import mainStyle from "./styles";
 import {Fill, Style} from "ol/style";
 import {Feature} from "ol";
 import {Polygon} from "ol/geom";
 
 
-const {pixel} = projections
-
 const layers = {
     tiles: new TileLayer({
         source: new XYZ({
             // url: 'img/tiles/divine_sanctum/734d/{z}/{x}/{y}.png',
             url: null,
-            projection: pixel,
+            projection: pixelProjection,
             wrapX: false,
             // transition: 0
         }),
