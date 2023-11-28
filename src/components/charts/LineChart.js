@@ -68,14 +68,14 @@ const setOptions = title => {
 }
 
 
-export default class LineChart extends React.Component {
-    render() {
-        const {title, labels, datasets} = this.props
-        return (
-            <Line
-                data={setData(labels, datasets)}
-                options={setOptions(title)}
-            />
-        )
-    }
+const LineChart = props => {
+    const {title, labels, datasets} = props
+    return (
+        <Line
+            data={setData(labels, datasets)}
+            options={setOptions(title)}
+        />
+    )
 }
+
+export default LineChart

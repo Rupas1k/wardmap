@@ -5,7 +5,7 @@ import {BsFillGearFill} from "react-icons/bs";
 import Slider from "rc-slider";
 import React, {useEffect} from "react";
 import layers from "../map/layers";
-import mainStyle from "../map/styles";
+import fetchClusters from "../actions/fetchClusters";
 
 
 const MapControllers = observer(() => {
@@ -47,10 +47,11 @@ const MapControllers = observer(() => {
             </Button>
             <div className="debug-buttons" style={{"display": visibility.visibility ? "flex" : "none"}}>
                 <Button className="map-switch btn-secondary" onClick={map.switchMap}>Switch Map</Button>
-                <Button className="map-switch btn-secondary" onClick={mapStore.setClusters}>Set Data</Button>
+                <Button className="map-switch btn-secondary" onClick={async () => mapStore.setClusters((await fetchClusters(mapStore.league.id)).data.map(cluster_string => JSON.parse(cluster_string)))}>Set Data</Button>
                 <Button className="map-switch btn-secondary" onClick={mapStore.setWasmClusters}>Debug Wasm</Button>
                 <Button className="map-switch btn-secondary" onClick={mapStore.debugMapTrees}>Debug Trees</Button>
                 <Button className="map-switch btn-secondary" onClick={() => mapStore.debugMapElevations(2)}>Debug Elevations</Button>
+                {/*<Button className="map-switch btn-secondary" onClick={() => mapStore.league.id = 15728}>League</Button>*/}
                 <div className="shade">
                     <span>Shade</span>
                     <Slider

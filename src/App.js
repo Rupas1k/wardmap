@@ -3,7 +3,7 @@ import 'bootstrap/dist/css/bootstrap.css'
 import './sass/main.sass'
 import 'ol/ol.css'
 import "rc-slider/assets/index.css"
-import {BrowserRouter, Route, Routes} from "react-router-dom";
+import {BrowserRouter, createBrowserRouter, Route, RouterProvider, Routes} from "react-router-dom";
 import Header from "./components/common/Header";
 
 import Main from "./pages/Main";
@@ -30,18 +30,33 @@ ChartJS.register(
     Legend
 )
 
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: <Main />,
+    },
+    {
+        path: "/league/:leagueId",
+        element: <Main />,
+    },
+    {
+        path: "/about",
+        element: <About />,
+    },
+]);
+
 class App extends React.Component {
     render() {
         return (
             <div className="application bg-body text-light" data-bs-theme="dark">
-                <Header/>
                 <BrowserRouter>
                     <Routes>
-                        <Route path="/" element={<Main/>}/>
+                        <Route path="/" exact element={<Main/>}/>
                         <Route path="/league/:leagueId" element={<Main/>}/>
                         <Route path="/about" element={<About/>}/>
                     </Routes>
                 </BrowserRouter>
+                {/*<RouterProvider router={router} />*/}
             </div>
         );
     }
