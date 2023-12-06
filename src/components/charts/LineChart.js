@@ -6,29 +6,13 @@ export const labels = {
 }
 
 
-
-// const default_dataset = {
-//     label: 'All',
-//     data: null,
-//     borderColor: 'rgb(255, 99, 132)',
-//     backgroundColor: 'rgba(255, 99, 132, 0.5)',
-//     yAxisID: 'y',
-// }
-
-// const default_data = {
-//     labels: null,
-//     datasets: [
-//         default_dataset
-//     ],
-// }
-//
-
-const setData = (labels, datsets) => {
+const setData = (labels, datasets) => {
     return {
         labels: labels,
-        datasets: datsets
+        datasets: datasets
     }
 }
+
 
 const setOptions = title => {
     const thisOptions = {

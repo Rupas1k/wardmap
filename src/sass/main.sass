@@ -5,7 +5,6 @@ body
   #root
     .application
       min-height: 100vh
-      max-height: 100vh
       display: flex
       flex-direction: column
       position: relative
@@ -13,7 +12,6 @@ body
       nav
         position: relative
         z-index: 9999
-        //background: radial-gradient(ellipse at top, #3B1473, #1A1A1A)
         background-color: #181d27 !important
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2)
         justify-content: space-between
@@ -103,11 +101,11 @@ body
                   width: 50px
 
           .data-col
-            padding-top: 10px
+            //padding-top: 10px
+            padding: 10px
             max-height: inherit
             position: relative
             box-shadow: -3px 10px 15px rgba(0, 0, 0, 0.2)
-            //background: linear-gradient(to bottom, #343A3F, #212529)
             overflow: auto
             @media(max-width: 992px)
               max-height: none
@@ -149,6 +147,8 @@ body
               flex-direction: row
 
               button
+                flex: 1 1
+
                 &:first-child
                   border-radius: 10px 0 0 0
 
@@ -175,7 +175,6 @@ body
                       border-radius: 5px
                       height: 130px
                       background-color: #212529
-                      //box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3)
                       display: flex
                       flex-direction: column
                       justify-content: center
@@ -231,7 +230,6 @@ body
                         background-color: #212529
                         display: flex
                         flex-direction: column
-                        //padding: 5px
 
                         + .graph
                           margin-top: 16px
@@ -241,7 +239,6 @@ body
                           flex-direction: row
                           padding: 5px 10px
                           background-color: #373b3e
-                          //background-color: #181d27
                           border-radius: 5px 5px 0 0
 
                         .graph-content
@@ -293,6 +290,7 @@ body
                           padding: 5px 10px
                           background-color: #212529
                           width: 100%
+                          margin: 0.5px 0
 
                           span
                             flex: 1
@@ -309,3 +307,6 @@ body
                 margin-top: 10px
                 background-color: #2A2D33
                 border-radius: 10px
+
+      .about
+        font-size: 32px

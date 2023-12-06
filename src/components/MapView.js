@@ -26,7 +26,7 @@ const MapView = observer(() => {
             ])
 
             mapStore.setElevations(elevations)
-            mapStore.setClusters(clusters.data.map(cluster_string => JSON.parse(cluster_string)))
+            mapStore.setClusters(clusters.data)
         }
 
         fetchMapData()
@@ -35,8 +35,9 @@ const MapView = observer(() => {
             mapStore.map.setTarget(null)
             mapStore.map.removeEventListener("click", e => click(e, mapStore))
             mapStore.setCurrentFeature(null)
+            // mapStore.setFeatures(null)
         }
-    }, [leagueId])
+    })
 
     return (
         <div className="map-wrap">

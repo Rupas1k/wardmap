@@ -51,7 +51,7 @@ const Records = observer(() => {
 
     return (
         <>
-            {colsData.map(data => <ClusterCol name={data.name} data={data.data} delta={data.delta} />)}
+            {colsData.map((data, index) => <ClusterCol name={data.name} key={index} data={data.data} delta={data.delta} />)}
         </>
     )
 })
