@@ -28,14 +28,14 @@ class wardStore {
         reaction(
             () => this.wasmClusters,
             data => {
-                // this.rootStore.mapStore.setWasmClusters()
+                this.rootStore.mapStore.setWasmClusters()
             }
         )
     }
 
     wasmClusterParams = observable({
         eps: 64,
-        min_samples: 2
+        min_samples: 5
     })
 
     wardData = []

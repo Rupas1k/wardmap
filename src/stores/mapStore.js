@@ -6,6 +6,8 @@ import {pixelProjection, unitProjection} from "../map/projections";
 import calculateVision from "../map/calculateVision";
 import {gridSize, mapSize} from "../map/constants";
 import mainStyle from "../map/styles";
+import runWasm from "../actions/runWasm";
+import fetchWards from "../actions/fetchWards";
 
 
 class mapStore {
@@ -79,19 +81,37 @@ class mapStore {
         this.averageValues = average
     }
 
-    setWasmClusters = () => {
-        const {wardStore} = this.rootStore
+    setWasmClusters = async () => {
+        const wards = await fetchWards()
+        const wards_hash = new Map(wards.map((ward) => [ward.id, ward]))
+
+        const clusters = await runWasm({
+            eps: 96,
+            min_samples: 4
+        }, wards)
+
+        console.log(clusters)
+
+        // const {wardStore} = this.rootStore
         const features = []
-        wardStore.wasmClusters.forEach((cluster, key) => {
+        // wardStore.wasmClusters.forEach((cluster, key) => {
+        clusters.forEach((cluster, key) => {
             if (key === -1) return
             let coord = [0, 0, null]
             let i = 0
             cluster.forEach(ward_id => {
-                let ward = wardStore.wardDataHashTable.get(ward_id)
+                // let ward = wardStore.wardDataHashTable.get(ward_id)
+                let ward = wards_hash.get(ward_id)
                 if (coord[2] == null) coord[2] = ward.z_pos
                 coord[0] += ward.x_pos
                 coord[1] += ward.y_pos
                 i += 1
+
+                // const feature = new Feature({
+                //     geometry: new Point([ward.x_pos, ward.y_pos]).transform(unitProjection, pixelProjection),
+                //     data: {"cluster": cluster, "coordinates": [ward.x_pos, ward.y_pos, ward.z_pos]},
+                // })
+                // features.push(feature)
             })
             coord[0] /= i
             coord[1] /= i
@@ -101,6 +121,7 @@ class mapStore {
             })
             features.push(feature)
         })
+        console.log(features)
         this.setFeatures(features)
     }
 

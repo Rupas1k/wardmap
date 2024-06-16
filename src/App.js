@@ -3,11 +3,9 @@ import 'bootstrap/dist/css/bootstrap.css'
 import './sass/main.sass'
 import 'ol/ol.css'
 import "rc-slider/assets/index.css"
-import {BrowserRouter, createBrowserRouter, Route, RouterProvider, Routes} from "react-router-dom";
-import Header from "./components/common/Header";
+import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
 
 import Main from "./pages/Main";
-import About from "./pages/About";
 
 import {
     Chart as ChartJS,
@@ -30,21 +28,6 @@ ChartJS.register(
     Legend
 )
 
-const router = createBrowserRouter([
-    {
-        path: "/",
-        element: <Main />,
-    },
-    {
-        path: "/league/:leagueId",
-        element: <Main />,
-    },
-    {
-        path: "/about",
-        element: <About />,
-    },
-]);
-
 class App extends React.Component {
     render() {
         return (
@@ -53,10 +36,9 @@ class App extends React.Component {
                     <Routes>
                         <Route path="/" exact element={<Main/>}/>
                         <Route path="/league/:leagueId" element={<Main/>}/>
-                        <Route path="/about" element={<About/>}/>
+                        <Route path="*" element={<Navigate to="/" />}/>
                     </Routes>
                 </BrowserRouter>
-                {/*<RouterProvider router={router} />*/}
             </div>
         );
     }

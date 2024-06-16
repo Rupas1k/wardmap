@@ -1,6 +1,6 @@
 import {observer} from "mobx-react";
 import {useStores} from "../stores/rootStore";
-import LineChart, {labels} from "./charts/LineChart";
+import LineChart, {labels} from "./LineChart";
 import React from "react";
 
 

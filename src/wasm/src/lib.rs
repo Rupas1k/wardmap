@@ -15,17 +15,17 @@ extern {
     fn log(s: &str);
 }
 
-#[wasm_bindgen]
-pub fn run_model(js_object: JsValue) -> JsValue {
-    #[derive(Serialize, Deserialize)]
-    pub struct Ward {
-        pub id: f64,
-        pub x_pos: f64,
-        pub y_pos: f64,
-    }
+#[derive(Serialize, Deserialize)]
+pub struct Ward {
+    pub id: f64,
+    pub x_pos: f64,
+    pub y_pos: f64,
+}
 
+#[wasm_bindgen]
+pub fn dbscan_linfa(js_object: JsValue) -> JsValue {
     #[derive(Serialize, Deserialize)]
-    pub struct JsParams {
+    struct JsParams {
         pub eps: f64,
         pub min_samples: usize,
         pub wards: Vec<Ward>

@@ -6,13 +6,15 @@ import {createMap} from "../map/OLMap";
 import {click} from "../map/events";
 import fetchElevations from "../actions/fetchElevations";
 import fetchClusters from "../actions/fetchClusters";
-import {map} from "react-bootstrap/ElementChildren";
+import runWasm from "../actions/runWasm";
 
 
 const MapView = observer(() => {
-    const {mapStore} = useStores()
+    const {mapStore, wardStore} = useStores()
     let {leagueId} = useParams()
-    if (!leagueId) leagueId = 15909
+    if (!leagueId) leagueId = window.leagues[0].id
+
+    console.log(leagueId)
 
     useEffect(() => {
         mapStore.setLeague(window.leagues.filter(x => x.id === parseInt(leagueId))[0])
@@ -22,9 +24,8 @@ const MapView = observer(() => {
         const fetchMapData = async () => {
             const [elevations, clusters] = await Promise.all([
                 fetchElevations(mapStore.league.version),
-                fetchClusters(leagueId)
+                fetchClusters(leagueId),
             ])
-
             mapStore.setElevations(elevations)
             mapStore.setClusters(clusters.data)
         }

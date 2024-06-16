@@ -7,7 +7,7 @@ import Graphs from "../components/Graphs";
 import PlayersList from "../components/PlayersList";
 import MapControllers from "../components/MapControllers";
 import MapView from "../components/MapView";
-import Header from "../components/common/Header";
+import Header from "../components/Header";
 
 export default class Main extends React.Component {
     render() {
@@ -38,13 +38,13 @@ export default class Main extends React.Component {
                                         </Col>
                                     </Row>
                                 </Container>
-                                <Container className="data-rows" fluid>
-                                    <Row>
-                                        <Col>
-                                            Dataset info: todo
-                                        </Col>
-                                    </Row>
-                                </Container>
+                                {/*<Container className="data-rows" fluid>*/}
+                                {/*    <Row>*/}
+                                {/*        <Col>*/}
+                                {/*            Dataset info: todo*/}
+                                {/*        </Col>*/}
+                                {/*    </Row>*/}
+                                {/*</Container>*/}
                             </div>
                         </Col>
                     </Row>

@@ -1,6 +1,9 @@
+import bz2 from 'bz2'
+
 const fetchClusters = async leagueId => {
-    // return await (await fetch(`http://192.168.1.196:5000/get_clusters/${leagueId}`)).json()
-    return await (await fetch(`${window.location.origin}/static/data/leagues/${leagueId}.json`)).json()
+    let result = await fetch(`${window.location.origin}/static/data/leagues/${leagueId}`);
+    let arr = new Uint8Array(await result.arrayBuffer())
+    return JSON.parse(new TextDecoder().decode(window.bz2.decompress(arr)));
 }
 
 export default fetchClusters

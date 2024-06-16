@@ -6,10 +6,14 @@ import Slider from "rc-slider";
 import React, {useEffect} from "react";
 import layers from "../map/layers";
 import fetchClusters from "../actions/fetchClusters";
+import {useParams} from "react-router-dom";
 
 
 const MapControllers = observer(() => {
     const {mapStore} = useStores()
+    let {leagueId} = useParams()
+    if (!leagueId) leagueId = window.leagues[0].id
+
 
     const shade = useLocalObservable(() => ({
         shade: 0,
@@ -23,9 +27,10 @@ const MapControllers = observer(() => {
     const map = useLocalObservable(() => ({
         maps: ['default', 'divine_sanctum'],
         currentMap: 1,
+        league: undefined,
         switchMap() {
             this.currentMap = this.currentMap < this.maps.length - 1 ? this.currentMap + 1 : 0
-            layers.tiles.getSource().setUrl(`${window.location.origin}/static/img/tiles/0/${this.maps[this.currentMap]}/{z}/{x}/{y}.png`)
+            layers.tiles.getSource().setUrl(`${window.location.origin}/static/img/tiles/${map.league.version}/${this.maps[this.currentMap]}/{z}/{x}/{y}.png`)
         }
     }))
 
@@ -37,7 +42,8 @@ const MapControllers = observer(() => {
     }))
 
     useEffect(() => {
-        layers.tiles.getSource().setUrl(`${window.location.origin}/static/img/tiles/0/${map.maps[map.currentMap]}/{z}/{x}/{y}.png`)
+        map.league = window.leagues.filter(x => x.id === parseInt(leagueId))[0]
+        layers.tiles.getSource().setUrl(`${window.location.origin}/static/img/tiles/${map.league.version}/${map.maps[map.currentMap]}/{z}/{x}/{y}.png`)
     })
 
     return (

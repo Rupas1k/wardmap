@@ -22,20 +22,30 @@ const defaultStyle = [
 ]
 
 const getPointColor = (feature, side) => {
-    const destroyedRatio = feature.getProperties().data.cluster[side].destroyed / feature.getProperties().data.cluster[side].amount
+    try {
+        const destroyedRatio = feature.getProperties().data.cluster[side].destroyed / feature.getProperties().data.cluster[side].amount
 
-    const red = (destroyedRatio + 0.2) * 256
-    const green = 256 - (destroyedRatio + 0.2) * 256
-    const blue = 0
+        const red = (destroyedRatio + 0.2) * 256
+        const green = 256 - (destroyedRatio + 0.2) * 256
+        const blue = 0
 
-    // return destroyedRatio > 0 && destroyedRatio < 1 ? [red, green, blue, 1] : destroyedRatio === 0 ? '#FF00FF' : destroyedRatio === 1 ? '#800000' : '#fff'
-    return [red, green, blue, 1]
+        // return destroyedRatio > 0 && destroyedRatio < 1 ? [red, green, blue, 1] : destroyedRatio === 0 ? '#FF00FF' : destroyedRatio === 1 ? '#800000' : '#fff'
+        return [red, green, blue, 1]
+    } catch (e) {
+        return [0, 0, 255, 1]
+    }
+
 }
 
 const getPointRadius = (feature, side) => {
-    const amountRatio = (feature.getProperties().data.cluster[side].amount - 20) / 20
-    const returnValue = 4.5 + amountRatio
-    return Math.min(Math.max(returnValue, 3), 6)
+    try {
+        const amountRatio = (feature.getProperties().data.cluster[side].amount - 20) / 20
+        const returnValue = 4.5 + amountRatio
+        return Math.min(Math.max(returnValue, 3), 6)
+    } catch (e) {
+        return 4
+    }
+
 }
 
 const mainStyle = (feature, side) => {
