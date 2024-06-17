@@ -2,6 +2,7 @@ import React from "react"
 import {Container, Dropdown, Nav, Navbar} from "react-bootstrap";
 import {useNavigate, useParams} from "react-router-dom";
 import {observer} from "mobx-react";
+import {prefix} from "../const";
 
 
 const Header = observer(() => {
@@ -17,7 +18,7 @@ const Header = observer(() => {
                 {/*<Navbar.Brand href="#1" onClick={() => navigate("/")}>*/}
                 <Navbar.Brand href="#">
                     <div className="brand">
-                        <img src="/static/favicon.ico" alt=""/>
+                        <img src="favicon.ico" alt=""/>
                         <span>Ward Map - {currentLeague.name}</span>
                     </div>
                 </Navbar.Brand>
@@ -26,7 +27,7 @@ const Header = observer(() => {
                         <Dropdown.Toggle variant="" id="dropdown-basic">Leagues</Dropdown.Toggle>
                         <Dropdown.Menu>
                             {window.leagues.map(league => {
-                                return <Dropdown.Item key={league.id} disabled={league.id === currentLeague.id} onClick={() => navigate(`/league/${league.id}`)}>{league.name}</Dropdown.Item>
+                                return <Dropdown.Item key={league.id} disabled={league.id === currentLeague.id} onClick={() => navigate(`/${prefix}/league/${league.id}`)}>{league.name}</Dropdown.Item>
                             })}
                         </Dropdown.Menu>
                     </Dropdown>

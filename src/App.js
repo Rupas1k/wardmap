@@ -32,13 +32,14 @@ ChartJS.register(
 
 class App extends React.Component {
     render() {
+        console.log("/" + prefix + "/league/:leagueId")
         return (
             <div className="application bg-body text-light" data-bs-theme="dark">
                 <BrowserRouter>
                     <Routes>
-                        <Route path={"/" + prefix} exact element={<Main/>}/>
+                        <Route path={"/" + prefix + "/"} exact element={<Main/>}/>
                         <Route path={"/" + prefix + "/league/:leagueId"} element={<Main/>}/>
-                        <Route path="*" element={<Navigate to={"/" + prefix} />}/>
+                        <Route path="*" element={<Navigate to={"/" + prefix + "/"} />}/>
                     </Routes>
                 </BrowserRouter>
             </div>
