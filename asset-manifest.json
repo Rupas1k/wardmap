@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/wardmap/static/css/main.7fa31c68.css",
-    "main.js": "/wardmap/static/js/main.d4a114ce.js",
+    "main.js": "/wardmap/static/js/main.3bea7534.js",
     "static/media/wasm_bg.wasm": "/wardmap/static/media/wasm_bg.934f480dd324fb29bc41.wasm",
     "index.html": "/wardmap/index.html",
     "main.7fa31c68.css.map": "/wardmap/static/css/main.7fa31c68.css.map",
-    "main.d4a114ce.js.map": "/wardmap/static/js/main.d4a114ce.js.map"
+    "main.3bea7534.js.map": "/wardmap/static/js/main.3bea7534.js.map"
   },
   "entrypoints": [
     "static/css/main.7fa31c68.css",
-    "static/js/main.d4a114ce.js"
+    "static/js/main.3bea7534.js"
   ]
 }
