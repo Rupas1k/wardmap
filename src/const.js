@@ -1,4 +1,5 @@
-const homepage = "https://Rupas1k.github.io/dota2wardmap-front"
+const prefix = "wardmap"
+const homepage = "https://Rupas1k.github.io/wardmap"
 
 
-export {homepage}
+export {homepage, prefix}

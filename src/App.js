@@ -18,6 +18,7 @@ import {
     Tooltip,
     Legend,
 } from 'chart.js'
+import {prefix} from "./const";
 
 ChartJS.register(
     CategoryScale,
@@ -35,9 +36,9 @@ class App extends React.Component {
             <div className="application bg-body text-light" data-bs-theme="dark">
                 <BrowserRouter>
                     <Routes>
-                        <Route path="/" exact element={<Main/>}/>
-                        <Route path="/league/:leagueId" element={<Main/>}/>
-                        <Route path="*" element={<Navigate to="/" />}/>
+                        <Route path={"/" + prefix} exact element={<Main/>}/>
+                        <Route path={"/" + prefix + "/league/:leagueId"} element={<Main/>}/>
+                        <Route path="*" element={<Navigate to={"/" + prefix} />}/>
                     </Routes>
                 </BrowserRouter>
             </div>
