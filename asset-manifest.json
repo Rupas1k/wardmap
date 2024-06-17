@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/dota2wardmap-front/static/css/main.7fa31c68.css",
-    "main.js": "/dota2wardmap-front/static/js/main.5b2d41bf.js",
+    "main.js": "/dota2wardmap-front/static/js/main.c64e2124.js",
     "static/media/wasm_bg.wasm": "/dota2wardmap-front/static/media/wasm_bg.934f480dd324fb29bc41.wasm",
     "index.html": "/dota2wardmap-front/index.html",
     "main.7fa31c68.css.map": "/dota2wardmap-front/static/css/main.7fa31c68.css.map",
-    "main.5b2d41bf.js.map": "/dota2wardmap-front/static/js/main.5b2d41bf.js.map"
+    "main.c64e2124.js.map": "/dota2wardmap-front/static/js/main.c64e2124.js.map"
   },
   "entrypoints": [
     "static/css/main.7fa31c68.css",
-    "static/js/main.5b2d41bf.js"
+    "static/js/main.c64e2124.js"
   ]
 }
