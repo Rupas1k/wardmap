@@ -2,7 +2,7 @@ import React from "react"
 import {Container, Dropdown, Nav, Navbar} from "react-bootstrap";
 import {useNavigate, useParams} from "react-router-dom";
 import {observer} from "mobx-react";
-import {prefix} from "../const";
+import {homepage, prefix} from "../const";
 
 
 const Header = observer(() => {
@@ -18,7 +18,7 @@ const Header = observer(() => {
                 {/*<Navbar.Brand href="#1" onClick={() => navigate("/")}>*/}
                 <Navbar.Brand href="#">
                     <div className="brand">
-                        <img src="favicon.ico" alt=""/>
+                        <img src={homepage + "/favicon.ico"} alt=""/>
                         <span>Ward Map - {currentLeague.name}</span>
                     </div>
                 </Navbar.Brand>
