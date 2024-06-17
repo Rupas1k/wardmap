@@ -1,7 +1,8 @@
 import bz2 from 'bz2'
+import {homepage} from "../const";
 
 const fetchElevations = async mapVersion => {
-    let result = window.bz2.decompress(new Uint8Array(await (await fetch(`${window.location.origin}/static/data/elevations/${mapVersion}`)).arrayBuffer()));
+    let result = window.bz2.decompress(new Uint8Array(await (await fetch(`${homepage}/static/data/elevations/${mapVersion}`)).arrayBuffer()));
     let dataView = new DataView(result.buffer)
     let rows = dataView.getUint16(0)
     let cols = dataView.getUint16(2)

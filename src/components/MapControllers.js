@@ -7,6 +7,7 @@ import React, {useEffect} from "react";
 import layers from "../map/layers";
 import fetchClusters from "../actions/fetchClusters";
 import {useParams} from "react-router-dom";
+import {homepage} from "../const";
 
 
 const MapControllers = observer(() => {
@@ -30,7 +31,7 @@ const MapControllers = observer(() => {
         league: undefined,
         switchMap() {
             this.currentMap = this.currentMap < this.maps.length - 1 ? this.currentMap + 1 : 0
-            layers.tiles.getSource().setUrl(`${window.location.origin}/static/img/tiles/${map.league.version}/${this.maps[this.currentMap]}/{z}/{x}/{y}.png`)
+            layers.tiles.getSource().setUrl(`${homepage}/static/img/tiles/${map.league.version}/${this.maps[this.currentMap]}/{z}/{x}/{y}.png`)
         }
     }))
 
@@ -43,7 +44,7 @@ const MapControllers = observer(() => {
 
     useEffect(() => {
         map.league = window.leagues.filter(x => x.id === parseInt(leagueId))[0]
-        layers.tiles.getSource().setUrl(`${window.location.origin}/static/img/tiles/${map.league.version}/${map.maps[map.currentMap]}/{z}/{x}/{y}.png`)
+        layers.tiles.getSource().setUrl(`${homepage}/static/img/tiles/${map.league.version}/${map.maps[map.currentMap]}/{z}/{x}/{y}.png`)
     })
 
     return (
