@@ -3,7 +3,7 @@ import 'bootstrap/dist/css/bootstrap.css'
 import './sass/main.sass'
 import 'ol/ol.css'
 import "rc-slider/assets/index.css"
-import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
+import {BrowserRouter, HashRouter, Navigate, Route, Routes} from "react-router-dom";
 
 import Main from "./pages/Main";
 
@@ -35,13 +35,13 @@ class App extends React.Component {
         console.log("/" + prefix + "/league/:leagueId")
         return (
             <div className="application bg-body text-light" data-bs-theme="dark">
-                <BrowserRouter>
+                <HashRouter>
                     <Routes>
-                        <Route path={"/" + prefix + "/"} exact element={<Main/>}/>
-                        <Route path={"/" + prefix + "/league/:leagueId"} element={<Main/>}/>
-                        <Route path="*" element={<Navigate to={"/" + prefix + "/"} />}/>
+                        <Route path={"/"} exact element={<Main/>}/>
+                        <Route path={"/league/:leagueId"} element={<Main/>}/>
+                        <Route path="*" element={<Navigate to={"/"} />}/>
                     </Routes>
-                </BrowserRouter>
+                </HashRouter>
             </div>
         );
     }

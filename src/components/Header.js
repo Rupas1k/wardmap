@@ -27,7 +27,7 @@ const Header = observer(() => {
                         <Dropdown.Toggle variant="" id="dropdown-basic">Leagues</Dropdown.Toggle>
                         <Dropdown.Menu>
                             {window.leagues.map(league => {
-                                return <Dropdown.Item key={league.id} disabled={league.id === currentLeague.id} onClick={() => navigate(`/${prefix}/league/${league.id}`)}>{league.name}</Dropdown.Item>
+                                return <Dropdown.Item key={league.id} disabled={league.id === currentLeague.id} onClick={() => navigate(`/league/${league.id}`)}>{league.name}</Dropdown.Item>
                             })}
                         </Dropdown.Menu>
                     </Dropdown>
