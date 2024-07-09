@@ -13,6 +13,19 @@ const timeFormat = seconds => {
     return `${sign}${String(minutes).padStart(2, "0")}:${String(secondsRemainder).padStart(2, "0")}`
 }
 
+const textColor = (destroyed, amount) => {
+    try {
+        const destroyedRatio = destroyed / amount
+
+        const red = (destroyedRatio + 0.2) * 256
+        const green = 256 - (destroyedRatio + 0.2) * 256
+        const blue = 0
+
+        return `rgba(${red}, ${green}, ${blue}, 1)`;
+    } catch (e) {
+        return 'rgba(0, 0, 255, 1)';
+    }
+}
 
 const Records = observer(() => {
     const {mapStore} = useStores()
@@ -27,10 +40,10 @@ const Records = observer(() => {
         name: "Destroyed",
         data: clusterData && clusterData[page] ? clusterData[page].destroyed : "--"
     }, {
-        name: "% Survived",
-        data: clusterData && clusterData[page] ? `${((1 - clusterData[page].destroyed / clusterData[page].amount) * 100).toFixed(2)}%` : "--"
+        name: "% Full Lifetime",
+        data: clusterData && clusterData[page] ? <span style={{color: textColor(clusterData[page].destroyed, clusterData[page].amount)}}>{((1 - clusterData[page].destroyed / clusterData[page].amount) * 100).toFixed(2)}%</span> : "--"
     }, {
-        name: "Duration",
+        name: "Average Lifetime",
         data: clusterData && clusterData[page] ? timeFormat(clusterData[page].duration) : "--",
         delta: clusterData && clusterData[page] ? (
             <span style={{color: clusterData[page].duration >= average[page].duration ? 'green' : 'red'}}>
@@ -38,10 +51,10 @@ const Records = observer(() => {
                     </span>
         ) : ""
     }, {
-        name: "Time Placed",
+        name: "Average Time Placed",
         data: clusterData && clusterData[page] ? timeFormat(clusterData[page].time_placed) : "--"
     }, {
-        name: "Gold Advantage",
+        name: "Average Gold Advantage",
         data: clusterData && clusterData[page] && clusterData[page].advantage ?
             <span className={clusterData[page].advantage >= 0 ? "green" : "red"}>
                         {clusterData[page].advantage || "--"}
