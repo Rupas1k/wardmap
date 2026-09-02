@@ -1,6 +1,6 @@
 const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
 
-export const apiUrl = (configuredApiUrl?.trim() || "").replace(/\/$/, "");
+export const apiUrl = (configuredApiUrl?.trim() || "https://api.rupasov.dev").replace(/\/$/, "");
 
 export const maximumWardDatasetSize = 50_000;
 

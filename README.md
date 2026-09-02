@@ -21,10 +21,11 @@ Run:
 npm run dev
 ```
 
-Requests are proxied to a local API on `127.0.0.1:5000`. For frontend-only development, create `.env.local`:
+By default, the app uses the production API. To develop against a local backend,
+create `.env.local`:
 
 ```dotenv
-VITE_API_URL=https://api.rupasov.dev
+VITE_API_URL=http://127.0.0.1:5000
 ```
 
 ## Checks
