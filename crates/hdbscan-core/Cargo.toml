@@ -1,0 +1,15 @@
+[package]
+name = "hdbscan-core"
+version = "0.1.0"
+edition = "2021"
+description = "HDBSCAN implementation used by Wardmap"
+license = "MIT"
+repository = "https://github.com/Rupas1k/wardmap"
+publish = false
+
+[lib]
+name = "hdbscan_core"
+
+[dependencies]
+ndarray = "0.17"
+thiserror = "2"
