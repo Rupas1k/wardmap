@@ -15,6 +15,12 @@ interface DatasetControlsProps {
   setSettings: (settings: DatasetSettings) => void;
 }
 
+const mapLabels: Readonly<Record<number, string>> = {
+  0: "2023 map",
+  1: "2024 map",
+  2: "2026 map",
+};
+
 function selectionSummary(ids: number[], options: SelectionOption[], empty: string) {
   if (ids.length === 0) {
     return empty;
@@ -76,7 +82,7 @@ export default function DatasetControls({
   const leagueOptions = leagues.map((league) => ({
     id: league.id,
     name: league.name,
-    meta: `Map ${league.version}`,
+    meta: mapLabels[league.version] ?? `Map version ${league.version}`,
   }));
 
   const teamOptions: SelectionOption[] = teams.map((team) => ({
