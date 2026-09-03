@@ -58,7 +58,7 @@ export default function useWorkspaceController() {
     wards,
   });
 
-  const defaultLeague = leagues[0]!;
+  const defaultLeague = leagues[0] ?? null;
   const datasetFreshness = useMemo(
     () => calculateDatasetFreshness(loadedDataset, leagues, loadedLeagueFreshness),
     [leagues, loadedDataset, loadedLeagueFreshness],

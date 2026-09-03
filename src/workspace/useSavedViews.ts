@@ -24,7 +24,7 @@ interface SavedViewOptions {
   clusteringSettings: ClusteringSettings;
   clustersMatchSettings: BooleanRef;
   compatibleDataset: (dataset: DatasetSettings) => DatasetSettings;
-  defaultLeague: League;
+  defaultLeague: League | null;
   groupByGridCell: boolean;
   loadDataset: (dataset: DatasetSettings, forceRefresh: boolean) => Promise<void>;
   restoredClusters: BooleanRef;
@@ -98,6 +98,12 @@ export default function useSavedViews({
   }
 
   async function applySharedView(view: SharedView) {
+    if (!defaultLeague) {
+      setError("Unable to load leagues");
+
+      return;
+    }
+
     const dataset = compatibleDataset(normalizeDataset(view.settings.dataset, defaultLeague.id));
 
     setClusteringSettings(view.settings.clustering);
@@ -114,6 +120,12 @@ export default function useSavedViews({
   }
 
   function restoreView(key: string) {
+    if (!defaultLeague) {
+      setError("Unable to load leagues");
+
+      return;
+    }
+
     const view = savedViews.find((candidate) => candidate.key === key);
 
     if (!view?.clusterSets || !isClusterSets(view.clusterSets)) {

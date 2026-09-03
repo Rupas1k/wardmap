@@ -11,12 +11,11 @@ import { pixelProjection, unitProjection } from "./projections";
 import { useMapStore } from "../state/mapState";
 import { defaultClusterMarkerSize } from "../state/mapState";
 import type { ClusterMarkerSize, VisionTechnique } from "../state/mapState";
-import type { League } from "../types";
 import Popup from "../components/Popup";
 import { fieldControlClass, floatingIconControlClass } from "../components/ui";
 
 export default function MapSettings({
-  league,
+  mapVersion,
   visionTechnique,
   setVisionTechnique,
   clusterMarkerSize,
@@ -24,7 +23,7 @@ export default function MapSettings({
   downloadMap,
   viewActions,
 }: {
-  league: League;
+  mapVersion: number;
   visionTechnique: VisionTechnique;
   setVisionTechnique: (technique: VisionTechnique) => void;
   clusterMarkerSize: ClusterMarkerSize;
@@ -38,10 +37,8 @@ export default function MapSettings({
   const [downloadError, setDownloadError] = useState(false);
 
   useEffect(() => {
-    layers.tiles
-      .getSource()!
-      .setUrl(assetUrl(`static/img/tiles/${league.version}/{z}/{x}/{y}.png`));
-  }, [league.version]);
+    layers.tiles.getSource()!.setUrl(assetUrl(`static/img/tiles/${mapVersion}/{z}/{x}/{y}.png`));
+  }, [mapVersion]);
 
   useEffect(() => {
     layers.wards.changed();

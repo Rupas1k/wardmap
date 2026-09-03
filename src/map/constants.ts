@@ -22,5 +22,6 @@ export const gridSize = 64;
 export const gridOrigin = { x: 7461, y: 7461 } as const;
 export const observerRadius = 1600;
 export const sentryDetectionRadius = 1050;
+export const fallbackMapVersion = 2;
 export const minZoom = 1;
 export const maxZoom = 4;

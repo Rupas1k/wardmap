@@ -5,20 +5,23 @@ import DatasetControls from "../dataset/DatasetControls";
 import MapSettings from "../map/MapSettings";
 import MapView from "../map/MapView";
 import type { MapViewHandle } from "../map/MapView";
-import { EmptyState, FloatingIconButton, SwitchNav } from "../components/ui";
+import { FloatingIconButton, SwitchNav } from "../components/ui";
 import { defaultDataset } from "../dataset/model";
 import useWorkspaceController from "./useWorkspaceController";
 import SavedViewControls from "../savedViews/SavedViewControls";
 import SharedViewPrompt from "../savedViews/SharedViewPrompt";
 import GroupingControls from "../clustering/GroupingControls";
+import { buildEmptyClusterSets } from "../clustering/buildClusters";
 import { defaultClusteringSettings, useMapStore } from "../state/mapState";
 import { sharedViewUrl } from "../savedViews/sharedView";
 import type { SharedView } from "../savedViews/sharedView";
 import type { StoredAnalysis } from "../indexedDb";
 import type { WorkspaceSettings } from "../dataset/model";
 import { useWorkspaceStore } from "../state/workspaceState";
+import { fallbackMapVersion } from "../map/constants";
 
 const WorkspaceInspector = lazy(() => import("./WorkspaceInspector"));
+const emptyClusterSets = buildEmptyClusterSets();
 
 type ControlTab = "filters" | "grouping";
 
@@ -30,7 +33,13 @@ function changedSettingCount<T extends object>(current: T, defaults: T) {
   }).length;
 }
 
-export default function Workspace() {
+export default function Workspace({
+  leagueError,
+  retryLeagues,
+}: {
+  leagueError: string | null;
+  retryLeagues: () => void;
+}) {
   const mapView = useRef<MapViewHandle>(null);
   const [controlTab, setControlTab] = useState<ControlTab>("filters");
   const currentSide = useMapStore((state) => state.currentSide);
@@ -102,6 +111,8 @@ export default function Workspace() {
     leagues
       .filter((candidate) => (loadedDataset ?? draftDataset).leagueIds.includes(candidate.id))
       .sort((left, right) => right.version - left.version)[0] ?? defaultLeague;
+  const mapVersion = mapLeague?.version ?? fallbackMapVersion;
+  const displayedError = leagueError ?? error;
 
   async function shareView(savedView: StoredAnalysis<WorkspaceSettings>) {
     const sharedView: SharedView = {
@@ -139,14 +150,6 @@ export default function Workspace() {
         : inspectorOpen
           ? "xl:grid-cols-[minmax(0,1fr)_24rem]"
           : "xl:grid-cols-1";
-
-  if (!ready) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-slate-950 text-slate-400">
-        Restoring workspace…
-      </div>
-    );
-  }
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-950 xl:h-screen xl:min-h-0">
@@ -227,7 +230,22 @@ export default function Workspace() {
             </div>
           </div>
           <div className="border-t border-white/10 bg-slate-900 p-3">
-            {error ? <p className="mb-2 text-xs leading-4 text-rose-300">{error}</p> : null}
+            {displayedError ? (
+              <div className="mb-2 flex items-start justify-between gap-2 text-xs leading-4 text-rose-300">
+                <p>{displayedError}</p>
+                {leagueError ? (
+                  <button
+                    className="shrink-0 text-slate-400 hover:text-slate-200"
+                    type="button"
+                    onClick={retryLeagues}
+                  >
+                    Retry
+                  </button>
+                ) : null}
+              </div>
+            ) : !ready ? (
+              <p className="mb-2 text-[10px] text-slate-500">Restoring workspace…</p>
+            ) : null}
 
             {datasetChanged || datasetFreshness.stale ? (
               <p className="mb-2 text-[10px] text-amber-300">
@@ -302,7 +320,7 @@ export default function Workspace() {
             downloadMap={async () => {
               await mapView.current?.downloadImage();
             }}
-            league={mapLeague}
+            mapVersion={mapVersion}
             visionTechnique={visionTechnique}
             setVisionTechnique={updateVisionTechnique}
             setClusterMarkerSize={updateClusterMarkerSize}
@@ -326,32 +344,33 @@ export default function Workspace() {
           >
             <BsSliders />
           </FloatingIconButton>
-          {error && !controlsOpen ? (
-            <p className="absolute top-3 left-14 z-30 max-w-md bg-slate-950/90 px-3 py-2 text-xs text-rose-300">
-              {error}
-            </p>
-          ) : null}
-          {displayClusterSets ? (
-            <>
-              <MapView
-                clusterSets={displayClusterSets}
-                league={mapLeague}
-                ref={mapView}
-                showUnclustered={showUnclustered}
-              />
-              {wards.length === 0 ? (
-                <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-slate-950/35">
-                  <p className="bg-slate-950/90 px-4 py-3 text-sm text-slate-300">
-                    No wards match the current filters.
-                  </p>
-                </div>
+          {displayedError && !controlsOpen ? (
+            <div className="absolute bottom-3 left-3 z-30 flex max-w-md items-start gap-3 bg-slate-950/90 px-3 py-2 text-xs text-rose-300">
+              <p>{displayedError}</p>
+              {leagueError ? (
+                <button
+                  className="shrink-0 text-slate-400 hover:text-slate-200"
+                  type="button"
+                  onClick={retryLeagues}
+                >
+                  Retry
+                </button>
               ) : null}
-            </>
-          ) : (
-            <div className="grid h-full place-items-center">
-              <EmptyState>Loading map…</EmptyState>
             </div>
-          )}
+          ) : null}
+          <MapView
+            clusterSets={displayClusterSets ?? emptyClusterSets}
+            mapVersion={mapVersion}
+            ref={mapView}
+            showUnclustered={showUnclustered}
+          />
+          {displayClusterSets && wards.length === 0 ? (
+            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-slate-950/35">
+              <p className="bg-slate-950/90 px-4 py-3 text-sm text-slate-300">
+                No wards match the current filters.
+              </p>
+            </div>
+          ) : null}
           <FloatingIconButton
             aria-label="Toggle inspector"
             className={`absolute top-3 right-3 z-30 ${inspectorOpen ? "bg-slate-800 text-slate-100" : ""}`}

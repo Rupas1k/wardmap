@@ -7,7 +7,7 @@ import {
   automaticMinSamples,
   shouldClusterAutomatically,
 } from "./automatic";
-import { buildClusters } from "./buildClusters";
+import { buildClusters, buildEmptyClusterSets } from "./buildClusters";
 import { runWasm } from "./runWasm";
 import type { ClusterParameters } from "./runWasm";
 
@@ -165,9 +165,7 @@ export default async function clusterWards(
   signal?: AbortSignal,
 ): Promise<ClusterSets> {
   if (wards.length === 0) {
-    const empty = buildClusters([], new Map());
-
-    return { all: [], radiant: [], dire: [], average: empty.average };
+    return buildEmptyClusterSets();
   }
 
   const radiant = wards.filter((ward) => ward.is_radiant === true);

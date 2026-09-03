@@ -11,7 +11,7 @@ export interface BooleanRef {
   current: boolean;
 }
 
-export default function useDatasetLoader(leagues: League[], defaultLeague: League) {
+export default function useDatasetLoader(leagues: League[], defaultLeague: League | null) {
   const dataRun = useRef(0);
   const dataRequest = useRef<AbortController | null>(null);
   const restoredClusters = useRef(false);
@@ -22,12 +22,19 @@ export default function useDatasetLoader(leagues: League[], defaultLeague: Leagu
     useWorkspaceActions();
 
   const compatibleDataset = useCallback(
-    (dataset: DatasetSettings) => compatibleLeagueDataset(dataset, leagues, defaultLeague),
+    (dataset: DatasetSettings) =>
+      defaultLeague ? compatibleLeagueDataset(dataset, leagues, defaultLeague) : dataset,
     [defaultLeague, leagues],
   );
 
   const loadDataset = useCallback(
     async (dataset: DatasetSettings, forceRefresh: boolean) => {
+      if (!defaultLeague) {
+        setError("Unable to load leagues");
+
+        return;
+      }
+
       const run = ++dataRun.current;
       const compatible = compatibleDataset(dataset);
 
@@ -73,6 +80,7 @@ export default function useDatasetLoader(leagues: League[], defaultLeague: Leagu
     [
       clearSelection,
       compatibleDataset,
+      defaultLeague,
       leagues,
       setCurrentSide,
       setDataLoadProgress,

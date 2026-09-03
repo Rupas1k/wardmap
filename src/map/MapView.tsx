@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useMemo } from "react";
 import { contextIds } from "../state/analysisContext";
 import { useMapViewState } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
-import type { ClusterSets, League } from "../types";
+import type { ClusterSets } from "../types";
 import exportMapImage from "./exportMapImage";
 import { ClusterTooltip, WardTooltip } from "./MapTooltips";
 import { useClusterLayer, useMapFocus, useVisionLayer, useWardDetailLayer } from "./useMapLayers";
@@ -11,7 +11,7 @@ import { useElevationGrid, useMapCamera } from "./useMapRuntime";
 
 interface MapViewProps {
   clusterSets: ClusterSets;
-  league: League;
+  mapVersion: number;
   showUnclustered: boolean;
 }
 
@@ -20,7 +20,7 @@ export interface MapViewHandle {
 }
 
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { clusterSets, league, showUnclustered },
+  { clusterSets, mapVersion, showUnclustered },
   ref,
 ) {
   const {
@@ -44,7 +44,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
 
-  const { error, loading } = useElevationGrid(league.version);
+  const { error, loading } = useElevationGrid(mapVersion);
   const { hover, mapElement, mapInstance, wardHover } = useMapInteractions({
     clearMapLocationSelection,
     clearSelection,

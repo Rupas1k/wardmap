@@ -2,6 +2,7 @@ import type {
   Cluster,
   ClusterPlayer,
   ClusterResult,
+  ClusterSets,
   ClusterSideData,
   ClusterWard,
   Ward,
@@ -180,4 +181,10 @@ export function buildClusters(wards: Ward[], memberships: Map<number, number[]>)
       all: sideData(wards),
     },
   };
+}
+
+export function buildEmptyClusterSets(): ClusterSets {
+  const empty = buildClusters([], new Map());
+
+  return { all: [], radiant: [], dire: [], average: empty.average };
 }

@@ -16,7 +16,7 @@ import type { BooleanRef } from "./useDatasetLoader";
 
 interface WorkspaceRestoreOptions {
   compatibleDataset: (dataset: DatasetSettings) => DatasetSettings;
-  defaultLeague: League;
+  defaultLeague: League | null;
   loadDataset: (dataset: DatasetSettings, forceRefresh: boolean) => Promise<void>;
   ready: boolean;
   restoredClusters: BooleanRef;
@@ -41,7 +41,7 @@ export default function useWorkspaceRestore({
   } = useWorkspaceActions();
 
   useEffect(() => {
-    if (!ready) {
+    if (!ready || !defaultLeague) {
       return;
     }
 
@@ -124,5 +124,5 @@ export default function useWorkspaceRestore({
     return () => {
       active = false;
     };
-  }, [defaultLeague.id, ready]);
+  }, [defaultLeague?.id, ready]);
 }
