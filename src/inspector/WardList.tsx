@@ -44,6 +44,16 @@ function WardReport({
   onBack?: () => void;
 }) {
   const outcome = ward.is_destroyed ? "Dewarded" : "Not dewarded";
+  const visionMetrics = [
+    ward.enemy_hero_vision_seconds,
+    ward.unique_enemy_hero_vision_seconds,
+    ward.heroes_spotted,
+    ward.hero_reveal_events,
+    ward.unique_hero_reveal_events,
+    ward.scouting_tracking_seconds,
+    ward.scouting_discovery_seconds,
+  ];
+  const hasVisionMetrics = ward.is_obs && visionMetrics.some((value) => value !== null);
 
   return (
     <div className={compact ? "mb-2" : ""}>
@@ -87,6 +97,22 @@ function WardReport({
           Open match {ward.match_id} on OpenDota ↗
         </a>
       </InspectorSection>
+
+      {hasVisionMetrics ? (
+        <InspectorSection separated title="Vision">
+          <MetricRows
+            rows={[
+              ["Enemy hero vision", formatGameTime(ward.enemy_hero_vision_seconds)],
+              ["Unique enemy vision", formatGameTime(ward.unique_enemy_hero_vision_seconds)],
+              ["Heroes spotted", ward.heroes_spotted ?? "--"],
+              ["Reveal events", ward.hero_reveal_events ?? "--"],
+              ["Unique reveals", ward.unique_hero_reveal_events ?? "--"],
+              ["Tracking", formatGameTime(ward.scouting_tracking_seconds)],
+              ["Discovery", formatGameTime(ward.scouting_discovery_seconds)],
+            ]}
+          />
+        </InspectorSection>
+      ) : null}
 
       {ward.is_destroyed ? (
         <p className="mt-3 text-xs text-slate-500">

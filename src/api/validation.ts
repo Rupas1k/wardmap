@@ -135,6 +135,8 @@ export function parseWard(value: unknown): Ward {
     heroes_spotted: ward.optionalNullableNumber("heroes_spotted"),
     hero_reveal_events: ward.optionalNullableNumber("hero_reveal_events"),
     unique_hero_reveal_events: ward.optionalNullableNumber("unique_hero_reveal_events"),
+    scouting_tracking_seconds: ward.optionalNullableNumber("scouting_tracking_seconds"),
+    scouting_discovery_seconds: ward.optionalNullableNumber("scouting_discovery_seconds"),
     x_pos: ward.number("x_pos"),
     y_pos: ward.number("y_pos"),
     z_pos: ward.number("z_pos"),

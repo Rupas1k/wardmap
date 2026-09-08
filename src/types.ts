@@ -56,6 +56,13 @@ export interface ClusterWard {
   is_destroyed: boolean;
   time_placed: number;
   duration: number;
+  enemy_hero_vision_seconds: number | null;
+  unique_enemy_hero_vision_seconds: number | null;
+  heroes_spotted: number | null;
+  hero_reveal_events: number | null;
+  unique_hero_reveal_events: number | null;
+  scouting_tracking_seconds: number | null;
+  scouting_discovery_seconds: number | null;
   x_pos: number;
   y_pos: number;
   z_pos: number;
@@ -107,6 +114,8 @@ export interface Ward {
   heroes_spotted: number | null;
   hero_reveal_events: number | null;
   unique_hero_reveal_events: number | null;
+  scouting_tracking_seconds: number | null;
+  scouting_discovery_seconds: number | null;
   x_pos: number;
   y_pos: number;
   z_pos: number;
