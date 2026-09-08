@@ -6,6 +6,10 @@ export function mean(values: number[]): number | null {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
+export function meanAvailable(values: (number | null)[]): number | null {
+  return mean(values.filter((value): value is number => value !== null));
+}
+
 export function roundedMean(values: number[]): number {
   return Math.round(mean(values) ?? 0);
 }

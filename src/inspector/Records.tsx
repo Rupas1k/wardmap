@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import { formatGameTime, mean, placingAdvantage } from "../metrics/wardMetrics";
+import { formatGameTime, mean, meanAvailable, placingAdvantage } from "../metrics/wardMetrics";
 import { useMapStore } from "../state/mapState";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
@@ -48,12 +48,43 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
       advantage: mean(advantages),
       duration: mean(selectedWards.map((ward) => ward.duration)) ?? 0,
       time_placed: mean(selectedWards.map((ward) => ward.time_placed)) ?? 0,
+      enemy_hero_vision_seconds: meanAvailable(
+        selectedWards.map((ward) => ward.enemy_hero_vision_seconds),
+      ),
+      unique_enemy_hero_vision_seconds: meanAvailable(
+        selectedWards.map((ward) => ward.unique_enemy_hero_vision_seconds),
+      ),
+      heroes_spotted: meanAvailable(selectedWards.map((ward) => ward.heroes_spotted)),
+      hero_reveal_events: meanAvailable(selectedWards.map((ward) => ward.hero_reveal_events)),
+      unique_hero_reveal_events: meanAvailable(
+        selectedWards.map((ward) => ward.unique_hero_reveal_events),
+      ),
+      scouting_score: meanAvailable(selectedWards.map((ward) => ward.scouting_score)),
+      scouting_tracking_seconds: meanAvailable(
+        selectedWards.map((ward) => ward.scouting_tracking_seconds),
+      ),
+      scouting_discovery_seconds: meanAvailable(
+        selectedWards.map((ward) => ward.scouting_discovery_seconds),
+      ),
       players: new Set(selectedWards.map((ward) => ward.player_placed_id)),
     };
   }, [locationData, selectedCluster, selectedMatchId, selectedPlayerId, side, wards]);
 
   const lifetime = sideData ? ((1 - sideData.destroyed / sideData.amount) * 100).toFixed(2) : null;
   const durationDelta = sideData && averageData ? sideData.duration - averageData.duration : null;
+  const visionMetrics = sideData
+    ? [
+        sideData.enemy_hero_vision_seconds,
+        sideData.unique_enemy_hero_vision_seconds,
+        sideData.heroes_spotted,
+        sideData.hero_reveal_events,
+        sideData.unique_hero_reveal_events,
+        sideData.scouting_score,
+        sideData.scouting_tracking_seconds,
+        sideData.scouting_discovery_seconds,
+      ]
+    : [];
+  const hasVisionMetrics = visionMetrics.some((value) => value !== null);
 
   const records: [string, ReactNode][] = [
     ["Wards", sideData?.amount ?? "--"],
@@ -103,17 +134,39 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
   ];
 
   return (
-    <InspectorSection
-      flush={flush}
-      title={
-        selectedPlayerId !== null
-          ? "Player summary"
-          : selectedMatchId !== null
-            ? "Match summary"
-            : "Summary"
-      }
-    >
-      <MetricRows rows={records} />
-    </InspectorSection>
+    <>
+      <InspectorSection
+        flush={flush}
+        title={
+          selectedPlayerId !== null
+            ? "Player summary"
+            : selectedMatchId !== null
+              ? "Match summary"
+              : "Summary"
+        }
+      >
+        <MetricRows rows={records} />
+      </InspectorSection>
+
+      {hasVisionMetrics ? (
+        <InspectorSection separated title="Vision per ward">
+          <MetricRows
+            rows={[
+              ["Scouting score", sideData?.scouting_score?.toFixed(1) ?? "--"],
+              ["Enemy hero vision", formatGameTime(sideData?.enemy_hero_vision_seconds ?? null)],
+              [
+                "Unique enemy vision",
+                formatGameTime(sideData?.unique_enemy_hero_vision_seconds ?? null),
+              ],
+              ["Heroes spotted", sideData?.heroes_spotted?.toFixed(1) ?? "--"],
+              ["Reveal events", sideData?.hero_reveal_events?.toFixed(1) ?? "--"],
+              ["Unique reveals", sideData?.unique_hero_reveal_events?.toFixed(1) ?? "--"],
+              ["Tracking", formatGameTime(sideData?.scouting_tracking_seconds ?? null)],
+              ["Discovery", formatGameTime(sideData?.scouting_discovery_seconds ?? null)],
+            ]}
+          />
+        </InspectorSection>
+      ) : null}
+    </>
   );
 }

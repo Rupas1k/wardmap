@@ -50,6 +50,7 @@ function WardReport({
     ward.heroes_spotted,
     ward.hero_reveal_events,
     ward.unique_hero_reveal_events,
+    ward.scouting_score,
     ward.scouting_tracking_seconds,
     ward.scouting_discovery_seconds,
   ];
@@ -102,6 +103,7 @@ function WardReport({
         <InspectorSection separated title="Vision">
           <MetricRows
             rows={[
+              ["Scouting score", ward.scouting_score?.toFixed(1) ?? "--"],
               ["Enemy hero vision", formatGameTime(ward.enemy_hero_vision_seconds)],
               ["Unique enemy vision", formatGameTime(ward.unique_enemy_hero_vision_seconds)],
               ["Heroes spotted", ward.heroes_spotted ?? "--"],

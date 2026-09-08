@@ -10,7 +10,7 @@ import {
 import type { LocationEntry, LocationInGroup } from "../metrics/groupLocations";
 import { useMapStore } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
-import type { LocationSort } from "../state/workspaceState";
+import type { LocationSort, SortDirection } from "../state/workspaceState";
 import type { Cluster, Side } from "../types";
 import { EmptyState, formControlClass, selectableRowClass } from "../components/ui";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
@@ -37,6 +37,8 @@ export default function LocationList({
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const sort = useWorkspaceStore((state) => state.locationSort);
   const setSort = useWorkspaceStore((state) => state.setLocationSort);
+  const sortDirection = useWorkspaceStore((state) => state.locationSortDirection);
+  const setSortDirection = useWorkspaceStore((state) => state.setLocationSortDirection);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const clearMapSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
@@ -52,8 +54,8 @@ export default function LocationList({
 
           return data && (!cluster.unclustered || showUnclustered) ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [clusters, showUnclustered, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [clusters, showUnclustered, side, sort, sortDirection],
   );
   const baseLocations = useMemo(
     () =>
@@ -63,8 +65,8 @@ export default function LocationList({
 
           return data && (!cluster.unclustered || showUnclustered) ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [baseClusters, showUnclustered, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [baseClusters, showUnclustered, side, sort, sortDirection],
   );
   const groupBaseLocations = useMemo(
     () =>
@@ -74,8 +76,8 @@ export default function LocationList({
 
           return data ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [baseClusters, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [baseClusters, side, sort, sortDirection],
   );
   const groups = useMemo(() => {
     if (view === "locations") {
@@ -87,8 +89,10 @@ export default function LocationList({
         ? groupLocationsByPlayer(groupBaseLocations, side)
         : groupLocationsByMatch(groupBaseLocations, side);
 
-    return next.sort((left, right) => compareLocationGroups(sort, view, left, right));
-  }, [groupBaseLocations, side, sort, view]);
+    return next.sort((left, right) =>
+      compareLocationGroups(sort, sortDirection, view, left, right),
+    );
+  }, [groupBaseLocations, side, sort, sortDirection, view]);
   const contextGroups = useMemo(() => {
     if (view === "locations" || clusters === baseClusters) {
       return new Map<string, (typeof groups)[number]>();
@@ -226,21 +230,34 @@ export default function LocationList({
       <div className="mb-3 flex items-center justify-between gap-3">
         <label className="contents text-[11px] text-slate-500">
           <span className="shrink-0">Sort by</span>
-          <span className="block w-[13.5rem] shrink-0">
+          <span className="grid w-[13.5rem] shrink-0 grid-cols-2 gap-2">
             <select
               className={formControlClass}
               value={sort}
               onChange={(event) => setSort(event.target.value as LocationSort)}
             >
-              <option value="wards">Most wards</option>
-              <option value="matches">
-                {view === "matches" ? "Newest match" : "Most matches"}
-              </option>
-              <option value="survival-high">Highest not dewarded rate</option>
-              <option value="survival-low">Lowest not dewarded rate</option>
-              <option value="placement-early">Earliest placement</option>
-              <option value="placement-late">Latest placement</option>
-              <option value="lifetime-high">Longest lifetime</option>
+              <option value="wards">Wards</option>
+              <option value="matches">{view === "matches" ? "Match" : "Matches"}</option>
+              <option value="survival">Not dewarded rate</option>
+              <option value="placement">Placement time</option>
+              <option value="lifetime">Lifetime</option>
+              <option value="enemy-vision">Enemy hero vision</option>
+              <option value="unique-enemy-vision">Unique enemy vision</option>
+              <option value="heroes-spotted">Heroes spotted</option>
+              <option value="reveal-events">Reveal events</option>
+              <option value="unique-reveals">Unique reveals</option>
+              <option value="scouting-score">Scouting score</option>
+              <option value="tracking">Tracking</option>
+              <option value="discovery">Discovery</option>
+            </select>
+            <select
+              aria-label="Sort order"
+              className={formControlClass}
+              value={sortDirection}
+              onChange={(event) => setSortDirection(event.target.value as SortDirection)}
+            >
+              <option value="descending">Descending</option>
+              <option value="ascending">Ascending</option>
             </select>
           </span>
         </label>

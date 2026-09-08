@@ -13,11 +13,18 @@ export type InspectorReturnTab = Exclude<InspectorTab, "details">;
 export type LocationSort =
   | "wards"
   | "matches"
-  | "survival-high"
-  | "survival-low"
-  | "placement-early"
-  | "placement-late"
-  | "lifetime-high";
+  | "survival"
+  | "placement"
+  | "lifetime"
+  | "enemy-vision"
+  | "unique-enemy-vision"
+  | "heroes-spotted"
+  | "reveal-events"
+  | "unique-reveals"
+  | "scouting-score"
+  | "tracking"
+  | "discovery";
+export type SortDirection = "ascending" | "descending";
 export type LocationView = "locations" | "players" | "matches";
 export type WardView = "wards" | "players" | "matches";
 export type WardOutcomeFilter = "all" | "survived" | "dewarded";
@@ -45,6 +52,7 @@ export interface WorkspaceState {
   inspectorTab: InspectorTab;
   inspectorReturnTab: InspectorReturnTab;
   locationSort: LocationSort;
+  locationSortDirection: SortDirection;
   locationView: LocationView;
   analysisContext: AnalysisContext;
   wardView: WardView;
@@ -77,6 +85,7 @@ export interface WorkspaceState {
   setInspectorOpen: (open: Update<boolean>) => void;
   setInspectorTab: (tab: InspectorTab) => void;
   setLocationSort: (sort: LocationSort) => void;
+  setLocationSortDirection: (direction: SortDirection) => void;
   setLocationView: (view: LocationView) => void;
   setContextOrigin: (scope: AnalysisScope | null) => void;
   setContextRefinement: (scope: AnalysisScope | null) => void;
@@ -111,6 +120,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   inspectorTab: "overview",
   inspectorReturnTab: "overview",
   locationSort: "wards",
+  locationSortDirection: "descending",
   locationView: "locations",
   analysisContext: emptyAnalysisContext,
   wardView: "wards",
@@ -159,6 +169,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
           : inspectorTab,
     })),
   setLocationSort: (locationSort) => set({ locationSort }),
+  setLocationSortDirection: (locationSortDirection) => set({ locationSortDirection }),
   setLocationView: (locationView) => set({ locationView }),
   setContextOrigin: (origin) =>
     set({

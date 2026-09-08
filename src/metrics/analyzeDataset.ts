@@ -1,5 +1,5 @@
 import type { Ward } from "../types";
-import { effectiveLifetime, mean, percentile, wardTimeline } from "./wardMetrics";
+import { effectiveLifetime, mean, meanAvailable, percentile, wardTimeline } from "./wardMetrics";
 
 export interface DatasetPhaseSummary {
   amount: number;
@@ -12,6 +12,14 @@ export interface DatasetAnalysis {
   observerCount: number;
   sentryCount: number;
   meanLifetime: number | null;
+  enemyHeroVision: number | null;
+  uniqueEnemyHeroVision: number | null;
+  heroesSpotted: number | null;
+  heroRevealEvents: number | null;
+  uniqueHeroRevealEvents: number | null;
+  scoutingScore: number | null;
+  scoutingTracking: number | null;
+  scoutingDiscovery: number | null;
   dewardedWithinTwoMinutes: number;
   dewardedWithinFourMinutes: number;
   dewardedWithinSixMinutes: number;
@@ -44,6 +52,16 @@ export function analyzeDataset(wards: Ward[]): DatasetAnalysis {
     observerCount: wards.filter((ward) => ward.is_obs).length,
     sentryCount: wards.filter((ward) => !ward.is_obs).length,
     meanLifetime: mean(wards.map(effectiveLifetime)),
+    enemyHeroVision: meanAvailable(wards.map((ward) => ward.enemy_hero_vision_seconds)),
+    uniqueEnemyHeroVision: meanAvailable(
+      wards.map((ward) => ward.unique_enemy_hero_vision_seconds),
+    ),
+    heroesSpotted: meanAvailable(wards.map((ward) => ward.heroes_spotted)),
+    heroRevealEvents: meanAvailable(wards.map((ward) => ward.hero_reveal_events)),
+    uniqueHeroRevealEvents: meanAvailable(wards.map((ward) => ward.unique_hero_reveal_events)),
+    scoutingScore: meanAvailable(wards.map((ward) => ward.scouting_score)),
+    scoutingTracking: meanAvailable(wards.map((ward) => ward.scouting_tracking_seconds)),
+    scoutingDiscovery: meanAvailable(wards.map((ward) => ward.scouting_discovery_seconds)),
     dewardedWithinTwoMinutes: wards.filter((ward) => ward.is_destroyed && ward.duration <= 120)
       .length,
     dewardedWithinFourMinutes: wards.filter((ward) => ward.is_destroyed && ward.duration <= 240)

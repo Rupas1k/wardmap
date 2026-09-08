@@ -2,7 +2,7 @@ import type { ReactNode, SelectHTMLAttributes } from "react";
 import type { League, Player, Side, Team } from "../types";
 import { numericIds } from "./model";
 import type { DatasetSettings, TeamResult, WardOutcome, WardType } from "./model";
-import { Field, GameTimeRange, Range, SelectionDialog } from "./DatasetFormControls";
+import { Field, GameTimeRange, OptionalRange, Range, SelectionDialog } from "./DatasetFormControls";
 import type { SelectionOption } from "./DatasetFormControls";
 import { fieldControlClass } from "../components/ui";
 
@@ -256,6 +256,67 @@ export default function DatasetControls({
             setMin={(value) => update("minimumWardLifetime", value)}
             setMax={(value) => update("maximumWardLifetime", value)}
           />
+          <div className="border-t border-white/7 pt-3">
+            <h4 className="mb-3 text-[11px] font-medium text-slate-400">Vision</h4>
+            <div className="space-y-3">
+              <OptionalRange
+                label="Enemy hero vision (seconds)"
+                min={settings.minimumEnemyHeroVision}
+                max={settings.maximumEnemyHeroVision}
+                setMin={(value) => update("minimumEnemyHeroVision", value)}
+                setMax={(value) => update("maximumEnemyHeroVision", value)}
+              />
+              <OptionalRange
+                label="Unique enemy vision (seconds)"
+                min={settings.minimumUniqueEnemyHeroVision}
+                max={settings.maximumUniqueEnemyHeroVision}
+                setMin={(value) => update("minimumUniqueEnemyHeroVision", value)}
+                setMax={(value) => update("maximumUniqueEnemyHeroVision", value)}
+              />
+              <OptionalRange
+                label="Heroes spotted"
+                min={settings.minimumHeroesSpotted}
+                max={settings.maximumHeroesSpotted}
+                setMin={(value) => update("minimumHeroesSpotted", value)}
+                setMax={(value) => update("maximumHeroesSpotted", value)}
+              />
+              <OptionalRange
+                label="Reveal events"
+                min={settings.minimumRevealEvents}
+                max={settings.maximumRevealEvents}
+                setMin={(value) => update("minimumRevealEvents", value)}
+                setMax={(value) => update("maximumRevealEvents", value)}
+              />
+              <OptionalRange
+                label="Unique reveals"
+                min={settings.minimumUniqueRevealEvents}
+                max={settings.maximumUniqueRevealEvents}
+                setMin={(value) => update("minimumUniqueRevealEvents", value)}
+                setMax={(value) => update("maximumUniqueRevealEvents", value)}
+              />
+              <OptionalRange
+                label="Scouting score"
+                min={settings.minimumScoutingScore}
+                max={settings.maximumScoutingScore}
+                setMin={(value) => update("minimumScoutingScore", value)}
+                setMax={(value) => update("maximumScoutingScore", value)}
+              />
+              <OptionalRange
+                label="Tracking (seconds)"
+                min={settings.minimumScoutingTracking}
+                max={settings.maximumScoutingTracking}
+                setMin={(value) => update("minimumScoutingTracking", value)}
+                setMax={(value) => update("maximumScoutingTracking", value)}
+              />
+              <OptionalRange
+                label="Discovery (seconds)"
+                min={settings.minimumScoutingDiscovery}
+                max={settings.maximumScoutingDiscovery}
+                setMin={(value) => update("minimumScoutingDiscovery", value)}
+                setMax={(value) => update("maximumScoutingDiscovery", value)}
+              />
+            </div>
+          </div>
         </div>
       </section>
     </>

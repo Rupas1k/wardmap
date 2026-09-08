@@ -27,6 +27,8 @@ export default function WorkspaceInspector() {
   const clearSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
   const clearWardSelection = useMapStore((state) => state.clearWardSelection);
+  const focusCluster = useMapStore((state) => state.focusCluster);
+  const focusWard = useMapStore((state) => state.focusWard);
   const expandedClusterIds = useMapStore((state) => state.expandedClusterIds);
   const setClusterExpanded = useMapStore((state) => state.setClusterExpanded);
   const selectedWardId = useMapStore((state) => state.selectedWardId);
@@ -145,6 +147,7 @@ export default function WorkspaceInspector() {
   const contentByTab: Record<InspectorTab, ReactNode> = {
     overview: (
       <DatasetOverview
+        clusters={displayClusterSets?.[currentSide] ?? []}
         contextLabel={
           contextLabels
             ? contextLabels.refinement
@@ -152,7 +155,17 @@ export default function WorkspaceInspector() {
               : contextLabels.origin
             : null
         }
+        side={currentSide}
+        showUnclustered={showUnclustered}
         wards={contextWards}
+        onSelectCluster={(cluster) => {
+          focusCluster(cluster.cluster_id);
+          setInspectorTab("details");
+        }}
+        onSelectWard={(ward) => {
+          focusWard(ward.id);
+          setInspectorTab("details");
+        }}
         onChangeContext={() => {
           if (context.origin) {
             setLocationView(context.origin.kind === "player" ? "players" : "matches");

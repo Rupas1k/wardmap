@@ -290,3 +290,47 @@ export function Range({
     </fieldset>
   );
 }
+
+export function OptionalRange({
+  label,
+  min,
+  max,
+  setMin,
+  setMax,
+}: {
+  label: string;
+  min: number | null;
+  max: number | null;
+  setMin: (value: number | null) => void;
+  setMax: (value: number | null) => void;
+}) {
+  const update = (value: string, setter: (value: number | null) => void) => {
+    setter(value === "" ? null : Math.max(0, Number(value)));
+  };
+
+  return (
+    <fieldset>
+      <legend className="text-[11px] text-slate-500">{label}</legend>
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          aria-label={`${label} minimum`}
+          className={fieldControlClass}
+          min={0}
+          placeholder="Min"
+          type="number"
+          value={min ?? ""}
+          onChange={(event) => update(event.target.value, setMin)}
+        />
+        <input
+          aria-label={`${label} maximum`}
+          className={fieldControlClass}
+          min={0}
+          placeholder="Max"
+          type="number"
+          value={max ?? ""}
+          onChange={(event) => update(event.target.value, setMax)}
+        />
+      </div>
+    </fieldset>
+  );
+}

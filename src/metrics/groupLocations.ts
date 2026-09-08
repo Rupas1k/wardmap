@@ -1,4 +1,4 @@
-import type { LocationSort, LocationView } from "../state/workspaceState";
+import type { LocationSort, LocationView, SortDirection } from "../state/workspaceState";
 import type { Cluster, ClusterSideData, ClusterWard, Side } from "../types";
 
 export interface LocationEntry {
@@ -21,7 +21,74 @@ export interface LocationGroup {
   destroyed: number;
   lifetimeTotal: number;
   placementTotal: number;
+  wards: ClusterWard[];
   sortId: number;
+}
+
+type VisionSort = Extract<
+  LocationSort,
+  | "enemy-vision"
+  | "unique-enemy-vision"
+  | "heroes-spotted"
+  | "reveal-events"
+  | "unique-reveals"
+  | "scouting-score"
+  | "tracking"
+  | "discovery"
+>;
+
+type VisionField =
+  | "enemy_hero_vision_seconds"
+  | "unique_enemy_hero_vision_seconds"
+  | "heroes_spotted"
+  | "hero_reveal_events"
+  | "unique_hero_reveal_events"
+  | "scouting_score"
+  | "scouting_tracking_seconds"
+  | "scouting_discovery_seconds";
+
+const visionFieldBySort: Record<VisionSort, VisionField> = {
+  "enemy-vision": "enemy_hero_vision_seconds",
+  "unique-enemy-vision": "unique_enemy_hero_vision_seconds",
+  "heroes-spotted": "heroes_spotted",
+  "reveal-events": "hero_reveal_events",
+  "unique-reveals": "unique_hero_reveal_events",
+  "scouting-score": "scouting_score",
+  tracking: "scouting_tracking_seconds",
+  discovery: "scouting_discovery_seconds",
+};
+
+function visionField(sort: LocationSort): VisionField | null {
+  return visionFieldBySort[sort as VisionSort] ?? null;
+}
+
+function compareNumbers(left: number, right: number, direction: SortDirection): number {
+  return direction === "ascending" ? left - right : right - left;
+}
+
+function compareMeasured(
+  left: number | null,
+  right: number | null,
+  direction: SortDirection,
+): number {
+  if (left === null) {
+    return right === null ? 0 : 1;
+  }
+  if (right === null) {
+    return -1;
+  }
+
+  return compareNumbers(left, right, direction);
+}
+
+function averageWardMetric(wards: ClusterWard[], field: VisionField): number | null {
+  const values = wards.flatMap((ward) => {
+    const value = ward[field];
+
+    return value === null ? [] : [value];
+  });
+
+  return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
 }
 
 export function locationSurvival(entry: LocationEntry): number {
@@ -30,24 +97,30 @@ export function locationSurvival(entry: LocationEntry): number {
 
 export function compareLocations(
   sort: LocationSort,
+  direction: SortDirection,
   left: LocationEntry,
   right: LocationEntry,
 ): number {
+  const field = visionField(sort);
+
+  if (field) {
+    return (
+      compareMeasured(left.data[field], right.data[field], direction) ||
+      right.data.amount - left.data.amount
+    );
+  }
+
   switch (sort) {
     case "matches":
-      return right.data.match_count - left.data.match_count;
-    case "survival-high":
-      return locationSurvival(right) - locationSurvival(left);
-    case "survival-low":
-      return locationSurvival(left) - locationSurvival(right);
-    case "placement-early":
-      return left.data.time_placed - right.data.time_placed;
-    case "placement-late":
-      return right.data.time_placed - left.data.time_placed;
-    case "lifetime-high":
-      return right.data.duration - left.data.duration;
+      return compareNumbers(left.data.match_count, right.data.match_count, direction);
+    case "survival":
+      return compareNumbers(locationSurvival(left), locationSurvival(right), direction);
+    case "placement":
+      return compareNumbers(left.data.time_placed, right.data.time_placed, direction);
+    case "lifetime":
+      return compareNumbers(left.data.duration, right.data.duration, direction);
     default:
-      return right.data.amount - left.data.amount;
+      return compareNumbers(left.data.amount, right.data.amount, direction);
   }
 }
 
@@ -59,6 +132,7 @@ function wardsForSide(cluster: Cluster, side: Side): ClusterWard[] {
 
 function addWardsToGroup(group: LocationGroup, wards: ClusterWard[]) {
   group.wardCount += wards.length;
+  group.wards.push(...wards);
 
   for (const ward of wards) {
     group.matchIds.add(ward.match_id);
@@ -70,39 +144,60 @@ function addWardsToGroup(group: LocationGroup, wards: ClusterWard[]) {
 
 export function compareLocationGroups(
   sort: LocationSort,
+  direction: SortDirection,
   view: Exclude<LocationView, "locations">,
   left: LocationGroup,
   right: LocationGroup,
 ): number {
   const leftSurvival = left.wardCount ? 1 - left.destroyed / left.wardCount : 0;
   const rightSurvival = right.wardCount ? 1 - right.destroyed / right.wardCount : 0;
+  const field = visionField(sort);
+
+  if (field) {
+    return (
+      compareMeasured(
+        averageWardMetric(left.wards, field),
+        averageWardMetric(right.wards, field),
+        direction,
+      ) || left.label.localeCompare(right.label)
+    );
+  }
 
   switch (sort) {
     case "matches":
-      return view === "matches"
-        ? right.sortId - left.sortId
-        : right.matchIds.size - left.matchIds.size || left.label.localeCompare(right.label);
-    case "survival-high":
-      return rightSurvival - leftSurvival || left.label.localeCompare(right.label);
-    case "survival-low":
-      return leftSurvival - rightSurvival || left.label.localeCompare(right.label);
-    case "placement-early":
       return (
-        left.placementTotal / left.wardCount - right.placementTotal / right.wardCount ||
+        compareNumbers(
+          view === "matches" ? left.sortId : left.matchIds.size,
+          view === "matches" ? right.sortId : right.matchIds.size,
+          direction,
+        ) || left.label.localeCompare(right.label)
+      );
+    case "survival":
+      return (
+        compareNumbers(leftSurvival, rightSurvival, direction) ||
         left.label.localeCompare(right.label)
       );
-    case "placement-late":
+    case "placement":
       return (
-        right.placementTotal / right.wardCount - left.placementTotal / left.wardCount ||
-        left.label.localeCompare(right.label)
+        compareNumbers(
+          left.placementTotal / left.wardCount,
+          right.placementTotal / right.wardCount,
+          direction,
+        ) || left.label.localeCompare(right.label)
       );
-    case "lifetime-high":
+    case "lifetime":
       return (
-        right.lifetimeTotal / right.wardCount - left.lifetimeTotal / left.wardCount ||
-        left.label.localeCompare(right.label)
+        compareNumbers(
+          left.lifetimeTotal / left.wardCount,
+          right.lifetimeTotal / right.wardCount,
+          direction,
+        ) || left.label.localeCompare(right.label)
       );
     default:
-      return right.wardCount - left.wardCount || left.label.localeCompare(right.label);
+      return (
+        compareNumbers(left.wardCount, right.wardCount, direction) ||
+        left.label.localeCompare(right.label)
+      );
   }
 }
 
@@ -132,6 +227,7 @@ export function groupLocationsByPlayer(locations: LocationEntry[], side: Side): 
         destroyed: 0,
         lifetimeTotal: 0,
         placementTotal: 0,
+        wards: [],
         sortId: playerId,
       };
 
@@ -169,6 +265,7 @@ export function groupLocationsByMatch(locations: LocationEntry[], side: Side): L
         destroyed: 0,
         lifetimeTotal: 0,
         placementTotal: 0,
+        wards: [],
         sortId: matchId,
       };
 
