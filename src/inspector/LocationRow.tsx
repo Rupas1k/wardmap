@@ -20,6 +20,7 @@ export default function LocationRow({
 }) {
   return (
     <button
+      aria-pressed={selected}
       className={`w-full py-2 text-left ${selectableRowClass(selected)}`}
       type="button"
       onClick={onSelect}

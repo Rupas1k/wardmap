@@ -15,6 +15,7 @@ function percentage(amount: number, total: number, digits = 1): string {
 export default function DatasetOverview({
   contextLabel,
   clusters,
+  selectedClusterId,
   side,
   showUnclustered,
   wards,
@@ -24,12 +25,13 @@ export default function DatasetOverview({
 }: {
   contextLabel: string | null;
   clusters: Cluster[];
+  selectedClusterId: number | null;
   side: Side;
   showUnclustered: boolean;
   wards: Ward[];
   onChangeContext: () => void;
-  onSelectCluster: (cluster: Cluster) => void;
-  onSelectWard: (ward: ClusterWard) => void;
+  onSelectCluster: (cluster: Cluster, openDetails: boolean) => void;
+  onSelectWard: (ward: ClusterWard, openDetails: boolean) => void;
 }) {
   const data = useMemo(() => analyzeDataset(wards), [wards]);
   const bestClusters = useMemo(
@@ -201,8 +203,8 @@ export default function DatasetOverview({
                     label={`Scouting score ${score.toFixed(1)}`}
                     key={cluster.cluster_id}
                     ward={ward}
-                    onSelect={() => onSelectWard(ward)}
-                    onSelected={() => onSelectWard(ward)}
+                    onSelect={() => onSelectWard(ward, false)}
+                    onSelected={() => onSelectWard(ward, true)}
                   />
                 );
               }
@@ -214,9 +216,11 @@ export default function DatasetOverview({
                   matchCount={sideData.match_count}
                   metric={`${score.toFixed(1)} score`}
                   placement={sideData.time_placed}
-                  selected={false}
+                  selected={cluster.cluster_id === selectedClusterId}
                   wardCount={`${sideData.amount.toLocaleString()} wards`}
-                  onSelect={() => onSelectCluster(cluster)}
+                  onSelect={() =>
+                    onSelectCluster(cluster, cluster.cluster_id === selectedClusterId)
+                  }
                 />
               );
             })}

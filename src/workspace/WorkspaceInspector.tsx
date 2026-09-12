@@ -155,16 +155,23 @@ export default function WorkspaceInspector() {
               : contextLabels.origin
             : null
         }
+        selectedClusterId={selectedCluster?.cluster_id ?? null}
         side={currentSide}
         showUnclustered={showUnclustered}
         wards={contextWards}
-        onSelectCluster={(cluster) => {
+        onSelectCluster={(cluster, openDetails) => {
           focusCluster(cluster.cluster_id);
-          setInspectorTab("details");
+
+          if (openDetails) {
+            setInspectorTab("details");
+          }
         }}
-        onSelectWard={(ward) => {
+        onSelectWard={(ward, openDetails) => {
           focusWard(ward.id);
-          setInspectorTab("details");
+
+          if (openDetails) {
+            setInspectorTab("details");
+          }
         }}
         onChangeContext={() => {
           if (context.origin) {
