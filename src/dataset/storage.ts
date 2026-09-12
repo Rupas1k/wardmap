@@ -13,6 +13,7 @@ import type { LeagueFreshness } from "../indexedDb";
 import type { ClusterSets, League, Ward } from "../types";
 import { isWorkspaceSettings, numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
+import { loadImportedWardDataset } from "../imported/loadImportedDataset";
 
 export const clusterDataVersion = 13;
 export const wardDataVersion = 5;
@@ -24,6 +25,7 @@ function canonicalDataset(dataset: DatasetSettings): DatasetSettings {
 
   return {
     ...dataset,
+    collectionIds: [...new Set(dataset.collectionIds)].sort(),
     leagueIds: numeric(dataset.leagueIds),
     teamIds: numeric(dataset.teamIds),
     opponentTeamIds: numeric(dataset.opponentTeamIds),
@@ -74,6 +76,21 @@ export async function loadWardDataset(
   forceRefresh: boolean,
   { signal, maximumWards, onProgress }: LoadWardDatasetOptions,
 ): Promise<LoadedWardDataset> {
+  if (dataset.source === "imported") {
+    const mapVersion =
+      leagues.find((league) => dataset.leagueIds.includes(league.id))?.version ??
+      leagues[0]?.version;
+
+    if (mapVersion === undefined) {
+      throw new Error("No supported map version is available");
+    }
+
+    return {
+      wards: await loadImportedWardDataset(dataset, mapVersion, signal),
+      leagueFreshness: null,
+    };
+  }
+
   const normalizedDataset = canonicalDataset(dataset);
   const key = `workspace:data:v${wardDataVersion}:${JSON.stringify(normalizedDataset)}`;
 

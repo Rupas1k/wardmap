@@ -57,6 +57,8 @@ export default function Workspace({
       players,
       opponentPlayers,
       defaultLeague,
+      importedLibrary,
+      importedLibraryReady,
     },
     panels: { controlsOpen, inspectorOpen },
     analysis: {
@@ -92,6 +94,7 @@ export default function Workspace({
   const datasetChanged = JSON.stringify(draftDataset) !== JSON.stringify(loadedDataset);
   const resetDataset = {
     ...defaultDataset,
+    source: draftDataset.source,
     leagueIds: defaultLeague ? [defaultLeague.id] : [],
   };
   const filtersAtDefault = JSON.stringify(draftDataset) === JSON.stringify(resetDataset);
@@ -101,8 +104,21 @@ export default function Workspace({
     clusteringEnabled &&
     !groupByGridCell &&
     !showUnclustered;
+  const selectedImportedMatchIds = new Set(
+    importedLibrary.collections
+      .filter((collection) => draftDataset.collectionIds.includes(collection.id))
+      .flatMap((collection) => collection.matchIds),
+  );
+  const defaultMapVersion = defaultLeague?.version ?? fallbackMapVersion;
+  const importedMatchesAvailable = importedLibrary.matches.some(
+    (match) =>
+      match.mapVersion === defaultMapVersion &&
+      (draftDataset.collectionIds.length === 0 || selectedImportedMatchIds.has(match.matchId)),
+  );
   const datasetValid =
-    draftDataset.leagueIds.length > 0 &&
+    (draftDataset.source === "competitive"
+      ? draftDataset.leagueIds.length > 0
+      : importedLibraryReady && importedMatchesAvailable) &&
     draftDataset.minimumGameMinute <= draftDataset.maximumGameMinute &&
     draftDataset.minimumMatchDuration <= draftDataset.maximumMatchDuration &&
     draftDataset.minimumWardLifetime <= draftDataset.maximumWardLifetime;
@@ -203,6 +219,7 @@ export default function Workspace({
             >
               <DatasetControls
                 leagues={leagues}
+                mapVersion={defaultMapVersion}
                 players={players}
                 opponentPlayers={opponentPlayers}
                 teams={teams}
@@ -302,13 +319,15 @@ export default function Workspace({
               >
                 {loadingData
                   ? "Cancel load"
-                  : !datasetValid
-                    ? "Check filter ranges"
-                    : datasetChanged
-                      ? "Apply filters"
-                      : datasetFreshness.stale
-                        ? "Update dataset"
-                        : "Refresh dataset"}
+                  : draftDataset.source === "imported" && !importedMatchesAvailable
+                    ? "Import matches to continue"
+                    : !datasetValid
+                      ? "Check filter ranges"
+                      : datasetChanged
+                        ? "Apply filters"
+                        : datasetFreshness.stale
+                          ? "Update dataset"
+                          : "Refresh dataset"}
               </button>
             </div>
           </div>

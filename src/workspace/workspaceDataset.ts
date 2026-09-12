@@ -38,6 +38,10 @@ export function datasetFreshness(
     return { stale: false, availableMatches: 0 };
   }
 
+  if (dataset.source === "imported") {
+    return { stale: false, availableMatches: 0 };
+  }
+
   const selected = dataset.leagueIds.flatMap((id) => {
     const league = leagues.find((candidate) => candidate.id === id);
 

@@ -2,12 +2,16 @@ import type { ReactNode, SelectHTMLAttributes } from "react";
 import type { League, Player, Side, Team } from "../types";
 import { numericIds } from "./model";
 import type { DatasetSettings, TeamResult, WardOutcome, WardType } from "./model";
+import type { PlayerPerspective } from "./model";
 import { Field, GameTimeRange, Range, SelectionDialog } from "./DatasetFormControls";
 import type { SelectionOption } from "./DatasetFormControls";
 import { fieldControlClass } from "../components/ui";
+import ImportedMatches from "../imported/ImportedMatches";
+import { useImportedStore } from "../imported/state";
 
 interface DatasetControlsProps {
   leagues: readonly League[];
+  mapVersion: number;
   players: readonly Player[];
   opponentPlayers: readonly Player[];
   teams: readonly Team[];
@@ -69,15 +73,46 @@ function CompactSelect({
 
 export default function DatasetControls({
   leagues,
+  mapVersion,
   players,
   opponentPlayers,
   teams,
   settings,
   setSettings,
 }: DatasetControlsProps) {
+  const importedLibrary = useImportedStore((state) => state.library);
   const update = <K extends keyof DatasetSettings>(key: K, value: DatasetSettings[K]) =>
     setSettings({ ...settings, [key]: value });
-  const sourceAvailable = settings.leagueIds.length > 0;
+  const importedMatches = importedLibrary.matches.filter(
+    (match) => match.mapVersion === mapVersion,
+  );
+  const importedPlayers = [
+    ...new Map(
+      importedMatches.flatMap((match) => match.players).map((player) => [player.id, player]),
+    ).values(),
+  ].map((player) => ({ id: player.id, name: player.name }));
+  const importedTeams = [
+    ...new Map(
+      importedMatches
+        .flatMap((match) => match.wards)
+        .flatMap((ward) =>
+          ward.team_id === null
+            ? []
+            : [
+                [
+                  ward.team_id,
+                  { id: ward.team_id, name: ward.team_name, tag: null, logo_url: null },
+                ],
+              ],
+        ),
+    ).values(),
+  ];
+  const availablePlayers = settings.source === "imported" ? importedPlayers : players;
+  const availableOpponentPlayers =
+    settings.source === "imported" ? importedPlayers : opponentPlayers;
+  const availableTeams = settings.source === "imported" ? importedTeams : teams;
+  const sourceAvailable =
+    settings.source === "imported" ? importedMatches.length > 0 : settings.leagueIds.length > 0;
 
   const leagueOptions = leagues.map((league) => ({
     id: league.id,
@@ -85,7 +120,7 @@ export default function DatasetControls({
     meta: mapLabels[league.version] ?? `Map version ${league.version}`,
   }));
 
-  const teamOptions: SelectionOption[] = teams.map((team) => ({
+  const teamOptions: SelectionOption[] = availableTeams.map((team) => ({
     id: team.id,
     name: team.name ?? `Team ${team.id}`,
     meta: team.tag ?? undefined,
@@ -99,35 +134,116 @@ export default function DatasetControls({
 
   const selectedPlayerIds = numericIds(settings.playerIds).map(Number);
   const selectedOpponentPlayerIds = numericIds(settings.opponentPlayerIds).map(Number);
-  const placingPlayerOptions = playerSelectionOptions(players, selectedPlayerIds);
-  const opponentPlayerOptions = playerSelectionOptions(opponentPlayers, selectedOpponentPlayerIds);
+  const placingPlayerOptions = playerSelectionOptions(availablePlayers, selectedPlayerIds);
+  const opponentPlayerOptions = playerSelectionOptions(
+    availableOpponentPlayers,
+    selectedOpponentPlayerIds,
+  );
 
   return (
     <>
       <div>
-        <SelectionDialog
-          label="Leagues"
-          options={leagueOptions}
-          searchPlaceholder="Search leagues"
-          selectedIds={settings.leagueIds}
-          setSelectedIds={(leagueIds) => {
-            const addedLeagueId = leagueIds.find((id) => !settings.leagueIds.includes(id));
+        <CompactSelect
+          label="Source"
+          value={settings.source}
+          onChange={(event) =>
+            setSettings({
+              ...settings,
+              source: event.target.value as DatasetSettings["source"],
+              collectionIds: [],
+              perspective: "all",
+              playerIds: "",
+              opponentPlayerIds: "",
+              destroyedByPlayerIds: "",
+              teamIds: [],
+              opponentTeamIds: [],
+            })
+          }
+        >
+          <option value="competitive">Competitive</option>
+          <option value="imported">Imported</option>
+        </CompactSelect>
 
-            if (addedLeagueId === undefined) {
-              update("leagueIds", leagueIds);
+        {settings.source === "competitive" ? (
+          <SelectionDialog
+            label="Leagues"
+            options={leagueOptions}
+            searchPlaceholder="Search leagues"
+            selectedIds={settings.leagueIds}
+            setSelectedIds={(leagueIds) => {
+              const addedLeagueId = leagueIds.find((id) => !settings.leagueIds.includes(id));
 
-              return;
-            }
+              if (addedLeagueId === undefined) {
+                update("leagueIds", leagueIds);
 
-            const version = leagues.find((league) => league.id === addedLeagueId)?.version;
-            const compatibleIds = leagueIds.filter(
-              (id) => leagues.find((league) => league.id === id)?.version === version,
-            );
+                return;
+              }
 
-            update("leagueIds", compatibleIds);
-          }}
-          summary={selectionSummary(settings.leagueIds, leagueOptions, "Select leagues")}
-        />
+              const version = leagues.find((league) => league.id === addedLeagueId)?.version;
+              const compatibleIds = leagueIds.filter(
+                (id) => leagues.find((league) => league.id === id)?.version === version,
+              );
+
+              update("leagueIds", compatibleIds);
+            }}
+            summary={selectionSummary(settings.leagueIds, leagueOptions, "Select leagues")}
+          />
+        ) : (
+          <section>
+            <div className="flex items-center justify-between py-2 text-xs">
+              <span className="text-slate-500">Matches</span>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-slate-300">{importedMatches.length}</span>
+                <ImportedMatches mapVersion={mapVersion} />
+              </div>
+            </div>
+            {importedLibrary.collections.length > 0 ? (
+              <div className="border-t border-white/7 py-2">
+                <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Collections</span>
+                  {settings.collectionIds.length === 0 ? <span>All matches</span> : null}
+                </div>
+                {importedLibrary.collections.map((collection) => (
+                  <label
+                    className="flex cursor-pointer items-center justify-between py-1 text-xs text-slate-400"
+                    key={collection.id}
+                  >
+                    <span>{collection.name}</span>
+                    <input
+                      checked={settings.collectionIds.includes(collection.id)}
+                      className="accent-cyan-400"
+                      type="checkbox"
+                      onChange={() =>
+                        update(
+                          "collectionIds",
+                          settings.collectionIds.includes(collection.id)
+                            ? settings.collectionIds.filter((id) => id !== collection.id)
+                            : [...settings.collectionIds, collection.id],
+                        )
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : null}
+            <CompactSelect
+              disabled={importedLibrary.profile.accountIds.length === 0}
+              label="Perspective"
+              title={
+                importedLibrary.profile.accountIds.length === 0
+                  ? "Add your account ID in Import matches first"
+                  : undefined
+              }
+              value={settings.perspective}
+              onChange={(event) => update("perspective", event.target.value as PlayerPerspective)}
+            >
+              <option value="all">All wards</option>
+              <option value="mine">Placed by me</option>
+              <option value="allies">My team</option>
+              <option value="enemies">Enemy team</option>
+            </CompactSelect>
+          </section>
+        )}
         <section className="mt-3 border-t border-white/7 pt-3">
           <h3 className="pb-1 text-[11px] font-medium text-slate-400">Ward placed by</h3>
           <SelectionDialog

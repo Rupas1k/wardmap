@@ -4,9 +4,14 @@ import type { ClusterSets, Side } from "../types";
 export type WardType = "all" | "observer" | "sentry";
 export type WardOutcome = "all" | "survived" | "destroyed";
 export type TeamResult = "all" | "won" | "lost";
+export type DatasetSource = "competitive" | "imported";
+export type PlayerPerspective = "all" | "mine" | "allies" | "enemies";
 
 export interface DatasetSettings {
+  source: DatasetSource;
   leagueIds: number[];
+  collectionIds: string[];
+  perspective: PlayerPerspective;
   side: Side;
   wardType: WardType;
   outcome: WardOutcome;
@@ -37,7 +42,10 @@ export interface WorkspaceSettings {
 }
 
 export const defaultDataset: DatasetSettings = {
+  source: "competitive",
   leagueIds: [],
+  collectionIds: [],
+  perspective: "all",
   side: "all",
   wardType: "observer",
   outcome: "all",
@@ -78,8 +86,14 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
 
   return Boolean(
     dataset &&
+    (dataset.source === undefined || ["competitive", "imported"].includes(dataset.source)) &&
     Array.isArray(dataset.leagueIds) &&
     dataset.leagueIds.every(Number.isFinite) &&
+    (dataset.collectionIds === undefined ||
+      (Array.isArray(dataset.collectionIds) &&
+        dataset.collectionIds.every((id) => typeof id === "string"))) &&
+    (dataset.perspective === undefined ||
+      ["all", "mine", "allies", "enemies"].includes(dataset.perspective)) &&
     ["all", "radiant", "dire"].includes(dataset.side) &&
     ["all", "observer", "sentry"].includes(dataset.wardType) &&
     ["all", "survived", "destroyed"].includes(dataset.outcome) &&
@@ -180,20 +194,13 @@ export function normalizeDataset(
   settings: Partial<DatasetSettings>,
   defaultLeagueId: number,
 ): DatasetSettings {
-  const currentSettings = { ...settings } as Partial<DatasetSettings> & {
-    collectionIds?: unknown;
-    perspective?: unknown;
-    source?: unknown;
-  };
-
-  delete currentSettings.collectionIds;
-  delete currentSettings.perspective;
-  delete currentSettings.source;
-
   return {
     ...defaultDataset,
-    ...currentSettings,
+    ...settings,
+    source: settings.source ?? "competitive",
     leagueIds: settings.leagueIds?.length ? settings.leagueIds : [defaultLeagueId],
+    collectionIds: settings.collectionIds ?? [],
+    perspective: settings.perspective ?? "all",
     teamIds: settings.teamIds ?? [],
     opponentTeamIds: settings.opponentTeamIds ?? [],
     opponentPlayerIds: settings.opponentPlayerIds ?? "",
