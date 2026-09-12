@@ -12,7 +12,10 @@ import useDatasetLoader from "./useDatasetLoader";
 import useSavedViews from "./useSavedViews";
 import useWorkspaceRestore from "./useWorkspaceRestore";
 import useWorkspaceSettings from "./useWorkspaceSettings";
-import { datasetFreshness as calculateDatasetFreshness } from "./workspaceDataset";
+import {
+  datasetFreshness as calculateDatasetFreshness,
+  selectDefaultLeague,
+} from "./workspaceDataset";
 
 export default function useWorkspaceController() {
   const {
@@ -58,7 +61,7 @@ export default function useWorkspaceController() {
     wards,
   });
 
-  const defaultLeague = leagues[0] ?? null;
+  const defaultLeague = selectDefaultLeague(leagues);
   const datasetFreshness = useMemo(
     () => calculateDatasetFreshness(loadedDataset, leagues, loadedLeagueFreshness),
     [leagues, loadedDataset, loadedLeagueFreshness],

@@ -92,7 +92,7 @@ export default function Workspace({
   const datasetChanged = JSON.stringify(draftDataset) !== JSON.stringify(loadedDataset);
   const resetDataset = {
     ...defaultDataset,
-    leagueIds: leagues[0] ? [leagues[0].id] : [],
+    leagueIds: defaultLeague ? [defaultLeague.id] : [],
   };
   const filtersAtDefault = JSON.stringify(draftDataset) === JSON.stringify(resetDataset);
   const filterCount = changedSettingCount(draftDataset, resetDataset);

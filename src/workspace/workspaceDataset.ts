@@ -2,6 +2,12 @@ import type { LeagueFreshness } from "../indexedDb";
 import type { DatasetSettings } from "../dataset/model";
 import type { League } from "../types";
 
+const defaultLeagueId = 19719;
+
+export function selectDefaultLeague(leagues: League[]): League | null {
+  return leagues.find((league) => league.id === defaultLeagueId) ?? leagues[0] ?? null;
+}
+
 export function compatibleLeagueDataset(
   dataset: DatasetSettings,
   leagues: League[],
