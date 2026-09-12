@@ -9,5 +9,6 @@ interface InspectorTabDefinition {
 export const inspectorTabs: readonly InspectorTabDefinition[] = [
   { id: "overview", label: "Overview", requiresSelection: false },
   { id: "locations", label: "Context", requiresSelection: false },
+  { id: "sentries", label: "Sentries", requiresSelection: false },
   { id: "details", label: "Location Details", requiresSelection: true },
 ];

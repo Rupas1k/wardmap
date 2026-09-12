@@ -74,7 +74,7 @@ function isSharedView(value: unknown): value is SharedView {
     markerSize.maximum <= 20 &&
     markerSize.minimum <= markerSize.maximum &&
     inspector &&
-    ["overview", "locations", "details"].includes(inspector.tab) &&
+    ["overview", "locations", "sentries", "details"].includes(inspector.tab) &&
     (context === null ||
       (Number.isFinite(context?.id) && ["player", "match"].includes(context?.kind ?? ""))),
   );

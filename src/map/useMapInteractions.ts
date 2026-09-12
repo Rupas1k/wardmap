@@ -1,6 +1,7 @@
 import type MapBrowserEvent from "ol/MapBrowserEvent";
 import { useEffect, useRef, useState } from "react";
 import { contextIds } from "../state/analysisContext";
+import { useSentryStore } from "../sentry/state";
 import type { AnalysisScope } from "../state/analysisContext";
 import { useMapStore } from "../state/mapState";
 import type { InspectorTab } from "../state/workspaceState";
@@ -60,6 +61,12 @@ export default function useMapInteractions({
       const { selectedClusterId: clusterId, selectedWardId: wardId } = mapState;
       const workspaceState = useWorkspaceStore.getState();
       const currentContext = workspaceState.analysisContext;
+
+      if (workspaceState.inspectorTab === "sentries") {
+        useSentryStore.getState().setSelectedRank(null);
+
+        return;
+      }
 
       if (wardId !== null) {
         const selectedFeature = (layers.wards.getSource()!.getFeatures() as ClusterFeature[]).find(
@@ -205,6 +212,32 @@ export default function useMapInteractions({
     }
 
     function handleClick(event: MapBrowserEvent) {
+      let sentryRank: number | null = null;
+
+      map.forEachFeatureAtPixel(
+        event.pixel,
+        (candidate) => {
+          const rank = candidate.get("rank") as number | undefined;
+
+          if (rank === undefined) {
+            return false;
+          }
+
+          sentryRank = rank;
+
+          return true;
+        },
+        { hitTolerance: 8, layerFilter: (layer) => layer === layers.sentryPlan },
+      );
+
+      if (sentryRank !== null) {
+        useSentryStore.getState().setSelectedRank(sentryRank);
+        useWorkspaceStore.getState().setInspectorOpen(true);
+        setInspectorTab("sentries");
+
+        return;
+      }
+
       const wardFeature = wardAt(event);
 
       if (wardFeature && selectWard(wardFeature, event)) {
@@ -225,6 +258,30 @@ export default function useMapInteractions({
         setHover(null);
         setWardHover(null);
         targetElement.style.cursor = "";
+
+        return;
+      }
+
+      let sentryFeature = false;
+
+      map.forEachFeatureAtPixel(
+        event.pixel,
+        (candidate) => {
+          if (candidate.get("rank") === undefined) {
+            return false;
+          }
+
+          sentryFeature = true;
+
+          return true;
+        },
+        { hitTolerance: 8, layerFilter: (layer) => layer === layers.sentryPlan },
+      );
+
+      if (sentryFeature) {
+        setHover(null);
+        setWardHover(null);
+        targetElement.style.cursor = "pointer";
 
         return;
       }
@@ -319,6 +376,7 @@ export default function useMapInteractions({
       layers.vision.getSource()!.clear(true);
       layers.wards.getSource()!.clear(true);
       layers.wardDetails.getSource()!.clear(true);
+      layers.sentryPlan.getSource()!.clear(true);
       clearSelection();
     };
   }, [

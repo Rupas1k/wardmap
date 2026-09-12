@@ -1,6 +1,6 @@
 import { Tile as TileLayer, Vector as VectorLayer } from "ol/layer";
 import { Vector as VectorSource, XYZ } from "ol/source";
-import { Circle, Fill, Stroke, Style } from "ol/style";
+import { Circle, Fill, Stroke, Style, Text } from "ol/style";
 import type { WardFeatureData } from "./features";
 import { pixelProjection } from "./projections";
 import mainStyle from "./styles";
@@ -33,6 +33,33 @@ const wardDetailStyles = {
   selectedSurvived: [selectedWardHalo, wardPointStyle("#34d399", true)],
   survived: wardPointStyle("#34d399", false),
 };
+
+const sentryCoverageStyle = new Style({
+  fill: new Fill({ color: "rgba(56, 189, 248, 0.06)" }),
+  stroke: new Stroke({ color: "rgba(125, 211, 252, 0.3)", width: 1 }),
+  zIndex: 30,
+});
+const selectedSentryCoverageStyle = new Style({
+  fill: new Fill({ color: "rgba(56, 189, 248, 0.1)" }),
+  stroke: new Stroke({ color: "rgba(165, 243, 252, 0.85)", width: 1.75 }),
+  zIndex: 32,
+});
+
+function sentryPlacementStyle(rank: number, selected: boolean): Style {
+  return new Style({
+    image: new Circle({
+      radius: selected ? 11 : 9,
+      fill: new Fill({ color: selected ? "#0891b2" : "#155e75" }),
+      stroke: new Stroke({ color: selected ? "#ecfeff" : "#a5f3fc", width: selected ? 2.5 : 1.5 }),
+    }),
+    text: new Text({
+      text: String(rank),
+      fill: new Fill({ color: "#ecfeff" }),
+      font: "600 10px ui-sans-serif",
+    }),
+    zIndex: selected ? 34 : 31,
+  });
+}
 
 const layers = {
   tiles: new TileLayer({
@@ -70,6 +97,18 @@ const layers = {
             : wardDetailStyles.survived;
     },
   }),
+  sentryPlan: new VectorLayer({
+    source: new VectorSource(),
+    style: (feature) => {
+      const selected = Boolean(feature.get("selected"));
+
+      return feature.get("coverage")
+        ? selected
+          ? selectedSentryCoverageStyle
+          : sentryCoverageStyle
+        : sentryPlacementStyle(Number(feature.get("rank")), selected);
+    },
+  }),
   trees: new VectorLayer({
     source: new VectorSource(),
     style: new Style({
@@ -85,6 +124,7 @@ export const overlayLayers = [
   layers.vision,
   layers.wards,
   layers.wardDetails,
+  layers.sentryPlan,
   layers.trees,
 ];
 

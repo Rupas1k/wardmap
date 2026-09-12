@@ -2,10 +2,17 @@ import { forwardRef, useImperativeHandle, useMemo } from "react";
 import { contextIds } from "../state/analysisContext";
 import { useMapViewState } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
+import { useSentryStore } from "../sentry/state";
 import type { ClusterSets } from "../types";
 import exportMapImage from "./exportMapImage";
 import { ClusterTooltip, WardTooltip } from "./MapTooltips";
-import { useClusterLayer, useMapFocus, useVisionLayer, useWardDetailLayer } from "./useMapLayers";
+import {
+  useClusterLayer,
+  useMapFocus,
+  useSentryPlanLayer,
+  useVisionLayer,
+  useWardDetailLayer,
+} from "./useMapLayers";
 import useMapInteractions from "./useMapInteractions";
 import { useElevationGrid, useMapCamera } from "./useMapRuntime";
 
@@ -40,9 +47,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     setAverageValues,
   } = useMapViewState();
   const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
+  const inspectorOpen = useWorkspaceStore((state) => state.inspectorOpen);
+  const inspectorTab = useWorkspaceStore((state) => state.inspectorTab);
   const context = useWorkspaceStore((state) => state.analysisContext);
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
+  const sentryPlacements = useSentryStore((state) => state.placements);
+  const selectedSentryRank = useSentryStore((state) => state.selectedRank);
+  const showAllSentryRanges = useSentryStore((state) => state.showAllRanges);
 
   const { error, loading } = useElevationGrid(mapVersion);
   const { hover, mapElement, mapInstance, wardHover } = useMapInteractions({
@@ -110,6 +122,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     selectedWardId,
   });
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
+  useSentryPlanLayer(
+    sentryPlacements,
+    selectedSentryRank,
+    showAllSentryRanges,
+    inspectorOpen && inspectorTab === "sentries",
+  );
   useVisionLayer({ elevations, selectedCluster, selectedWardId, visionTechnique });
 
   return (

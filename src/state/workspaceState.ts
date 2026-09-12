@@ -8,7 +8,7 @@ import { emptyAnalysisContext, sameScope } from "./analysisContext";
 import type { AnalysisContext, AnalysisScope, ContextStatus } from "./analysisContext";
 import type { WardLoadProgress } from "../api/fetchWards";
 
-export type InspectorTab = "overview" | "locations" | "details";
+export type InspectorTab = "overview" | "locations" | "sentries" | "details";
 export type InspectorReturnTab = Exclude<InspectorTab, "details">;
 export type LocationSort =
   | "wards"

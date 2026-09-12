@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { BsGithub, BsLayoutSidebarInsetReverse, BsSliders } from "react-icons/bs";
 import AccessKey from "../components/AccessKey";
 import DatasetControls from "../dataset/DatasetControls";
@@ -17,6 +17,7 @@ import { sharedViewUrl } from "../savedViews/sharedView";
 import type { SharedView } from "../savedViews/sharedView";
 import type { StoredAnalysis } from "../indexedDb";
 import type { WorkspaceSettings } from "../dataset/model";
+import { useSentryStore } from "../sentry/state";
 import { useWorkspaceStore } from "../state/workspaceState";
 import { fallbackMapVersion } from "../map/constants";
 
@@ -43,6 +44,7 @@ export default function Workspace({
   const mapView = useRef<MapViewHandle>(null);
   const [controlTab, setControlTab] = useState<ControlTab>("filters");
   const currentSide = useMapStore((state) => state.currentSide);
+  const clearSentryPlan = useSentryStore((state) => state.clearPlan);
   const setWorkspaceError = useWorkspaceStore((state) => state.setError);
   const {
     data: {
@@ -113,6 +115,10 @@ export default function Workspace({
       .sort((left, right) => right.version - left.version)[0] ?? defaultLeague;
   const mapVersion = mapLeague?.version ?? fallbackMapVersion;
   const displayedError = leagueError ?? error;
+
+  useEffect(() => {
+    clearSentryPlan();
+  }, [clearSentryPlan, wards]);
 
   async function shareView(savedView: StoredAnalysis<WorkspaceSettings>) {
     const sharedView: SharedView = {

@@ -1,4 +1,5 @@
 import Feature from "ol/Feature";
+import CircleGeometry from "ol/geom/Circle";
 import Point from "ol/geom/Point";
 import { useEffect } from "react";
 import type { MapFocusRequest, VisionTechnique } from "../state/mapState";
@@ -10,6 +11,51 @@ import type { ClusterFeature } from "./features";
 import { getClusterFeatureData } from "./features";
 import layers from "./layers";
 import { unitToPixel } from "./projections";
+import type { SentryPlacement } from "../sentry/planner";
+
+export function useSentryPlanLayer(
+  placements: SentryPlacement[],
+  selectedRank: number | null,
+  showAllRanges: boolean,
+  visible: boolean,
+) {
+  useEffect(() => {
+    layers.sentryPlan.setVisible(visible);
+  }, [visible]);
+
+  useEffect(() => {
+    const source = layers.sentryPlan.getSource()!;
+    const pixelRadius = (sentryDetectionRadius / mapSize.units.x) * mapSize.pixels.x;
+
+    source.clear(true);
+
+    for (const placement of placements) {
+      const center = unitToPixel([placement.x, placement.y]);
+      const selected = placement.rank === selectedRank;
+
+      if (selected || showAllRanges) {
+        source.addFeature(
+          new Feature({
+            geometry: new CircleGeometry(center, pixelRadius),
+            coverage: true,
+            selected,
+            sentryRank: placement.rank,
+          }),
+        );
+      }
+
+      source.addFeature(
+        new Feature({
+          geometry: new Point(center),
+          rank: placement.rank,
+          selected,
+          sentryRank: placement.rank,
+        }),
+      );
+    }
+  }, [placements, selectedRank, showAllRanges]);
+}
+
 export function useClusterLayer({
   clearMapLocationSelection,
   clusterSets,
