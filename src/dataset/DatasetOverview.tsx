@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { EmptyState } from "../components/ui";
 import { InspectorSection, MetricRows } from "../inspector/InspectorPrimitives";
 import LineChart, { timelineLabels } from "../inspector/LineChart";
+import LocationRow from "../inspector/LocationRow";
+import WardRow from "../inspector/WardRow";
 import { analyzeDataset } from "../metrics/analyzeDataset";
 import { formatGameTime } from "../metrics/wardMetrics";
 import type { Cluster, ClusterWard, Side, Ward } from "../types";
@@ -193,30 +195,29 @@ export default function DatasetOverview({
               );
               const ward = sideData.amount === 1 ? (clusterWards[0] ?? null) : null;
 
+              if (ward) {
+                return (
+                  <WardRow
+                    label={`Scouting score ${score.toFixed(1)}`}
+                    key={cluster.cluster_id}
+                    ward={ward}
+                    onSelect={() => onSelectWard(ward)}
+                    onSelected={() => onSelectWard(ward)}
+                  />
+                );
+              }
+
               return (
-                <button
-                  className="grid w-full grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 py-2 text-left transition hover:bg-white/4"
+                <LocationRow
                   key={cluster.cluster_id}
-                  type="button"
-                  onClick={() => (ward ? onSelectWard(ward) : onSelectCluster(cluster))}
-                >
-                  <span className="text-center font-mono text-[10px] text-slate-600">
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-xs font-medium text-slate-300">
-                      {ward
-                        ? (ward.player_name ?? "Unknown player")
-                        : `${sideData.amount.toLocaleString()} wards`}
-                    </span>
-                    <span className="mt-1 block truncate text-[10px] text-slate-600">
-                      {ward
-                        ? `Match ${ward.match_id} · placed ${formatGameTime(ward.time_placed)}`
-                        : `${sideData.match_count.toLocaleString()} ${sideData.match_count === 1 ? "match" : "matches"} · mean placement ${formatGameTime(sideData.time_placed)}`}
-                    </span>
-                  </span>
-                  <span className="font-mono text-xs text-slate-200">{score.toFixed(1)}</span>
-                </button>
+                  label={`Location ${index + 1}`}
+                  matchCount={sideData.match_count}
+                  metric={`${score.toFixed(1)} score`}
+                  placement={sideData.time_placed}
+                  selected={false}
+                  wardCount={`${sideData.amount.toLocaleString()} wards`}
+                  onSelect={() => onSelectCluster(cluster)}
+                />
               );
             })}
           </div>

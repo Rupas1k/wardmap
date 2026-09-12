@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { formatGameTime } from "../metrics/wardMetrics";
 import {
   compareLocationGroups,
   compareLocations,
@@ -12,8 +11,9 @@ import { useMapStore } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
 import type { LocationSort, SortDirection } from "../state/workspaceState";
 import type { Cluster, Side } from "../types";
-import { EmptyState, formControlClass, selectableRowClass } from "../components/ui";
+import { EmptyState, formControlClass } from "../components/ui";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
+import LocationRow from "./LocationRow";
 import WardRow from "./WardRow";
 import { contextIds, sameScope } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
@@ -174,32 +174,20 @@ export default function LocationList({
     }
 
     return (
-      <button
-        className={`w-full py-2 text-left ${selectableRowClass(selected)}`}
+      <LocationRow
         key={cluster.cluster_id}
-        type="button"
-        onClick={() => selectLocation(entry, selected)}
-      >
-        <span className="block min-w-0">
-          <span className="flex items-baseline justify-between gap-3">
-            <span className={selected ? "text-xs text-white" : "text-xs text-slate-300"}>
-              {`Location ${locationNumber}`}
-            </span>
-            <span className="font-mono text-[11px] text-slate-400">
-              {wardCount === data.amount
-                ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
-                : `${wardCount.toLocaleString()} of ${data.amount.toLocaleString()} wards`}
-            </span>
-          </span>
-          <span className="mt-1 grid grid-cols-3 gap-2 text-[10px] text-slate-600">
-            <span>
-              {data.match_count.toLocaleString()} {data.match_count === 1 ? "match" : "matches"}
-            </span>
-            <span className="text-center">{survivalRate.toFixed(0)}% not dewarded</span>
-            <span className="text-right">{formatGameTime(data.time_placed)}</span>
-          </span>
-        </span>
-      </button>
+        label={`Location ${locationNumber}`}
+        matchCount={data.match_count}
+        metric={`${survivalRate.toFixed(0)}% not dewarded`}
+        placement={data.time_placed}
+        selected={selected}
+        wardCount={
+          wardCount === data.amount
+            ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
+            : `${wardCount.toLocaleString()} of ${data.amount.toLocaleString()} wards`
+        }
+        onSelect={() => selectLocation(entry, selected)}
+      />
     );
   }
 
