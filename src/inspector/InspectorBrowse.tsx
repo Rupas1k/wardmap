@@ -49,7 +49,7 @@ export function DisclosureRow({
       {expanded ? <BsChevronDown /> : <BsChevronRight className="text-slate-600" />}
       <span className="min-w-0">
         <span className="block truncate text-xs">{label}</span>
-        {meta ? <span className="block truncate text-[10px] text-slate-600">{meta}</span> : null}
+        {meta ? <span className="block truncate text-xs text-slate-500">{meta}</span> : null}
       </span>
       {trailing}
     </button>

@@ -30,9 +30,9 @@ export default function LocationRow({
           <span className={selected ? "text-xs text-white" : "text-xs text-slate-300"}>
             {label}
           </span>
-          <span className="font-mono text-[11px] text-slate-400">{wardCount}</span>
+          <span className="text-xs text-slate-400 tabular-nums">{wardCount}</span>
         </span>
-        <span className="mt-1 grid grid-cols-3 gap-2 text-[10px] text-slate-600">
+        <span className="mt-1 grid grid-cols-3 gap-2 text-xs text-slate-500 tabular-nums">
           <span>
             {matchCount.toLocaleString()} {matchCount === 1 ? "match" : "matches"}
           </span>

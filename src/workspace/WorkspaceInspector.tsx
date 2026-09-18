@@ -126,7 +126,7 @@ export default function WorkspaceInspector() {
               ? "Location summary"
               : inspectorReturnTab === "overview"
                 ? overviewTabLabel
-                : "Context"}
+                : "Browse"}
           </button>
           {(selectedSideData?.amount ?? 0) > 1 ? (
             <button
@@ -219,19 +219,21 @@ export default function WorkspaceInspector() {
             <span className="shrink-0">Showing:</span>
             {contextLabels ? (
               <>
-                <button
-                  className={`min-w-0 truncate ${contextLabels.refinement ? "transition hover:text-slate-200" : "text-slate-300"}`}
-                  type="button"
-                  onClick={() => {
-                    if (context.refinement) {
+                {contextLabels.refinement ? (
+                  <button
+                    className="min-w-0 truncate transition hover:text-slate-200"
+                    type="button"
+                    onClick={() => {
                       clearWardSelection();
                       clearExpandedClusters();
                       setContextRefinement(null);
-                    }
-                  }}
-                >
-                  {contextLabels.origin}
-                </button>
+                    }}
+                  >
+                    {contextLabels.origin}
+                  </button>
+                ) : (
+                  <span className="min-w-0 truncate text-slate-300">{contextLabels.origin}</span>
+                )}
                 {contextLabels.refinement ? (
                   <>
                     <span>/</span>
@@ -258,9 +260,6 @@ export default function WorkspaceInspector() {
                 >
                   ×
                 </button>
-                {context.status === "clustering" ? (
-                  <span className="shrink-0 text-slate-600">Clustering…</span>
-                ) : null}
               </>
             ) : (
               <span className="truncate text-slate-300">All wards</span>
