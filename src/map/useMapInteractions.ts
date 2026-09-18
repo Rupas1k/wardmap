@@ -254,8 +254,8 @@ export default function useMapInteractions({
         return;
       }
 
-      const tooltipWidth = 224;
-      const tooltipHeight = 190;
+      const tooltipWidth = 256;
+      const tooltipHeight = 260;
       const [pointerX = 0, pointerY = 0] = event.pixel;
       const x = Math.min(pointerX + 14, Math.max(8, targetElement.clientWidth - tooltipWidth - 8));
       const y =
