@@ -2,6 +2,7 @@ import { BsChevronLeft, BsGeoAlt, BsGeoAltFill } from "react-icons/bs";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWardEvidence } from "../api/fetchWardEvidence";
 import { wardOutcomeTextClass } from "../colors";
+import { formatHeroName } from "../heroes";
 import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
 import { groupWardsByMatch, groupWardsByPlayer, sortWards } from "../metrics/groupWards";
 import { useMapStore } from "../state/mapState";
@@ -58,20 +59,6 @@ function accountId(steamId: string): number | null {
   } catch {
     return null;
   }
-}
-
-function heroName(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-
-  return value
-    .replace(/^CDOTA_Unit_Hero_/, "")
-    .replace(/^npc_dota_hero_/, "")
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatCount(value: number): string {
@@ -250,7 +237,7 @@ function WardReport({
                       const playerName =
                         event.target_player_name ??
                         (targetId === null ? null : playerNames.get(targetId));
-                      const targetHero = heroName(event.target_hero_name);
+                      const targetHero = formatHeroName(event.target_hero_name);
                       const combinedRoutes = event.segments
                         .map((segment) => segment.route.map((point) => point.position))
                         .filter((route) => route.length > 1);
