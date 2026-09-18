@@ -157,6 +157,22 @@ async function clusteredLocations(
   return mergeTypeResults(wards, results);
 }
 
+function applyAutomaticFallback(
+  wards: Ward[],
+  settings: ClusteringSettings,
+  result: ClusterResult,
+): ClusterResult {
+  if (
+    settings.algorithm !== "auto" ||
+    wards.length === 0 ||
+    result.clusters.some((cluster) => cluster.unclustered !== true)
+  ) {
+    return result;
+  }
+
+  return unclusteredLocations(wards, false);
+}
+
 export default async function clusterWards(
   wards: Ward[],
   settings: ClusteringSettings,
@@ -190,10 +206,14 @@ export default async function clusterWards(
     clusteredLocations(dire, settings, signal),
   ]);
 
+  const automaticAll = applyAutomaticFallback(wards, settings, all);
+  const automaticRadiant = applyAutomaticFallback(radiant, settings, radiantClusters);
+  const automaticDire = applyAutomaticFallback(dire, settings, direClusters);
+
   return {
-    all: all.clusters,
-    radiant: radiantClusters.clusters,
-    dire: direClusters.clusters,
+    all: automaticAll.clusters,
+    radiant: automaticRadiant.clusters,
+    dire: automaticDire.clusters,
     average: all.average,
   };
 }
