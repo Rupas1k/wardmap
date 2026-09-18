@@ -158,11 +158,11 @@ export default function Workspace({
 
   const layoutClass =
     controlsOpen && inspectorOpen
-      ? "xl:grid-cols-[17rem_minmax(0,1fr)_24rem]"
+      ? "xl:grid-cols-[17rem_minmax(0,1fr)_26rem]"
       : controlsOpen
         ? "xl:grid-cols-[17rem_minmax(0,1fr)]"
         : inspectorOpen
-          ? "xl:grid-cols-[minmax(0,1fr)_24rem]"
+          ? "xl:grid-cols-[minmax(0,1fr)_26rem]"
           : "xl:grid-cols-1";
 
   return (
