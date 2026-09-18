@@ -48,7 +48,7 @@ export default function SavedViewControls({
                     </button>
                     <ShareViewButton share={() => share(view)} />
                     <button
-                      className="px-2 text-[10px] text-slate-500 hover:text-white"
+                      className="px-2 text-xs text-slate-500 hover:text-white"
                       onClick={() => void rename(view)}
                     >
                       Rename
@@ -77,7 +77,7 @@ function ShareViewButton({ share }: { share: () => Promise<void> }) {
 
   return (
     <button
-      className="px-2 text-[10px] text-slate-500 hover:text-white"
+      className="px-2 text-xs text-slate-500 hover:text-white"
       type="button"
       onClick={() => {
         void share().then(() => {

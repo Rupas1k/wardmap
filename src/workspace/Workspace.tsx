@@ -258,11 +258,11 @@ export default function Workspace({
                 ) : null}
               </div>
             ) : !ready ? (
-              <p className="mb-2 text-[10px] text-slate-500">Restoring workspace…</p>
+              <p className="mb-2 text-xs text-slate-500">Restoring workspace…</p>
             ) : null}
 
             {datasetChanged || datasetFreshness.stale ? (
-              <p className="mb-2 text-[10px] text-amber-300">
+              <p className="mb-2 text-xs text-amber-300">
                 {datasetChanged
                   ? "Map still shows the previous dataset"
                   : `${datasetFreshness.availableMatches.toLocaleString()} parsed matches available`}
@@ -270,7 +270,7 @@ export default function Workspace({
             ) : null}
 
             {loadingData ? (
-              <p className="mb-2 text-[10px] text-cyan-300">
+              <p className="mb-2 text-xs text-cyan-300">
                 {dataLoadProgress
                   ? `Loaded ${dataLoadProgress.loaded.toLocaleString()} of ${dataLoadProgress.total.toLocaleString()} wards`
                   : "Checking dataset size…"}

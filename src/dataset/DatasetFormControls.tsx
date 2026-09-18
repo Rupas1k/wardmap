@@ -145,7 +145,7 @@ export function SelectionDialog({
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block text-[11px] text-slate-500">
+    <label className="block text-xs text-slate-500">
       {label}
       {children}
     </label>
@@ -226,7 +226,7 @@ export function GameTimeRange({
 }) {
   return (
     <fieldset className="mt-3">
-      <legend className="text-[11px] text-slate-500">{label}</legend>
+      <legend className="text-xs text-slate-500">{label}</legend>
       <div className="grid grid-cols-2 gap-2">
         <GameTimeInput
           label={`${label} minimum`}
@@ -263,7 +263,7 @@ export function Range({
 }) {
   return (
     <fieldset className="mt-3">
-      <legend className="text-[11px] text-slate-500">{label}</legend>
+      <legend className="text-xs text-slate-500">{label}</legend>
       <div className="grid grid-cols-2 gap-2">
         <input
           aria-label={`${label} minimum`}
@@ -310,7 +310,7 @@ export function OptionalRange({
 
   return (
     <fieldset>
-      <legend className="text-[11px] text-slate-500">{label}</legend>
+      <legend className="text-xs text-slate-500">{label}</legend>
       <div className="grid grid-cols-2 gap-2">
         <input
           aria-label={`${label} minimum`}
