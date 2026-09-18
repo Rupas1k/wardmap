@@ -101,11 +101,25 @@ export default function Workspace({
     clusteringEnabled &&
     !groupByGridCell &&
     !showUnclustered;
+  const visionRanges: [number | null, number | null][] = [
+    [draftDataset.minimumEnemyHeroVision, draftDataset.maximumEnemyHeroVision],
+    [draftDataset.minimumUniqueEnemyHeroVision, draftDataset.maximumUniqueEnemyHeroVision],
+    [draftDataset.minimumHeroesSpotted, draftDataset.maximumHeroesSpotted],
+    [draftDataset.minimumRevealEvents, draftDataset.maximumRevealEvents],
+    [draftDataset.minimumUniqueRevealEvents, draftDataset.maximumUniqueRevealEvents],
+    [draftDataset.minimumScoutingScore, draftDataset.maximumScoutingScore],
+    [draftDataset.minimumScoutingTracking, draftDataset.maximumScoutingTracking],
+    [draftDataset.minimumScoutingDiscovery, draftDataset.maximumScoutingDiscovery],
+  ];
+  const visionRangesValid = visionRanges.every(
+    ([minimum, maximum]) => minimum === null || maximum === null || minimum <= maximum,
+  );
   const datasetValid =
     draftDataset.leagueIds.length > 0 &&
     draftDataset.minimumGameMinute <= draftDataset.maximumGameMinute &&
     draftDataset.minimumMatchDuration <= draftDataset.maximumMatchDuration &&
-    draftDataset.minimumWardLifetime <= draftDataset.maximumWardLifetime;
+    draftDataset.minimumWardLifetime <= draftDataset.maximumWardLifetime &&
+    visionRangesValid;
 
   const mapLeague =
     leagues
@@ -144,11 +158,11 @@ export default function Workspace({
 
   const layoutClass =
     controlsOpen && inspectorOpen
-      ? "xl:grid-cols-[17rem_minmax(0,1fr)_24rem]"
+      ? "xl:grid-cols-[17rem_minmax(0,1fr)_26rem]"
       : controlsOpen
         ? "xl:grid-cols-[17rem_minmax(0,1fr)]"
         : inspectorOpen
-          ? "xl:grid-cols-[minmax(0,1fr)_24rem]"
+          ? "xl:grid-cols-[minmax(0,1fr)_26rem]"
           : "xl:grid-cols-1";
 
   return (

@@ -1,4 +1,13 @@
-import type { League, Player, Team, Ward } from "../types";
+import type {
+  League,
+  Player,
+  Team,
+  Ward,
+  WardEvidence,
+  WardMeasurement,
+  WardPopulation,
+  WardSighting,
+} from "../types";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -50,6 +59,125 @@ function nullableBoolean(value: unknown, field: string): boolean | null {
   return value === null ? null : boolean(value, field);
 }
 
+function optionalNullableBoolean(value: unknown, field: string): boolean | null {
+  return value === undefined ? null : nullableBoolean(value, field);
+}
+
+function parseSighting(value: unknown): WardSighting {
+  const event = fields(value, "sighting");
+  const legacySteamId = event.raw("target_player");
+  const steamId = event.raw("target_steam_id") ?? legacySteamId ?? null;
+  const playerName = event.raw("target_player_name") ?? null;
+  const heroName = event.raw("target_hero_name") ?? null;
+  const parsePosition = (value: unknown, context: string) => {
+    if (value == null) {
+      return null;
+    }
+
+    const position = array(value, context).map((coordinate) =>
+      number(coordinate, `${context} coordinate`),
+    );
+
+    if (position.length !== 3) {
+      throw new Error(`Invalid ${context}`);
+    }
+
+    return position as [number, number, number];
+  };
+
+  const parseRoute = (value: unknown) =>
+    array(value, "sighting route").map((value) => {
+      const point = fields(value, "sighting route point");
+      const position = parsePosition(point.raw("position"), "route position");
+
+      if (position === null) {
+        throw new Error("Invalid sighting route position");
+      }
+
+      return { time: point.number("time"), position };
+    });
+  const segments = array(event.raw("segments"), "sighting segments").map((value) => {
+    const segment = fields(value, "sighting segment");
+
+    return {
+      time: segment.number("time"),
+      gap_seconds: segment.optionalNullableNumber("gap_seconds"),
+      start_position: parsePosition(segment.raw("start_position"), "segment start position"),
+      visible_seconds: segment.optionalNullableNumber("visible_seconds"),
+      lost_position: parsePosition(segment.raw("lost_position"), "segment lost position"),
+      route: parseRoute(segment.raw("route") ?? []),
+    };
+  });
+
+  if (steamId !== null && typeof steamId !== "string") {
+    throw new Error("Invalid sighting Steam ID");
+  }
+  if (playerName !== null && typeof playerName !== "string") {
+    throw new Error("Invalid sighting player name");
+  }
+  if (heroName !== null && typeof heroName !== "string") {
+    throw new Error("Invalid sighting hero evidence");
+  }
+
+  return {
+    sample_tick: event.optionalNullableNumber("sample_tick"),
+    time: event.number("time"),
+    target_player_slot: event.optionalNullableNumber("target_player_slot"),
+    target_steam_id: steamId,
+    target_player_name: playerName,
+    target_hero_name: heroName,
+    target_is_radiant: event.optionalNullableBoolean("target_is_radiant"),
+    target_position: parsePosition(event.raw("target_position"), "target position"),
+    hidden_seconds: event.number("hidden_seconds"),
+    segments,
+    credit: event.number("credit"),
+    observer_handles:
+      event.raw("observer_handles") == null
+        ? []
+        : array(event.raw("observer_handles"), "observer handles").map((handle) =>
+            number(handle, "observer handle"),
+          ),
+  };
+}
+
+function parseMeasurement(value: unknown): WardMeasurement | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const measurement = fields(value, "ward.measurement");
+  const outcome = measurement.raw("outcome");
+
+  if (
+    typeof outcome !== "string" ||
+    !["dewarded", "allied_removed", "expired", "match_ended", "replay_ended", "unknown"].includes(
+      outcome,
+    )
+  ) {
+    throw new Error("Invalid API field: ward.measurement.outcome");
+  }
+
+  return {
+    version: measurement.number("version"),
+    revision: measurement.optionalNullableNumber("revision") ?? 0,
+    sightings:
+      measurement.raw("sightings") == null
+        ? []
+        : array(measurement.raw("sightings"), "sightings").map(parseSighting),
+    vision_complete: measurement.boolean("vision_complete"),
+    placed_at_seconds: measurement.number("placed_at_seconds"),
+    ended_at_seconds: measurement.number("ended_at_seconds"),
+    outcome: outcome as WardMeasurement["outcome"],
+    outcome_reason: String(measurement.raw("outcome_reason")),
+    added_vision_seconds: measurement.nullableNumber("added_vision_seconds"),
+    fresh_sightings: measurement.nullableNumber("fresh_sightings"),
+    fresh_sighting_threshold_seconds: measurement.number("fresh_sighting_threshold_seconds"),
+    vision_possible_seconds: measurement.number("vision_possible_seconds"),
+    vision_measured_seconds: measurement.number("vision_measured_seconds"),
+    vision_coverage: measurement.nullableNumber("vision_coverage"),
+  };
+}
+
 function dataArray(payload: unknown, context: string): unknown[] {
   return array(record(payload, context).data, context);
 }
@@ -69,6 +197,18 @@ function fields(value: unknown, context: string) {
       data[name] === undefined ? null : nullableNumber(data[name], field(name)),
     optionalNullableString: (name: string) =>
       data[name] === undefined ? null : nullableString(data[name], field(name)),
+    optionalNullableBoolean: (name: string) => optionalNullableBoolean(data[name], field(name)),
+  };
+}
+
+export function parseWardEvidence(payload: unknown): WardEvidence {
+  const evidence = fields(payload, "ward evidence");
+
+  return {
+    ward_id: evidence.number("ward_id"),
+    measurement_version: evidence.optionalNullableNumber("measurement_version"),
+    measurement_revision: evidence.optionalNullableNumber("measurement_revision"),
+    sightings: array(evidence.raw("sightings"), "ward evidence sightings").map(parseSighting),
   };
 }
 
@@ -135,6 +275,15 @@ export function parseWard(value: unknown): Ward {
     heroes_spotted: ward.optionalNullableNumber("heroes_spotted"),
     hero_reveal_events: ward.optionalNullableNumber("hero_reveal_events"),
     unique_hero_reveal_events: ward.optionalNullableNumber("unique_hero_reveal_events"),
+    scouting_score: ward.optionalNullableNumber("scouting_score"),
+    scouting_tracking_seconds: ward.optionalNullableNumber("scouting_tracking_seconds"),
+    scouting_discovery_seconds: ward.optionalNullableNumber("scouting_discovery_seconds"),
+    scouting_version: ward.optionalNullableNumber("scouting_version"),
+    scouting_tau_seconds: ward.optionalNullableNumber("scouting_tau_seconds"),
+    scouting_complete: ward.optionalNullableBoolean("scouting_complete"),
+    measurement: parseMeasurement(ward.raw("measurement")),
+    game_version: ward.optionalNullableNumber("game_version"),
+    map_asset_version: ward.optionalNullableNumber("map_asset_version"),
     x_pos: ward.number("x_pos"),
     y_pos: ward.number("y_pos"),
     z_pos: ward.number("z_pos"),
@@ -160,6 +309,16 @@ export interface ParsedWardPage {
 
 export function parseWardCount(payload: unknown): number {
   return fields(payload, "ward count").number("count");
+}
+
+export function parseWardPopulation(payload: unknown): WardPopulation {
+  const population = fields(payload, "ward population");
+
+  return {
+    matches: population.number("matches"),
+    match_sides: population.number("match_sides"),
+    selection_conditioned: population.boolean("selection_conditioned"),
+  };
 }
 
 export function parseWardPage(payload: unknown): ParsedWardPage {

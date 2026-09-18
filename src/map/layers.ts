@@ -25,6 +25,28 @@ const selectedWardHalo = new Style({
   }),
   zIndex: 20,
 });
+const sightingStyle = [
+  new Style({
+    image: new Circle({
+      radius: 10,
+      fill: new Fill({ color: "rgba(250, 204, 21, 0.16)" }),
+      stroke: new Stroke({ color: "rgba(253, 224, 71, 0.65)", width: 1.5 }),
+    }),
+    zIndex: 30,
+  }),
+  new Style({
+    image: new Circle({
+      radius: 4,
+      fill: new Fill({ color: "#fde047" }),
+      stroke: new Stroke({ color: "#020617", width: 1.5 }),
+    }),
+    zIndex: 31,
+  }),
+];
+const sightingRouteStyle = new Style({
+  stroke: new Stroke({ color: "rgba(253, 224, 71, 0.8)", width: 2 }),
+  zIndex: 29,
+});
 const wardDetailStyles = {
   dewarded: wardPointStyle("#fb7185", false),
   sentry: wardPointStyle("#38bdf8", false),
@@ -70,6 +92,10 @@ const layers = {
             : wardDetailStyles.survived;
     },
   }),
+  sightings: new VectorLayer({
+    source: new VectorSource(),
+    style: (feature) => (feature.get("route") ? sightingRouteStyle : sightingStyle),
+  }),
   trees: new VectorLayer({
     source: new VectorSource(),
     style: new Style({
@@ -86,6 +112,7 @@ export const overlayLayers = [
   layers.wards,
   layers.wardDetails,
   layers.trees,
+  layers.sightings,
 ];
 
 export const mapLayers = [layers.tiles, ...overlayLayers];

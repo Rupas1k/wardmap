@@ -9,6 +9,7 @@ import type {
 } from "../types";
 import {
   effectiveLifetime,
+  meanAvailable,
   placingAdvantage,
   roundedMean,
   wardTimeline,
@@ -77,6 +78,16 @@ function sideData(wards: Ward[]): ClusterSideData | null {
     advantage: advantages.length ? roundedMean(advantages) : null,
     duration: roundedMean(wards.map(effectiveLifetime)),
     time_placed: roundedMean(wards.map((ward) => ward.time_placed)),
+    enemy_hero_vision_seconds: meanAvailable(wards.map((ward) => ward.enemy_hero_vision_seconds)),
+    unique_enemy_hero_vision_seconds: meanAvailable(
+      wards.map((ward) => ward.unique_enemy_hero_vision_seconds),
+    ),
+    heroes_spotted: meanAvailable(wards.map((ward) => ward.heroes_spotted)),
+    hero_reveal_events: meanAvailable(wards.map((ward) => ward.hero_reveal_events)),
+    unique_hero_reveal_events: meanAvailable(wards.map((ward) => ward.unique_hero_reveal_events)),
+    scouting_score: meanAvailable(wards.map((ward) => ward.scouting_score)),
+    scouting_tracking_seconds: meanAvailable(wards.map((ward) => ward.scouting_tracking_seconds)),
+    scouting_discovery_seconds: meanAvailable(wards.map((ward) => ward.scouting_discovery_seconds)),
     players: playerSummaries(wards),
     graphs: {
       wards: {
@@ -89,6 +100,7 @@ function sideData(wards: Ward[]): ClusterSideData | null {
 
 function wardRecord(ward: Ward): ClusterWard {
   return {
+    measurement: ward.measurement,
     id: ward.id,
     match_id: ward.match_id,
     player_placed_id: ward.player_placed_id ?? 0,
@@ -100,6 +112,14 @@ function wardRecord(ward: Ward): ClusterWard {
     is_destroyed: ward.is_destroyed,
     time_placed: ward.time_placed,
     duration: effectiveLifetime(ward),
+    enemy_hero_vision_seconds: ward.enemy_hero_vision_seconds,
+    unique_enemy_hero_vision_seconds: ward.unique_enemy_hero_vision_seconds,
+    heroes_spotted: ward.heroes_spotted,
+    hero_reveal_events: ward.hero_reveal_events,
+    unique_hero_reveal_events: ward.unique_hero_reveal_events,
+    scouting_score: ward.scouting_score,
+    scouting_tracking_seconds: ward.scouting_tracking_seconds,
+    scouting_discovery_seconds: ward.scouting_discovery_seconds,
     x_pos: ward.x_pos,
     y_pos: ward.y_pos,
     z_pos: ward.z_pos,

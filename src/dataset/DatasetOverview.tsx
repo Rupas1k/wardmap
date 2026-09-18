@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { EmptyState } from "../components/ui";
 import { InspectorSection, MetricRows } from "../inspector/InspectorPrimitives";
-import LineChart, { timelineLabels } from "../inspector/LineChart";
 import { analyzeDataset } from "../metrics/analyzeDataset";
 import { formatGameTime } from "../metrics/wardMetrics";
-import type { Ward } from "../types";
+import type { Cluster, ClusterWard, Side, Ward, WardPopulation } from "../types";
+import PlacementChart, { timelineLabels } from "./PlacementChart";
 
 function percentage(amount: number, total: number, digits = 1): string {
   return total ? `${((amount / total) * 100).toFixed(digits)}%` : "--";
@@ -13,13 +13,23 @@ function percentage(amount: number, total: number, digits = 1): string {
 export default function DatasetOverview({
   contextLabel,
   wards,
+  population,
   onChangeContext,
 }: {
   contextLabel: string | null;
+  clusters: Cluster[];
+  selectedClusterId: number | null;
+  side: Side;
+  showUnclustered: boolean;
   wards: Ward[];
+  population: WardPopulation | null;
   onChangeContext: () => void;
+  onSelectCluster: (cluster: Cluster, openDetails: boolean) => void;
+  onSelectWard: (ward: ClusterWard, openDetails: boolean) => void;
 }) {
   const data = useMemo(() => analyzeDataset(wards), [wards]);
+  const hasVisionMeasurements = data.measurement.measuredWards > 0;
+  const hasLifecycleMeasurements = data.measurement.outcomeWards > 0;
   const coverageIssues = [
     ["player", data.missingPlayer] as const,
     ["side", data.missingSide] as const,
@@ -49,78 +59,110 @@ export default function DatasetOverview({
       <InspectorSection title="Sample">
         <MetricRows
           rows={[
-            ["Wards", wards.length.toLocaleString()],
-            ["Matches", data.matches.toLocaleString()],
-            ["Median wards per match", data.medianWardsPerMatch?.toFixed(1) ?? "--"],
-            ...(data.observerCount > 0 && data.sentryCount > 0
-              ? ([
-                  ["Observer wards", data.observerCount.toLocaleString()],
-                  ["Sentry wards", data.sentryCount.toLocaleString()],
-                ] as [string, string][])
-              : []),
+            ["Observer wards", data.observerCount.toLocaleString()],
+            ["Matches represented", data.matches.toLocaleString()],
+            ["Players represented", data.playerCount.toLocaleString()],
           ]}
         />
       </InspectorSection>
 
+      {population?.selection_conditioned ? (
+        <p className="mb-4 text-[11px] leading-4 text-slate-600">
+          The eligible population is conditioned by a result or ward-performance filter and should
+          not be used as an unbiased benchmark.
+        </p>
+      ) : null}
+
       <InspectorSection separated title="Placement timing">
-        <div className="mb-2 flex justify-end gap-3 text-[11px] text-slate-400">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-yellow-300" /> Placed
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-rose-400" /> Dewarded
-          </span>
-        </div>
         <div className="h-52">
-          <LineChart
-            datasets={[
-              {
-                data: data.placedTimeline,
-                label: "Placed",
-                borderColor: "#fde047",
-                backgroundColor: "#fde047",
-              },
-              {
-                data: data.dewardedTimeline,
-                label: "Dewarded",
-                borderColor: "#fb7185",
-                backgroundColor: "#fb7185",
-              },
-            ]}
+          <PlacementChart
             labels={timelineLabels}
+            placements={data.placedTimeline}
+            removals={data.removedTimeline}
           />
         </div>
       </InspectorSection>
 
-      <InspectorSection title="Game phases">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 text-xs">
-          <span />
-          <span className="text-right text-slate-600">Placements</span>
-          <span className="text-right text-slate-600">Dewarded</span>
-          {data.phases.map(([name, phase]) => (
-            <div className="contents" key={name}>
-              <span className="truncate py-1.5 text-slate-500">{name}</span>
-              <span className="py-1.5 text-right text-slate-300">
-                {percentage(phase.amount, wards.length, 0)}
-              </span>
-              <span className="py-1.5 text-right text-slate-300">
-                {percentage(phase.dewarded, phase.amount, 0)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </InspectorSection>
+      {!hasVisionMeasurements && !hasLifecycleMeasurements ? (
+        <InspectorSection separated title="Observer metrics">
+          <p className="text-xs leading-5 text-slate-500">
+            No observer ward measurements are available for this dataset.
+          </p>
+        </InspectorSection>
+      ) : null}
 
-      <InspectorSection title="Outcomes">
-        <MetricRows
-          rows={[
-            ["Mean lifetime", formatGameTime(data.meanLifetime)],
-            ["Dewarded within 2 min", percentage(data.dewardedWithinTwoMinutes, wards.length)],
-            ["Dewarded within 4 min", percentage(data.dewardedWithinFourMinutes, wards.length)],
-            ["Dewarded within 6 min", percentage(data.dewardedWithinSixMinutes, wards.length)],
-          ]}
-        />
-      </InspectorSection>
+      {hasVisionMeasurements ? (
+        <InspectorSection separated title="Observer vision">
+          <MetricRows
+            rows={[
+              ["Added vision, mean", formatGameTime(data.measurement.addedVision.mean)],
+              ["Added vision, median", formatGameTime(data.measurement.addedVision.median)],
+              ["Fresh sightings, mean", data.measurement.freshSightings.mean?.toFixed(1) ?? "--"],
+              [
+                "Fresh sightings, median",
+                data.measurement.freshSightings.median?.toFixed(1) ?? "--",
+              ],
+            ]}
+          />
+        </InspectorSection>
+      ) : null}
+
+      {hasLifecycleMeasurements ? (
+        <>
+          <InspectorSection separated title="Ward lifetime">
+            <MetricRows
+              rows={[
+                ["Time to deward, mean", formatGameTime(data.measurement.timeToDeward.mean)],
+                ["Time to deward, median", formatGameTime(data.measurement.timeToDeward.median)],
+                ["Ward lifetime, mean", formatGameTime(data.measurement.lifetime.mean)],
+                ["Ward lifetime, median", formatGameTime(data.measurement.lifetime.median)],
+              ]}
+            />
+          </InspectorSection>
+
+          <InspectorSection separated title="Early dewards">
+            <MetricRows
+              rows={data.measurement.dewardedWithin.map((item): [string, string] => [
+                `Dewarded within ${item.seconds / 60} min`,
+                item.rate === null ? "--" : percentage(item.rate, 1),
+              ])}
+            />
+          </InspectorSection>
+
+          <InspectorSection separated title="Outcomes">
+            <MetricRows
+              rows={[
+                [
+                  "Dewarded",
+                  percentage(data.measurement.outcomes.dewarded, data.measurement.outcomeWards),
+                ],
+                [
+                  "Expired",
+                  percentage(data.measurement.outcomes.expired, data.measurement.outcomeWards),
+                ],
+                [
+                  "Removed by allies",
+                  percentage(
+                    data.measurement.outcomes.allied_removed,
+                    data.measurement.outcomeWards,
+                  ),
+                ],
+                [
+                  "Match ended",
+                  percentage(data.measurement.outcomes.match_ended, data.measurement.outcomeWards),
+                ],
+                [
+                  "Unresolved removal",
+                  percentage(
+                    data.measurement.outcomes.unknown + data.measurement.outcomes.replay_ended,
+                    data.measurement.outcomeWards,
+                  ),
+                ],
+              ]}
+            />
+          </InspectorSection>
+        </>
+      ) : null}
 
       {coverageIssues.length > 0 ? (
         <p className="mt-5 border-t border-white/8 pt-4 text-[11px] leading-4 text-slate-600">
