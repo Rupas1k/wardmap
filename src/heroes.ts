@@ -1,0 +1,164 @@
+const heroNames: Record<string, string> = {
+  abaddon: "Abaddon",
+  abyssal_underlord: "Underlord",
+  alchemist: "Alchemist",
+  ancient_apparition: "Ancient Apparition",
+  antimage: "Anti-Mage",
+  arc_warden: "Arc Warden",
+  axe: "Axe",
+  bane: "Bane",
+  batrider: "Batrider",
+  beastmaster: "Beastmaster",
+  bloodseeker: "Bloodseeker",
+  bounty_hunter: "Bounty Hunter",
+  brewmaster: "Brewmaster",
+  bristleback: "Bristleback",
+  broodmother: "Broodmother",
+  centaur: "Centaur Warrunner",
+  chaos_knight: "Chaos Knight",
+  chen: "Chen",
+  clinkz: "Clinkz",
+  crystal_maiden: "Crystal Maiden",
+  dark_seer: "Dark Seer",
+  dark_willow: "Dark Willow",
+  dawnbreaker: "Dawnbreaker",
+  dazzle: "Dazzle",
+  death_prophet: "Death Prophet",
+  disruptor: "Disruptor",
+  doom_bringer: "Doom",
+  dragon_knight: "Dragon Knight",
+  drow_ranger: "Drow Ranger",
+  earth_spirit: "Earth Spirit",
+  earthshaker: "Earthshaker",
+  elder_titan: "Elder Titan",
+  ember_spirit: "Ember Spirit",
+  enchantress: "Enchantress",
+  enigma: "Enigma",
+  faceless_void: "Faceless Void",
+  furion: "Nature's Prophet",
+  grimstroke: "Grimstroke",
+  gyrocopter: "Gyrocopter",
+  hoodwink: "Hoodwink",
+  huskar: "Huskar",
+  invoker: "Invoker",
+  jakiro: "Jakiro",
+  juggernaut: "Juggernaut",
+  keeper_of_the_light: "Keeper of the Light",
+  kez: "Kez",
+  kunkka: "Kunkka",
+  largo: "Largo",
+  legion_commander: "Legion Commander",
+  leshrac: "Leshrac",
+  lich: "Lich",
+  life_stealer: "Lifestealer",
+  lina: "Lina",
+  lion: "Lion",
+  lone_druid: "Lone Druid",
+  luna: "Luna",
+  lycan: "Lycan",
+  magnataur: "Magnus",
+  marci: "Marci",
+  mars: "Mars",
+  medusa: "Medusa",
+  meepo: "Meepo",
+  mirana: "Mirana",
+  monkey_king: "Monkey King",
+  morphling: "Morphling",
+  muerta: "Muerta",
+  naga_siren: "Naga Siren",
+  necrolyte: "Necrophos",
+  nevermore: "Shadow Fiend",
+  night_stalker: "Night Stalker",
+  nyx_assassin: "Nyx Assassin",
+  obsidian_destroyer: "Outworld Destroyer",
+  ogre_magi: "Ogre Magi",
+  omniknight: "Omniknight",
+  oracle: "Oracle",
+  pangolier: "Pangolier",
+  phantom_assassin: "Phantom Assassin",
+  phantom_lancer: "Phantom Lancer",
+  phoenix: "Phoenix",
+  primal_beast: "Primal Beast",
+  puck: "Puck",
+  pudge: "Pudge",
+  pugna: "Pugna",
+  queenofpain: "Queen of Pain",
+  rattletrap: "Clockwerk",
+  razor: "Razor",
+  riki: "Riki",
+  ringmaster: "Ringmaster",
+  rubick: "Rubick",
+  sand_king: "Sand King",
+  shadow_demon: "Shadow Demon",
+  shadow_shaman: "Shadow Shaman",
+  shredder: "Timbersaw",
+  silencer: "Silencer",
+  skeleton_king: "Wraith King",
+  skywrath_mage: "Skywrath Mage",
+  slardar: "Slardar",
+  slark: "Slark",
+  snapfire: "Snapfire",
+  sniper: "Sniper",
+  spectre: "Spectre",
+  spirit_breaker: "Spirit Breaker",
+  storm_spirit: "Storm Spirit",
+  sven: "Sven",
+  techies: "Techies",
+  templar_assassin: "Templar Assassin",
+  terrorblade: "Terrorblade",
+  tidehunter: "Tidehunter",
+  tinker: "Tinker",
+  tiny: "Tiny",
+  treant: "Treant Protector",
+  troll_warlord: "Troll Warlord",
+  tusk: "Tusk",
+  undying: "Undying",
+  ursa: "Ursa",
+  vengefulspirit: "Vengeful Spirit",
+  venomancer: "Venomancer",
+  viper: "Viper",
+  visage: "Visage",
+  void_spirit: "Void Spirit",
+  warlock: "Warlock",
+  weaver: "Weaver",
+  windrunner: "Windranger",
+  winter_wyvern: "Winter Wyvern",
+  wisp: "Io",
+  witch_doctor: "Witch Doctor",
+  zuus: "Zeus",
+};
+
+const compactHeroNames = new Map(
+  Object.entries(heroNames).map(([name, displayName]) => [name.replaceAll("_", ""), displayName]),
+);
+
+function internalHeroName(value: string): string {
+  return value
+    .replace(/^CDOTA_Unit_Hero_/, "")
+    .replace(/^npc_dota_hero_/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .toLowerCase();
+}
+
+function fallbackHeroName(value: string): string {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+export function formatHeroName(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (/\s/.test(value)) {
+    return value;
+  }
+
+  const internalName = internalHeroName(value);
+
+  return (
+    heroNames[internalName] ??
+    compactHeroNames.get(internalName.replaceAll("_", "")) ??
+    fallbackHeroName(internalName)
+  );
+}
