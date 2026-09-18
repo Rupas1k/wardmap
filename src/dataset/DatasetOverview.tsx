@@ -56,7 +56,7 @@ export default function DatasetOverview({
             {contextLabel} overview
           </p>
           <button
-            className="shrink-0 text-[11px] text-slate-500 transition hover:text-slate-200"
+            className="shrink-0 text-xs text-slate-500 transition hover:text-slate-200"
             type="button"
             onClick={onChangeContext}
           >
@@ -76,7 +76,7 @@ export default function DatasetOverview({
       </InspectorSection>
 
       {population?.selection_conditioned ? (
-        <p className="mb-4 text-[11px] leading-4 text-slate-600">
+        <p className="mb-4 text-xs leading-5 text-slate-500">
           The eligible population is conditioned by a result or ward-performance filter and should
           not be used as an unbiased benchmark.
         </p>
@@ -106,9 +106,12 @@ export default function DatasetOverview({
             rows={[
               ["Added vision, mean", formatGameTime(data.measurement.addedVision.mean)],
               ["Added vision, median", formatGameTime(data.measurement.addedVision.median)],
-              ["Fresh sightings, mean", data.measurement.freshSightings.mean?.toFixed(1) ?? "--"],
               [
-                "Fresh sightings, median",
+                "New enemy sightings, mean",
+                data.measurement.freshSightings.mean?.toFixed(1) ?? "--",
+              ],
+              [
+                "New enemy sightings, median",
                 data.measurement.freshSightings.median?.toFixed(1) ?? "--",
               ],
             ]}
@@ -188,7 +191,7 @@ export default function DatasetOverview({
       ) : null}
 
       {coverageIssues.length > 0 ? (
-        <p className="mt-5 border-t border-white/8 pt-4 text-[11px] leading-4 text-slate-600">
+        <p className="mt-5 border-t border-white/8 pt-4 text-xs leading-5 text-slate-500">
           Some breakdowns may be incomplete: {coverageIssues.map(([name]) => name).join(" and ")}{" "}
           data is missing for at least 5% of wards.
         </p>

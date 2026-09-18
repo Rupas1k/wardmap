@@ -202,7 +202,7 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
             ],
             ["Added vision, median", formatGameTime(measured.addedVision.median)],
             [
-              "Fresh sightings, mean",
+              "New enemy sightings, mean",
               withDatasetDelta(
                 measured.freshSightings.mean?.toFixed(1) ?? "--",
                 measured.freshSightings.mean === null || benchmark.freshSightings.mean === null
@@ -210,7 +210,7 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
                   : signedDecimal(measured.freshSightings.mean - benchmark.freshSightings.mean),
               ),
             ],
-            ["Fresh sightings, median", measured.freshSightings.median?.toFixed(1) ?? "--"],
+            ["New enemy sightings, median", measured.freshSightings.median?.toFixed(1) ?? "--"],
             ...measured.dewardedWithin.map((item): [string, string] => [
               `Dewarded within ${item.seconds / 60} min`,
               item.rate === null ? "--" : `${(item.rate * 100).toFixed(1)}%`,

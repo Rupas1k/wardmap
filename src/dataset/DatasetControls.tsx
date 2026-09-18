@@ -129,7 +129,7 @@ export default function DatasetControls({
           summary={selectionSummary(settings.leagueIds, leagueOptions, "Select leagues")}
         />
         <section className="mt-3 border-t border-white/7 pt-3">
-          <h3 className="pb-1 text-[11px] font-medium text-slate-400">Ward placed by</h3>
+          <h3 className="pb-1 text-xs font-medium text-slate-400">Ward placed by</h3>
           <SelectionDialog
             disabled={!sourceAvailable}
             label="Team"
@@ -150,7 +150,7 @@ export default function DatasetControls({
           />
         </section>
         <section className="mt-3">
-          <h3 className="pb-1 text-[11px] font-medium text-slate-400">Playing against</h3>
+          <h3 className="pb-1 text-xs font-medium text-slate-400">Playing against</h3>
           <SelectionDialog
             disabled={!sourceAvailable}
             label="Team"
@@ -182,7 +182,7 @@ export default function DatasetControls({
           />
         </section>
         <section className="mt-3">
-          <h3 className="pb-1 text-[11px] font-medium text-slate-400">Dewarding</h3>
+          <h3 className="pb-1 text-xs font-medium text-slate-400">Dewarding</h3>
           <CompactSelect
             label="Outcome"
             value={settings.outcome}
@@ -197,7 +197,7 @@ export default function DatasetControls({
           </CompactSelect>
         </section>
         <section className="mt-3 border-t border-white/7 pt-3">
-          <h3 className="pb-1 text-[11px] font-medium text-slate-400">Ward and match</h3>
+          <h3 className="pb-1 text-xs font-medium text-slate-400">Ward and match</h3>
           <CompactSelect
             label="Side"
             value={settings.side}
@@ -235,7 +235,7 @@ export default function DatasetControls({
         setMinimumMinutes={(value) => update("minimumGameMinute", value)}
       />
       <section className="mt-4 border-t border-white/7 pt-3">
-        <h3 className="text-[11px] font-medium text-slate-400">Advanced</h3>
+        <h3 className="text-xs font-medium text-slate-400">Advanced</h3>
         <div className="mt-3 space-y-3">
           <Field label="Match IDs">
             <input
@@ -260,7 +260,7 @@ export default function DatasetControls({
             setMax={(value) => update("maximumWardLifetime", value)}
           />
           <div className="border-t border-white/7 pt-3">
-            <h4 className="mb-3 text-[11px] font-medium text-slate-400">Observer vision</h4>
+            <h4 className="mb-3 text-xs font-medium text-slate-400">Observer vision</h4>
             <div className="space-y-3">
               <OptionalRange
                 label="Added vision (seconds)"
@@ -270,7 +270,7 @@ export default function DatasetControls({
                 setMax={(value) => update("maximumAddedVision", value)}
               />
               <OptionalRange
-                label="Fresh sightings"
+                label="New enemy sightings"
                 min={settings.minimumFreshSightings}
                 max={settings.maximumFreshSightings}
                 setMin={(value) => update("minimumFreshSightings", value)}
