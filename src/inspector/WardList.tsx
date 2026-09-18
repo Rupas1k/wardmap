@@ -20,7 +20,7 @@ const wardSortOptions: Record<WardView, { value: WardSort; label: string }[]> = 
     { value: "placement", label: "Placement time" },
     { value: "lifetime", label: "Longest lifetime" },
     { value: "added-vision", label: "Most added vision" },
-    { value: "fresh-sightings", label: "Most fresh sightings" },
+    { value: "fresh-sightings", label: "Most new enemy sightings" },
     { value: "match", label: "Match" },
     { value: "player", label: "Player" },
   ],
@@ -29,16 +29,16 @@ const wardSortOptions: Record<WardView, { value: WardSort; label: string }[]> = 
     { value: "player", label: "Player name" },
     { value: "placement", label: "Earliest average placement" },
     { value: "lifetime", label: "Longest average lifetime" },
-    { value: "added-vision", label: "Most added vision" },
-    { value: "fresh-sightings", label: "Most fresh sightings" },
+    { value: "added-vision", label: "Highest mean added vision" },
+    { value: "fresh-sightings", label: "Highest mean new enemy sightings" },
   ],
   matches: [
     { value: "amount", label: "Most wards" },
     { value: "match", label: "Newest match" },
     { value: "placement", label: "Earliest placement" },
     { value: "lifetime", label: "Longest average lifetime" },
-    { value: "added-vision", label: "Most added vision" },
-    { value: "fresh-sightings", label: "Most fresh sightings" },
+    { value: "added-vision", label: "Highest mean added vision" },
+    { value: "fresh-sightings", label: "Highest mean new enemy sightings" },
   ],
 };
 
@@ -204,7 +204,7 @@ function WardReport({
               rows={[
                 ["Added vision", formatGameTime(ward.measurement.added_vision_seconds)],
                 [
-                  "Fresh sightings",
+                  "New enemy sightings",
                   ward.measurement.fresh_sightings === null
                     ? "--"
                     : formatCount(ward.measurement.fresh_sightings),
@@ -272,7 +272,7 @@ function WardReport({
                         <tr
                           key={`${event.sample_tick ?? event.time}-${event.target_player_slot ?? event.target_steam_id ?? index}`}
                         >
-                          <td className="py-3 align-top font-mono text-xs text-slate-500">
+                          <td className="py-3 align-top text-xs text-slate-500 tabular-nums">
                             {formatGameTime(event.time)}
                           </td>
                           <td className="min-w-0 py-3 pr-2">
@@ -333,7 +333,7 @@ function WardReport({
                                     />
                                   ) : (
                                     <div
-                                      className="grid grid-cols-[1fr_auto] gap-3 px-2 py-1.5 text-[11px] text-slate-500"
+                                      className="grid grid-cols-[1fr_auto] gap-3 px-2 py-1.5 text-xs text-slate-500"
                                       key={selectionId}
                                     >
                                       <span>{segmentLabel}</span>
@@ -386,7 +386,7 @@ function SightingPathButton({
     <button
       aria-label={`${selected ? "Hide" : "Show"} ${label.toLowerCase()} movement on map`}
       aria-pressed={selected}
-      className={`grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-sm px-2 text-left text-[11px] transition ${
+      className={`grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-sm px-2 text-left text-xs transition ${
         nested ? "py-1.5" : "border border-white/8 bg-white/3 py-2"
       } ${
         selected
@@ -483,7 +483,7 @@ export default function WardList() {
       </div>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
-        <label className="text-[10px] text-slate-600">
+        <label className="text-xs text-slate-500">
           Outcome
           <select
             className={fieldControlClass}
@@ -498,7 +498,7 @@ export default function WardList() {
             <option value="unresolved_removal">Unresolved removal</option>
           </select>
         </label>
-        <label className="text-[10px] text-slate-600">
+        <label className="text-xs text-slate-500">
           Sort
           <select
             className={fieldControlClass}
