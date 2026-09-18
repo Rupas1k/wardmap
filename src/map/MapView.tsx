@@ -5,7 +5,13 @@ import { useWorkspaceStore } from "../state/workspaceState";
 import type { ClusterSets } from "../types";
 import exportMapImage from "./exportMapImage";
 import { ClusterTooltip, WardTooltip } from "./MapTooltips";
-import { useClusterLayer, useMapFocus, useVisionLayer, useWardDetailLayer } from "./useMapLayers";
+import {
+  useClusterLayer,
+  useMapFocus,
+  useSightingLayer,
+  useVisionLayer,
+  useWardDetailLayer,
+} from "./useMapLayers";
 import useMapInteractions from "./useMapInteractions";
 import { useElevationGrid, useMapCamera } from "./useMapRuntime";
 
@@ -28,6 +34,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     selectedWardId,
     expandedClusterIds,
     focusRequest,
+    sightingPosition,
+    sightingRoutes,
     elevations,
     currentSide,
     visionTechnique,
@@ -110,6 +118,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     selectedWardId,
   });
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
+  useSightingLayer(sightingPosition, sightingRoutes);
   useVisionLayer({ elevations, selectedCluster, selectedWardId, visionTechnique });
 
   return (

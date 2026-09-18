@@ -1,4 +1,5 @@
 import type Map from "ol/Map";
+import { boundingExtent } from "ol/extent";
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { useMapStore } from "../state/mapState";
@@ -44,10 +45,18 @@ export function useMapCamera(map: RefObject<Map | null>) {
       return;
     }
 
-    map.current.getView().animate({
-      center: unitToPixel([request.x, request.y]),
-      duration: 250,
-    });
+    if (request.kind === "fit") {
+      map.current.getView().fit(boundingExtent(request.positions.map(unitToPixel)), {
+        duration: 250,
+        maxZoom: 4,
+        padding: [72, 72, 72, 72],
+      });
+    } else {
+      map.current.getView().animate({
+        center: unitToPixel([request.x, request.y]),
+        duration: 250,
+      });
+    }
     clearRequest();
   }, [clearRequest, map, request]);
 }
