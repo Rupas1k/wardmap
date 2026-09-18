@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "../state/workspaceState";
 import { InspectorSection, MetricRows } from "./InspectorPrimitives";
 import { survivalColor } from "../colors";
 import { contextIds } from "../state/analysisContext";
+import { measurementSummary } from "../metrics/analyzeDataset";
 
 export default function LocationSummary({ flush = false }: { flush?: boolean }) {
   const selectedCluster = useSelectedCluster();
@@ -15,6 +16,19 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
   const context = useWorkspaceStore((state) => state.analysisContext);
   const { playerId: selectedPlayerId, matchId: selectedMatchId } = contextIds(context);
   const wards = useWorkspaceStore((state) => state.wards);
+  const measured = useMemo(() => {
+    const ids = new Set((selectedCluster?.wards ?? []).map((ward) => ward.id));
+
+    return measurementSummary(
+      wards.filter(
+        (ward) =>
+          ids.has(ward.id) &&
+          (side === "all" || ward.is_radiant === (side === "radiant")) &&
+          (selectedPlayerId === null || ward.player_placed_id === selectedPlayerId) &&
+          (selectedMatchId === null || ward.match_id === selectedMatchId),
+      ),
+    );
+  }, [wards, selectedCluster, side, selectedPlayerId, selectedMatchId]);
   const locationData = selectedCluster?.[side] ?? null;
   const averageData = average?.[side] ?? null;
   const sideData = useMemo(() => {
@@ -72,20 +86,6 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
 
   const lifetime = sideData ? ((1 - sideData.destroyed / sideData.amount) * 100).toFixed(2) : null;
   const durationDelta = sideData && averageData ? sideData.duration - averageData.duration : null;
-  const visionMetrics = sideData
-    ? [
-        sideData.enemy_hero_vision_seconds,
-        sideData.unique_enemy_hero_vision_seconds,
-        sideData.heroes_spotted,
-        sideData.hero_reveal_events,
-        sideData.unique_hero_reveal_events,
-        sideData.scouting_score,
-        sideData.scouting_tracking_seconds,
-        sideData.scouting_discovery_seconds,
-      ]
-    : [];
-  const hasVisionMetrics = visionMetrics.some((value) => value !== null);
-
   const records: [string, ReactNode][] = [
     ["Wards", sideData?.amount ?? "--"],
     ["Matches", sideData?.match_count ?? "--"],
@@ -97,9 +97,9 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
           : sideData.players.length
         : "--",
     ],
-    ["Dewarded", sideData?.destroyed ?? "--"],
+    ["Removed", sideData?.destroyed ?? "--"],
     [
-      "Not dewarded rate",
+      "Not removed rate",
       sideData && lifetime ? (
         <span style={{ color: survivalColor(sideData.destroyed, sideData.amount) }}>
           {lifetime}%
@@ -148,25 +148,18 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
         <MetricRows rows={records} />
       </InspectorSection>
 
-      {hasVisionMetrics ? (
-        <InspectorSection separated title="Vision per ward">
-          <MetricRows
-            rows={[
-              ["Scouting score", sideData?.scouting_score?.toFixed(1) ?? "--"],
-              ["Enemy hero vision", formatGameTime(sideData?.enemy_hero_vision_seconds ?? null)],
-              [
-                "Unique enemy vision",
-                formatGameTime(sideData?.unique_enemy_hero_vision_seconds ?? null),
-              ],
-              ["Heroes spotted", sideData?.heroes_spotted?.toFixed(1) ?? "--"],
-              ["Reveal events", sideData?.hero_reveal_events?.toFixed(1) ?? "--"],
-              ["Unique reveals", sideData?.unique_hero_reveal_events?.toFixed(1) ?? "--"],
-              ["Tracking", formatGameTime(sideData?.scouting_tracking_seconds ?? null)],
-              ["Discovery", formatGameTime(sideData?.scouting_discovery_seconds ?? null)],
-            ]}
-          />
-        </InspectorSection>
-      ) : null}
+      <InspectorSection separated title="Observer vision">
+        <MetricRows
+          rows={[
+            ["Typical added vision", formatGameTime(measured.addedVision.median)],
+            ["Typical fresh sightings", measured.freshSightings.median?.toFixed(1) ?? "--"],
+            ...measured.dewardedWithin.map((item): [string, string] => [
+              `Dewarded within ${item.seconds / 60} min`,
+              item.rate === null ? "--" : `${(item.rate * 100).toFixed(1)}%`,
+            ]),
+          ]}
+        />
+      </InspectorSection>
     </>
   );
 }

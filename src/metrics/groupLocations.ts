@@ -1,5 +1,6 @@
 import type { LocationSort, LocationView, SortDirection } from "../state/workspaceState";
 import type { Cluster, ClusterSideData, ClusterWard, Side } from "../types";
+import { percentile } from "./wardMetrics";
 
 export interface LocationEntry {
   cluster: Cluster;
@@ -25,42 +26,7 @@ export interface LocationGroup {
   sortId: number;
 }
 
-type VisionSort = Extract<
-  LocationSort,
-  | "enemy-vision"
-  | "unique-enemy-vision"
-  | "heroes-spotted"
-  | "reveal-events"
-  | "unique-reveals"
-  | "scouting-score"
-  | "tracking"
-  | "discovery"
->;
-
-type VisionField =
-  | "enemy_hero_vision_seconds"
-  | "unique_enemy_hero_vision_seconds"
-  | "heroes_spotted"
-  | "hero_reveal_events"
-  | "unique_hero_reveal_events"
-  | "scouting_score"
-  | "scouting_tracking_seconds"
-  | "scouting_discovery_seconds";
-
-const visionFieldBySort: Record<VisionSort, VisionField> = {
-  "enemy-vision": "enemy_hero_vision_seconds",
-  "unique-enemy-vision": "unique_enemy_hero_vision_seconds",
-  "heroes-spotted": "heroes_spotted",
-  "reveal-events": "hero_reveal_events",
-  "unique-reveals": "unique_hero_reveal_events",
-  "scouting-score": "scouting_score",
-  tracking: "scouting_tracking_seconds",
-  discovery: "scouting_discovery_seconds",
-};
-
-function visionField(sort: LocationSort): VisionField | null {
-  return visionFieldBySort[sort as VisionSort] ?? null;
-}
+type MeasurementSort = Extract<LocationSort, "added-vision" | "fresh-sightings">;
 
 function compareNumbers(left: number, right: number, direction: SortDirection): number {
   return direction === "ascending" ? left - right : right - left;
@@ -81,18 +47,32 @@ function compareMeasured(
   return compareNumbers(left, right, direction);
 }
 
-function averageWardMetric(wards: ClusterWard[], field: VisionField): number | null {
+function typicalMeasurement(wards: ClusterWard[], sort: MeasurementSort): number | null {
   const values = wards.flatMap((ward) => {
-    const value = ward[field];
+    const value =
+      sort === "added-vision"
+        ? ward.measurement?.added_vision_seconds
+        : ward.measurement?.fresh_sightings;
 
-    return value === null ? [] : [value];
+    return value == null ? [] : [value];
   });
 
-  return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
+  return percentile(values, 0.5);
 }
 
 export function locationSurvival(entry: LocationEntry): number {
   return entry.data.amount ? 1 - entry.data.destroyed / entry.data.amount : 0;
+}
+
+function wardsInEntry(entry: LocationEntry): ClusterWard[] {
+  if (entry.data === entry.cluster.radiant) {
+    return wardsForSide(entry.cluster, "radiant");
+  }
+  if (entry.data === entry.cluster.dire) {
+    return wardsForSide(entry.cluster, "dire");
+  }
+
+  return wardsForSide(entry.cluster, "all");
 }
 
 export function compareLocations(
@@ -101,20 +81,25 @@ export function compareLocations(
   left: LocationEntry,
   right: LocationEntry,
 ): number {
-  const field = visionField(sort);
-
-  if (field) {
+  if (sort === "added-vision" || sort === "fresh-sightings") {
     return (
-      compareMeasured(left.data[field], right.data[field], direction) ||
-      right.data.amount - left.data.amount
+      compareMeasured(
+        typicalMeasurement(wardsInEntry(left), sort),
+        typicalMeasurement(wardsInEntry(right), sort),
+        direction,
+      ) || right.data.amount - left.data.amount
     );
   }
 
   switch (sort) {
     case "matches":
       return compareNumbers(left.data.match_count, right.data.match_count, direction);
-    case "survival":
-      return compareNumbers(locationSurvival(left), locationSurvival(right), direction);
+    case "removals":
+      return compareNumbers(
+        left.data.destroyed / left.data.amount,
+        right.data.destroyed / right.data.amount,
+        direction,
+      );
     case "placement":
       return compareNumbers(left.data.time_placed, right.data.time_placed, direction);
     case "lifetime":
@@ -149,15 +134,11 @@ export function compareLocationGroups(
   left: LocationGroup,
   right: LocationGroup,
 ): number {
-  const leftSurvival = left.wardCount ? 1 - left.destroyed / left.wardCount : 0;
-  const rightSurvival = right.wardCount ? 1 - right.destroyed / right.wardCount : 0;
-  const field = visionField(sort);
-
-  if (field) {
+  if (sort === "added-vision" || sort === "fresh-sightings") {
     return (
       compareMeasured(
-        averageWardMetric(left.wards, field),
-        averageWardMetric(right.wards, field),
+        typicalMeasurement(left.wards, sort),
+        typicalMeasurement(right.wards, sort),
         direction,
       ) || left.label.localeCompare(right.label)
     );
@@ -172,10 +153,13 @@ export function compareLocationGroups(
           direction,
         ) || left.label.localeCompare(right.label)
       );
-    case "survival":
+    case "removals":
       return (
-        compareNumbers(leftSurvival, rightSurvival, direction) ||
-        left.label.localeCompare(right.label)
+        compareNumbers(
+          left.destroyed / left.wardCount,
+          right.destroyed / right.wardCount,
+          direction,
+        ) || left.label.localeCompare(right.label)
       );
     case "placement":
       return (

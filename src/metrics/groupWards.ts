@@ -1,5 +1,6 @@
 import type { WardSort } from "../state/workspaceState";
 import type { ClusterWard } from "../types";
+import { percentile } from "./wardMetrics";
 
 export interface PlayerWardGroup {
   id: number;
@@ -19,9 +20,32 @@ function averagePlacement(wards: ClusterWard[]): number {
   return wards.reduce((total, ward) => total + ward.time_placed, 0) / wards.length;
 }
 
+function measurementValue(ward: ClusterWard, sort: WardSort): number | null {
+  if (sort === "added-vision") {
+    return ward.measurement?.added_vision_seconds ?? null;
+  }
+  if (sort === "fresh-sightings") {
+    return ward.measurement?.fresh_sightings ?? null;
+  }
+
+  return null;
+}
+
+function typicalMeasurement(wards: ClusterWard[], sort: WardSort): number {
+  const values = wards.flatMap((ward) => measurementValue(ward, sort) ?? []);
+
+  return percentile(values, 0.5) ?? -1;
+}
+
 export function sortWards(wards: ClusterWard[], sort: WardSort): ClusterWard[] {
   return [...wards].sort((left, right) => {
     switch (sort) {
+      case "added-vision":
+      case "fresh-sightings":
+        return (
+          (measurementValue(right, sort) ?? -1) - (measurementValue(left, sort) ?? -1) ||
+          left.time_placed - right.time_placed
+        );
       case "lifetime":
         return right.duration - left.duration || left.time_placed - right.time_placed;
       case "match":
@@ -54,6 +78,9 @@ export function groupWardsByPlayer(wards: ClusterWard[], sort: WardSort): Player
 
   return [...groups.values()].sort((left, right) => {
     switch (sort) {
+      case "added-vision":
+      case "fresh-sightings":
+        return typicalMeasurement(right.wards, sort) - typicalMeasurement(left.wards, sort);
       case "player":
         return left.name.localeCompare(right.name);
       case "placement":
@@ -78,6 +105,9 @@ export function groupWardsByMatch(wards: ClusterWard[], sort: WardSort): [number
 
   return [...groups].sort(([leftId, leftWards], [rightId, rightWards]) => {
     switch (sort) {
+      case "added-vision":
+      case "fresh-sightings":
+        return typicalMeasurement(rightWards, sort) - typicalMeasurement(leftWards, sort);
       case "placement":
         return earliestPlacement(leftWards) - earliestPlacement(rightWards);
       case "lifetime":

@@ -1,5 +1,6 @@
 import type { Cluster, ClusterWard, Side } from "../types";
 import { elevatedSurfaceClass } from "../components/ui";
+import { formatWardOutcome } from "../metrics/wardMetrics";
 
 interface WardTooltipProps {
   ward: ClusterWard;
@@ -14,6 +15,11 @@ export function WardTooltip({ ward, x, y }: WardTooltipProps) {
   const destroyingPlayer =
     ward.player_destroyed_name ??
     (ward.player_destroyed_id === null ? "Unknown player" : `Player ${ward.player_destroyed_id}`);
+  const outcome = ward.measurement
+    ? formatWardOutcome(ward.measurement.outcome)
+    : ward.is_destroyed
+      ? "Dewarded"
+      : "Not dewarded";
 
   return (
     <div
@@ -24,13 +30,15 @@ export function WardTooltip({ ward, x, y }: WardTooltipProps) {
         <span className="max-w-32 truncate font-semibold text-slate-100">
           {ward.player_name ?? "Unknown player"}
         </span>
-        <span className={ward.is_destroyed ? "text-rose-300" : "text-emerald-300"}>
-          {ward.is_destroyed ? "Dewarded" : "Full lifetime"}
+        <span
+          className={ward.measurement?.outcome === "dewarded" ? "text-rose-300" : "text-slate-400"}
+        >
+          {outcome}
         </span>
       </div>
       <p className="mb-2 truncate text-[11px] text-slate-400">
         {ward.team_name ?? "Unknown team"} vs {ward.opponent_team_name ?? "Unknown opponent"}
-        {ward.team_won != null ? ` · ${ward.team_won ? "Won" : "Lost"}` : ""}
+        {ward.team_won != null ? `, ${ward.team_won ? "won" : "lost"}` : ""}
       </p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
         <dt className="text-slate-500">Match</dt>
@@ -39,7 +47,7 @@ export function WardTooltip({ ward, x, y }: WardTooltipProps) {
         <dd className="text-right font-mono text-slate-200">{placedAt}</dd>
         <dt className="text-slate-500">Lifetime</dt>
         <dd className="text-right font-mono text-slate-200">{ward.duration}s</dd>
-        {ward.is_destroyed ? (
+        {ward.measurement?.outcome === "dewarded" || (!ward.measurement && ward.is_destroyed) ? (
           <>
             <dt className="text-slate-500">Dewarded by</dt>
             <dd className="truncate text-right text-slate-200">{destroyingPlayer}</dd>
@@ -72,9 +80,9 @@ export function ClusterTooltip({ cluster, side, x, y }: ClusterTooltipProps) {
           <dd className="text-right font-mono font-semibold text-slate-200">
             {data.amount.toLocaleString()}
           </dd>
-          <dt className="text-slate-500">Dewarded</dt>
+          <dt className="text-slate-500">Removed</dt>
           <dd className="text-right font-mono font-semibold text-rose-300">{data.destroyed}</dd>
-          <dt className="text-slate-500">Not dewarded</dt>
+          <dt className="text-slate-500">Not removed</dt>
           <dd className="text-right font-mono font-semibold text-emerald-300">
             {survivalRate?.toFixed(1)}%
           </dd>

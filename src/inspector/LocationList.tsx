@@ -39,6 +39,8 @@ export default function LocationList({
   const setSort = useWorkspaceStore((state) => state.setLocationSort);
   const sortDirection = useWorkspaceStore((state) => state.locationSortDirection);
   const setSortDirection = useWorkspaceStore((state) => state.setLocationSortDirection);
+  const minimumWards = useWorkspaceStore((state) => state.locationMinimumWards);
+  const setMinimumWards = useWorkspaceStore((state) => state.setLocationMinimumWards);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const clearMapSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
@@ -68,6 +70,10 @@ export default function LocationList({
         .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
     [baseClusters, showUnclustered, side, sort, sortDirection],
   );
+  const visibleLocations = useMemo(
+    () => locations.filter((entry) => entry.data.amount >= minimumWards),
+    [locations, minimumWards],
+  );
   const groupBaseLocations = useMemo(
     () =>
       baseClusters
@@ -89,10 +95,10 @@ export default function LocationList({
         ? groupLocationsByPlayer(groupBaseLocations, side)
         : groupLocationsByMatch(groupBaseLocations, side);
 
-    return next.sort((left, right) =>
-      compareLocationGroups(sort, sortDirection, view, left, right),
-    );
-  }, [groupBaseLocations, side, sort, sortDirection, view]);
+    return next
+      .filter((group) => group.wardCount >= minimumWards)
+      .sort((left, right) => compareLocationGroups(sort, sortDirection, view, left, right));
+  }, [groupBaseLocations, minimumWards, side, sort, sortDirection, view]);
   const contextGroups = useMemo(() => {
     if (view === "locations" || clusters === baseClusters) {
       return new Map<string, (typeof groups)[number]>();
@@ -178,7 +184,7 @@ export default function LocationList({
         key={cluster.cluster_id}
         label={`Location ${locationNumber}`}
         matchCount={data.match_count}
-        metric={`${survivalRate.toFixed(0)}% not dewarded`}
+        metric={`${survivalRate.toFixed(0)}% not removed`}
         placement={data.time_placed}
         selected={selected}
         wardCount={
@@ -215,8 +221,8 @@ export default function LocationList({
         />
       </div>
 
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <label className="contents text-[11px] text-slate-500">
+      <div className="mb-3 space-y-2">
+        <label className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
           <span className="shrink-0">Sort by</span>
           <span className="grid w-[13.5rem] shrink-0 grid-cols-2 gap-2">
             <select
@@ -226,17 +232,11 @@ export default function LocationList({
             >
               <option value="wards">Wards</option>
               <option value="matches">{view === "matches" ? "Match" : "Matches"}</option>
-              <option value="survival">Not dewarded rate</option>
+              <option value="removals">Removal rate</option>
               <option value="placement">Placement time</option>
               <option value="lifetime">Lifetime</option>
-              <option value="enemy-vision">Enemy hero vision</option>
-              <option value="unique-enemy-vision">Unique enemy vision</option>
-              <option value="heroes-spotted">Heroes spotted</option>
-              <option value="reveal-events">Reveal events</option>
-              <option value="unique-reveals">Unique reveals</option>
-              <option value="scouting-score">Scouting score</option>
-              <option value="tracking">Tracking</option>
-              <option value="discovery">Discovery</option>
+              <option value="added-vision">Added vision</option>
+              <option value="fresh-sightings">Fresh sightings</option>
             </select>
             <select
               aria-label="Sort order"
@@ -249,12 +249,34 @@ export default function LocationList({
             </select>
           </span>
         </label>
+        <label className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+          <span className="shrink-0">Min wards</span>
+          <span className="w-[13.5rem] shrink-0">
+            <input
+              aria-label="Minimum wards"
+              className={`${formControlClass} text-right`}
+              min={1}
+              step={1}
+              type="number"
+              value={minimumWards}
+              onChange={(event) => {
+                const value = Number.parseInt(event.target.value, 10);
+
+                setMinimumWards(Number.isFinite(value) ? Math.max(1, value) : 1);
+              }}
+            />
+          </span>
+        </label>
       </div>
 
-      {view === "locations" ? (
+      {view === "locations" && visibleLocations.length === 0 ? (
+        <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
+      ) : view === "locations" ? (
         <div className="space-y-1">
-          {locations.map((entry) => renderLocation({ entry, wardCount: entry.data.amount }))}
+          {visibleLocations.map((entry) => renderLocation({ entry, wardCount: entry.data.amount }))}
         </div>
+      ) : groups.length === 0 ? (
+        <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
       ) : (
         <div className="space-y-1">
           {groups.map((group) => {
