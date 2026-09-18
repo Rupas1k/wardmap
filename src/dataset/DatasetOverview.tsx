@@ -129,7 +129,7 @@ export default function DatasetOverview({
             />
           </InspectorSection>
 
-          <InspectorSection title="Outcomes">
+          <InspectorSection separated title="Outcomes">
             <MetricRows
               rows={[
                 [
