@@ -2,7 +2,8 @@ import type { ClusteringSettings, VisionTechnique } from "../state/mapState";
 import type { ClusterSets, Side } from "../types";
 
 export type WardType = "all" | "observer" | "sentry";
-export type WardOutcome = "all" | "survived" | "destroyed";
+export type WardOutcome =
+  "all" | "dewarded" | "expired" | "allied_removed" | "match_ended" | "unresolved_removal";
 export type TeamResult = "all" | "won" | "lost";
 
 export interface DatasetSettings {
@@ -23,6 +24,26 @@ export interface DatasetSettings {
   maximumMatchDuration: number;
   minimumWardLifetime: number;
   maximumWardLifetime: number;
+  minimumAddedVision: number | null;
+  maximumAddedVision: number | null;
+  minimumFreshSightings: number | null;
+  maximumFreshSightings: number | null;
+  minimumEnemyHeroVision: number | null;
+  maximumEnemyHeroVision: number | null;
+  minimumUniqueEnemyHeroVision: number | null;
+  maximumUniqueEnemyHeroVision: number | null;
+  minimumHeroesSpotted: number | null;
+  maximumHeroesSpotted: number | null;
+  minimumRevealEvents: number | null;
+  maximumRevealEvents: number | null;
+  minimumUniqueRevealEvents: number | null;
+  maximumUniqueRevealEvents: number | null;
+  minimumScoutingScore: number | null;
+  maximumScoutingScore: number | null;
+  minimumScoutingTracking: number | null;
+  maximumScoutingTracking: number | null;
+  minimumScoutingDiscovery: number | null;
+  maximumScoutingDiscovery: number | null;
 }
 
 export interface WorkspaceSettings {
@@ -54,6 +75,26 @@ export const defaultDataset: DatasetSettings = {
   maximumMatchDuration: 180,
   minimumWardLifetime: 0,
   maximumWardLifetime: 600,
+  minimumAddedVision: null,
+  maximumAddedVision: null,
+  minimumFreshSightings: null,
+  maximumFreshSightings: null,
+  minimumEnemyHeroVision: null,
+  maximumEnemyHeroVision: null,
+  minimumUniqueEnemyHeroVision: null,
+  maximumUniqueEnemyHeroVision: null,
+  minimumHeroesSpotted: null,
+  maximumHeroesSpotted: null,
+  minimumRevealEvents: null,
+  maximumRevealEvents: null,
+  minimumUniqueRevealEvents: null,
+  maximumUniqueRevealEvents: null,
+  minimumScoutingScore: null,
+  maximumScoutingScore: null,
+  minimumScoutingTracking: null,
+  maximumScoutingTracking: null,
+  minimumScoutingDiscovery: null,
+  maximumScoutingDiscovery: null,
 };
 
 export function numericIds(value: string): string[] {
@@ -76,13 +117,18 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
     candidate.clustering = clustering;
   }
 
+  const optionalNumber = (number: unknown) =>
+    number === undefined || number === null || Number.isFinite(number);
+
   return Boolean(
     dataset &&
     Array.isArray(dataset.leagueIds) &&
     dataset.leagueIds.every(Number.isFinite) &&
     ["all", "radiant", "dire"].includes(dataset.side) &&
     ["all", "observer", "sentry"].includes(dataset.wardType) &&
-    ["all", "survived", "destroyed"].includes(dataset.outcome) &&
+    ["all", "dewarded", "expired", "allied_removed", "match_ended", "unresolved_removal"].includes(
+      dataset.outcome,
+    ) &&
     typeof dataset.matchIds === "string" &&
     typeof dataset.playerIds === "string" &&
     (dataset.opponentPlayerIds === undefined || typeof dataset.opponentPlayerIds === "string") &&
@@ -101,6 +147,28 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
       dataset.minimumWardLifetime,
       dataset.maximumWardLifetime,
     ].every(Number.isFinite) &&
+    [
+      dataset.minimumEnemyHeroVision,
+      dataset.maximumEnemyHeroVision,
+      dataset.minimumUniqueEnemyHeroVision,
+      dataset.maximumUniqueEnemyHeroVision,
+      dataset.minimumHeroesSpotted,
+      dataset.maximumHeroesSpotted,
+      dataset.minimumRevealEvents,
+      dataset.maximumRevealEvents,
+      dataset.minimumUniqueRevealEvents,
+      dataset.maximumUniqueRevealEvents,
+      dataset.minimumScoutingScore,
+      dataset.maximumScoutingScore,
+      dataset.minimumScoutingTracking,
+      dataset.maximumScoutingTracking,
+      dataset.minimumScoutingDiscovery,
+      dataset.maximumScoutingDiscovery,
+      dataset.minimumAddedVision,
+      dataset.maximumAddedVision,
+      dataset.minimumFreshSightings,
+      dataset.maximumFreshSightings,
+    ].every(optionalNumber) &&
     clustering !== null &&
     isVisionTechnique(candidate.visionTechnique) &&
     (candidate.clusteringEnabled === undefined ||

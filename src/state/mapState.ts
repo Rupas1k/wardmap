@@ -17,7 +17,9 @@ export type MapFocusRequest = {
   kind: "ward" | "cluster";
   id: number;
 };
-export type MapCameraRequest = { x: number; y: number };
+export type MapPosition = [number, number, number];
+export type MapCameraRequest =
+  { kind: "center"; x: number; y: number } | { kind: "fit"; positions: MapPosition[] };
 export interface ClusterMarkerSize {
   minimum: number;
   maximum: number;
@@ -47,6 +49,9 @@ interface MapState {
   visionTechnique: VisionTechnique;
   focusRequest: MapFocusRequest | null;
   cameraRequest: MapCameraRequest | null;
+  sightingPosition: MapPosition | null;
+  sightingRoutes: MapPosition[][];
+  sightingSelectionId: string | null;
   setCurrentSide: (side: Side) => void;
   setSelectedClusterId: (clusterId: number | null) => void;
   setSelectedWardId: (wardId: number | null) => void;
@@ -65,6 +70,8 @@ interface MapState {
   focusCluster: (clusterId: number) => void;
   clearFocusRequest: () => void;
   centerMapAt: (x: number, y: number) => void;
+  showSightingAt: (selectionId: string, position: MapPosition, routes?: MapPosition[][]) => void;
+  clearSighting: () => void;
   clearCameraRequest: () => void;
 }
 
@@ -80,17 +87,50 @@ export const useMapStore = create<MapState>((set) => ({
   visionTechnique: "gridnav",
   focusRequest: null,
   cameraRequest: null,
+  sightingPosition: null,
+  sightingRoutes: [],
+  sightingSelectionId: null,
   setCurrentSide: (currentSide) => set({ currentSide, expandedClusterIds: [] }),
-  setSelectedClusterId: (selectedClusterId) => set({ selectedClusterId, selectedWardId: null }),
-  setSelectedWardId: (selectedWardId) => set({ selectedWardId }),
+  setSelectedClusterId: (selectedClusterId) =>
+    set({
+      selectedClusterId,
+      selectedWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+    }),
+  setSelectedWardId: (selectedWardId) =>
+    set({ selectedWardId, sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
   selectMapLocation: (selectedClusterId, selectedWardId = null) =>
-    set({ selectedClusterId, selectedWardId }),
-  clearWardSelection: () => set({ selectedWardId: null }),
-  clearMapLocationSelection: () => set({ selectedClusterId: null, selectedWardId: null }),
+    set({
+      selectedClusterId,
+      selectedWardId,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+    }),
+  clearWardSelection: () =>
+    set({
+      selectedWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+    }),
+  clearMapLocationSelection: () =>
+    set({
+      selectedClusterId: null,
+      selectedWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+    }),
   clearSelection: () =>
     set({
       selectedClusterId: null,
       selectedWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
     }),
   setElevations: (elevations) => set({ elevations }),
   setAverageValues: (averageValues) => set({ averageValues }),
@@ -99,6 +139,9 @@ export const useMapStore = create<MapState>((set) => ({
       clusteringSettings,
       selectedClusterId: null,
       selectedWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
       expandedClusterIds: [],
     }),
   clearExpandedClusters: () => set({ expandedClusterIds: [] }),
@@ -113,6 +156,21 @@ export const useMapStore = create<MapState>((set) => ({
   focusWard: (id) => set({ focusRequest: { kind: "ward", id } }),
   focusCluster: (id) => set({ focusRequest: { kind: "cluster", id } }),
   clearFocusRequest: () => set({ focusRequest: null }),
-  centerMapAt: (x, y) => set({ cameraRequest: { x, y } }),
+  centerMapAt: (x, y) => set({ cameraRequest: { kind: "center", x, y } }),
+  showSightingAt: (sightingSelectionId, sightingPosition, sightingRoutes = []) => {
+    const routePositions = sightingRoutes.flat();
+
+    set({
+      sightingSelectionId,
+      sightingPosition,
+      sightingRoutes,
+      cameraRequest:
+        routePositions.length > 1
+          ? { kind: "fit", positions: routePositions }
+          : { kind: "center", x: sightingPosition[0], y: sightingPosition[1] },
+    });
+  },
+  clearSighting: () =>
+    set({ sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
   clearCameraRequest: () => set({ cameraRequest: null }),
 }));

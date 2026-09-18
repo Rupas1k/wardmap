@@ -1,13 +1,14 @@
-import { BsChevronLeft } from "react-icons/bs";
-import { useMemo } from "react";
-import { formatGameTime } from "../metrics/wardMetrics";
+import { BsChevronLeft, BsGeoAlt, BsGeoAltFill } from "react-icons/bs";
+import { useEffect, useMemo, useState } from "react";
+import { fetchWardEvidence } from "../api/fetchWardEvidence";
+import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
 import { groupWardsByMatch, groupWardsByPlayer, sortWards } from "../metrics/groupWards";
 import { useMapStore } from "../state/mapState";
 import { contextIds } from "../state/analysisContext";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
 import type { WardOutcomeFilter, WardSort, WardView } from "../state/workspaceState";
-import type { ClusterWard } from "../types";
+import type { ClusterWard, WardSighting } from "../types";
 import { EmptyState, fieldControlClass } from "../components/ui";
 import { InspectorSection, MetricRows } from "./InspectorPrimitives";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
@@ -17,6 +18,8 @@ const wardSortOptions: Record<WardView, { value: WardSort; label: string }[]> = 
   wards: [
     { value: "placement", label: "Placement time" },
     { value: "lifetime", label: "Longest lifetime" },
+    { value: "added-vision", label: "Most added vision" },
+    { value: "fresh-sightings", label: "Most fresh sightings" },
     { value: "match", label: "Match" },
     { value: "player", label: "Player" },
   ],
@@ -25,14 +28,58 @@ const wardSortOptions: Record<WardView, { value: WardSort; label: string }[]> = 
     { value: "player", label: "Player name" },
     { value: "placement", label: "Earliest average placement" },
     { value: "lifetime", label: "Longest average lifetime" },
+    { value: "added-vision", label: "Most added vision" },
+    { value: "fresh-sightings", label: "Most fresh sightings" },
   ],
   matches: [
     { value: "amount", label: "Most wards" },
     { value: "match", label: "Newest match" },
     { value: "placement", label: "Earliest placement" },
     { value: "lifetime", label: "Longest average lifetime" },
+    { value: "added-vision", label: "Most added vision" },
+    { value: "fresh-sightings", label: "Most fresh sightings" },
   ],
 };
+
+function accountId(steamId: string): number | null {
+  try {
+    const value = BigInt(steamId);
+    const universe = (value >> 56n) & 0xffn;
+    const accountType = (value >> 52n) & 0xfn;
+    const instance = (value >> 32n) & 0xfffffn;
+    const account = value & 0xffffffffn;
+
+    if (universe !== 1n || accountType !== 1n || instance !== 1n || account === 0n) {
+      return null;
+    }
+
+    return Number(account);
+  } catch {
+    return null;
+  }
+}
+
+function heroName(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return value
+    .replace(/^CDOTA_Unit_Hero_/, "")
+    .replace(/^npc_dota_hero_/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatCount(value: number): string {
+  return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
+}
+
+function formatSeconds(value: number): string {
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} sec`;
+}
 
 function WardReport({
   ward,
@@ -43,7 +90,60 @@ function WardReport({
   compact?: boolean;
   onBack?: () => void;
 }) {
-  const outcome = ward.is_destroyed ? "Dewarded" : "Not dewarded";
+  const players = useWorkspaceStore((state) => state.players);
+  const opponentPlayers = useWorkspaceStore((state) => state.opponentPlayers);
+  const sightingSelectionId = useMapStore((state) => state.sightingSelectionId);
+  const showSightingAt = useMapStore((state) => state.showSightingAt);
+  const clearSighting = useMapStore((state) => state.clearSighting);
+  const [sightings, setSightings] = useState<WardSighting[] | null>(null);
+  const [sightingError, setSightingError] = useState(false);
+  const outcome = ward.measurement
+    ? formatWardOutcome(ward.measurement.outcome)
+    : ward.is_destroyed
+      ? "Dewarded"
+      : "Not dewarded";
+  const hasSightings = (ward.measurement?.fresh_sightings ?? 0) > 0;
+  const playerNames = new Map(
+    [...players, ...opponentPlayers].map((player) => [player.id, player.name]),
+  );
+  const loadedSightings = sightings ?? [];
+  const uniqueTargets = new Set(
+    loadedSightings.map((event) => event.target_player_slot ?? event.target_steam_id ?? "unknown"),
+  ).size;
+  const longestUnseen = loadedSightings.reduce(
+    (longest, event) => Math.max(longest, event.hidden_seconds),
+    0,
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    if (!ward.is_obs || !ward.measurement || !hasSightings) {
+      setSightings([]);
+      setSightingError(false);
+
+      return;
+    }
+
+    setSightings(null);
+    setSightingError(false);
+    void fetchWardEvidence(ward.id)
+      .then((evidence) => {
+        if (active) {
+          setSightings(evidence.sightings);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSightings([]);
+          setSightingError(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasSightings, ward.id, ward.is_obs, ward.measurement]);
 
   return (
     <div className={compact ? "mb-2" : ""}>
@@ -63,8 +163,12 @@ function WardReport({
         </p>
         <p className="mt-1 truncate text-xs text-slate-500">
           {ward.team_name ?? "Unknown team"} vs {ward.opponent_team_name ?? "Unknown opponent"}
-          <span className={ward.is_destroyed ? "text-rose-300" : "text-emerald-300"}>
-            {` · ${outcome}`}
+          <span
+            className={
+              ward.measurement?.outcome === "dewarded" ? "text-rose-300" : "text-slate-400"
+            }
+          >
+            {`, ${outcome.toLowerCase()}`}
           </span>
         </p>
       </div>
@@ -88,12 +192,214 @@ function WardReport({
         </a>
       </InspectorSection>
 
+      {ward.is_obs && ward.measurement ? (
+        <>
+          <InspectorSection separated title="Observer vision">
+            <MetricRows
+              rows={[
+                ["Added vision", formatGameTime(ward.measurement.added_vision_seconds)],
+                [
+                  "Fresh sightings",
+                  ward.measurement.fresh_sightings === null
+                    ? "--"
+                    : formatCount(ward.measurement.fresh_sightings),
+                ],
+                ["Enemies spotted", sightings === null ? "--" : uniqueTargets.toLocaleString()],
+                [
+                  "Longest unseen",
+                  sightings === null
+                    ? "--"
+                    : loadedSightings.length
+                      ? formatGameTime(longestUnseen)
+                      : "--",
+                ],
+                ["Outcome", formatWardOutcome(ward.measurement.outcome)],
+              ]}
+            />
+          </InspectorSection>
+          {sightings === null || sightingError || loadedSightings.length ? (
+            <InspectorSection separated title="Enemy sightings">
+              {sightings === null ? (
+                <p className="py-2 text-xs text-slate-500">Loading events…</p>
+              ) : sightingError ? (
+                <p className="py-2 text-xs text-rose-300">Unable to load events.</p>
+              ) : (
+                <table className="w-full table-fixed text-xs">
+                  <thead className="text-left text-xs text-slate-500">
+                    <tr>
+                      <th className="w-14 py-2 font-normal">Time</th>
+                      <th className="py-2 font-normal">Enemy</th>
+                      <th className="w-16 py-2 text-right font-normal">Unseen</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/8">
+                    {loadedSightings.map((event, index) => {
+                      const targetId = event.target_steam_id
+                        ? accountId(event.target_steam_id)
+                        : null;
+                      const playerName =
+                        event.target_player_name ??
+                        (targetId === null ? null : playerNames.get(targetId));
+                      const targetHero = heroName(event.target_hero_name);
+                      const combinedRoutes = event.segments
+                        .map((segment) => segment.route.map((point) => point.position))
+                        .filter((route) => route.length > 1);
+                      const fullRoutePosition =
+                        event.segments[0]?.start_position ?? event.target_position;
+                      const firstSegmentTime = event.segments[0]?.time ?? event.time;
+                      const totalVisibleSeconds = event.segments.reduce(
+                        (total, segment) => total + (segment.visible_seconds ?? 0),
+                        0,
+                      );
+                      const eventKey = `${ward.id}-${event.sample_tick ?? event.time}-${event.target_player_slot ?? event.target_steam_id ?? index}`;
+                      const fullRouteId = `${eventKey}-all`;
+                      const fallbackName =
+                        event.target_player_slot === null
+                          ? "Enemy player"
+                          : `Enemy ${event.target_player_slot + 1}`;
+
+                      return (
+                        <tr
+                          key={`${event.sample_tick ?? event.time}-${event.target_player_slot ?? event.target_steam_id ?? index}`}
+                        >
+                          <td className="py-3 align-top font-mono text-xs text-slate-500">
+                            {formatGameTime(event.time)}
+                          </td>
+                          <td className="min-w-0 py-3 pr-2">
+                            <p className="truncate text-sm font-medium text-slate-200">
+                              {playerName ?? fallbackName}
+                            </p>
+                            {targetHero ? (
+                              <p className="truncate text-xs text-slate-500">{targetHero}</p>
+                            ) : null}
+                            <div className="mt-2 space-y-1">
+                              {fullRoutePosition && combinedRoutes.length > 1 ? (
+                                <SightingPathButton
+                                  detail={`${combinedRoutes.length} paths, ${formatGameTime(totalVisibleSeconds)} visible`}
+                                  label="All movement"
+                                  selected={sightingSelectionId === fullRouteId}
+                                  onClear={clearSighting}
+                                  onShow={() =>
+                                    showSightingAt(fullRouteId, fullRoutePosition, combinedRoutes)
+                                  }
+                                />
+                              ) : null}
+                              <div
+                                className={
+                                  combinedRoutes.length > 1
+                                    ? "ml-3 space-y-1 border-l border-white/10 pl-2"
+                                    : "space-y-1"
+                                }
+                              >
+                                {event.segments.map((segment, segmentIndex) => {
+                                  const startPosition = segment.start_position;
+                                  const route = segment.route.map((point) => point.position);
+                                  const selectionId = `${eventKey}-${segmentIndex}`;
+                                  const segmentTime = event.time + segment.time - firstSegmentTime;
+                                  const segmentLabel =
+                                    segmentIndex === 0
+                                      ? `First view at ${formatGameTime(segmentTime)}`
+                                      : `Back at ${formatGameTime(segmentTime)} after ${formatSeconds(segment.gap_seconds ?? 0)}`;
+                                  const durationLabel =
+                                    segment.visible_seconds === null
+                                      ? "No exit captured"
+                                      : `Visible ${formatSeconds(segment.visible_seconds)}`;
+
+                                  return startPosition ? (
+                                    <SightingPathButton
+                                      detail={durationLabel}
+                                      key={selectionId}
+                                      label={segmentLabel}
+                                      nested={combinedRoutes.length > 1}
+                                      selected={sightingSelectionId === selectionId}
+                                      onClear={clearSighting}
+                                      onShow={() =>
+                                        showSightingAt(
+                                          selectionId,
+                                          startPosition,
+                                          route.length > 1 ? [route] : [],
+                                        )
+                                      }
+                                    />
+                                  ) : (
+                                    <div
+                                      className="grid grid-cols-[1fr_auto] gap-3 px-2 py-1.5 text-[11px] text-slate-500"
+                                      key={selectionId}
+                                    >
+                                      <span>{segmentLabel}</span>
+                                      <span>{durationLabel}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 text-right align-top text-sm font-medium text-slate-200">
+                            {Math.round(event.hidden_seconds)} sec
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </InspectorSection>
+          ) : null}
+        </>
+      ) : null}
+
       {ward.is_destroyed ? (
         <p className="mt-3 text-xs text-slate-500">
           Dewarded by <span className="text-slate-300">{destroyingPlayerName(ward)}</span>
         </p>
       ) : null}
     </div>
+  );
+}
+
+function SightingPathButton({
+  detail,
+  label,
+  nested = false,
+  selected,
+  onClear,
+  onShow,
+}: {
+  detail: string;
+  label: string;
+  nested?: boolean;
+  selected: boolean;
+  onClear: () => void;
+  onShow: () => void;
+}) {
+  return (
+    <button
+      aria-label={`${selected ? "Hide" : "Show"} ${label.toLowerCase()} movement on map`}
+      aria-pressed={selected}
+      className={`grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-sm px-2 text-left text-[11px] transition ${
+        nested ? "py-1.5" : "border border-white/8 bg-white/3 py-2"
+      } ${
+        selected
+          ? "bg-amber-300/8 text-amber-200 ring-1 ring-inset ring-amber-300/35"
+          : nested
+            ? "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            : "text-slate-300 hover:border-white/15 hover:bg-white/6"
+      }`}
+      type="button"
+      onClick={selected ? onClear : onShow}
+    >
+      {selected ? (
+        <BsGeoAltFill aria-hidden="true" className="text-amber-300" />
+      ) : (
+        <BsGeoAlt aria-hidden="true" className="text-cyan-500" />
+      )}
+      <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+        <span className="leading-4 whitespace-normal">{label}</span>
+        <span className={`whitespace-nowrap ${selected ? "text-amber-300/70" : "text-slate-500"}`}>
+          {detail}
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -122,10 +428,17 @@ export default function WardList() {
   const wards = useMemo(
     () =>
       sortWards(
-        allWards.filter(
-          (ward) =>
-            outcome === "all" || (outcome === "dewarded" ? ward.is_destroyed : !ward.is_destroyed),
-        ),
+        allWards.filter((ward) => {
+          if (outcome === "all") {
+            return true;
+          }
+
+          const wardOutcome = ward.measurement?.outcome;
+
+          return outcome === "unresolved_removal"
+            ? wardOutcome === "unknown" || wardOutcome === "replay_ended"
+            : wardOutcome === outcome;
+        }),
         sort,
       ),
     [allWards, outcome, sort],
@@ -147,9 +460,7 @@ export default function WardList() {
 
   return (
     <div>
-      {selectedWard ? (
-        <WardReport compact ward={selectedWard} onBack={() => setSelectedWardId(null)} />
-      ) : null}
+      {selectedWard ? <WardReport compact ward={selectedWard} /> : null}
 
       <h3 className="mt-5 mb-3 border-t border-white/8 pt-4 text-xs font-medium text-slate-400">
         Wards at this location
@@ -170,8 +481,11 @@ export default function WardList() {
             onChange={(event) => setOutcome(event.target.value as WardOutcomeFilter)}
           >
             <option value="all">All</option>
-            <option value="survived">Not dewarded</option>
             <option value="dewarded">Dewarded</option>
+            <option value="expired">Expired</option>
+            <option value="allied_removed">Removed by allies</option>
+            <option value="match_ended">Match ended</option>
+            <option value="unresolved_removal">Unresolved removal</option>
           </select>
         </label>
         <label className="text-[10px] text-slate-600">

@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { formatGameTime } from "../metrics/wardMetrics";
 import {
   compareLocationGroups,
   compareLocations,
@@ -10,10 +9,11 @@ import {
 import type { LocationEntry, LocationInGroup } from "../metrics/groupLocations";
 import { useMapStore } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
-import type { LocationSort } from "../state/workspaceState";
+import type { LocationSort, SortDirection } from "../state/workspaceState";
 import type { Cluster, Side } from "../types";
-import { EmptyState, formControlClass, selectableRowClass } from "../components/ui";
+import { EmptyState, formControlClass } from "../components/ui";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
+import LocationRow from "./LocationRow";
 import WardRow from "./WardRow";
 import { contextIds, sameScope } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
@@ -37,6 +37,10 @@ export default function LocationList({
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const sort = useWorkspaceStore((state) => state.locationSort);
   const setSort = useWorkspaceStore((state) => state.setLocationSort);
+  const sortDirection = useWorkspaceStore((state) => state.locationSortDirection);
+  const setSortDirection = useWorkspaceStore((state) => state.setLocationSortDirection);
+  const minimumWards = useWorkspaceStore((state) => state.locationMinimumWards);
+  const setMinimumWards = useWorkspaceStore((state) => state.setLocationMinimumWards);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const clearMapSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
@@ -52,8 +56,8 @@ export default function LocationList({
 
           return data && (!cluster.unclustered || showUnclustered) ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [clusters, showUnclustered, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [clusters, showUnclustered, side, sort, sortDirection],
   );
   const baseLocations = useMemo(
     () =>
@@ -63,8 +67,12 @@ export default function LocationList({
 
           return data && (!cluster.unclustered || showUnclustered) ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [baseClusters, showUnclustered, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [baseClusters, showUnclustered, side, sort, sortDirection],
+  );
+  const visibleLocations = useMemo(
+    () => locations.filter((entry) => entry.data.amount >= minimumWards),
+    [locations, minimumWards],
   );
   const groupBaseLocations = useMemo(
     () =>
@@ -74,8 +82,8 @@ export default function LocationList({
 
           return data ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [baseClusters, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [baseClusters, side, sort, sortDirection],
   );
   const groups = useMemo(() => {
     if (view === "locations") {
@@ -87,8 +95,10 @@ export default function LocationList({
         ? groupLocationsByPlayer(groupBaseLocations, side)
         : groupLocationsByMatch(groupBaseLocations, side);
 
-    return next.sort((left, right) => compareLocationGroups(sort, view, left, right));
-  }, [groupBaseLocations, side, sort, view]);
+    return next
+      .filter((group) => group.wardCount >= minimumWards)
+      .sort((left, right) => compareLocationGroups(sort, sortDirection, view, left, right));
+  }, [groupBaseLocations, minimumWards, side, sort, sortDirection, view]);
   const contextGroups = useMemo(() => {
     if (view === "locations" || clusters === baseClusters) {
       return new Map<string, (typeof groups)[number]>();
@@ -170,32 +180,20 @@ export default function LocationList({
     }
 
     return (
-      <button
-        className={`w-full py-2 text-left ${selectableRowClass(selected)}`}
+      <LocationRow
         key={cluster.cluster_id}
-        type="button"
-        onClick={() => selectLocation(entry, selected)}
-      >
-        <span className="block min-w-0">
-          <span className="flex items-baseline justify-between gap-3">
-            <span className={selected ? "text-xs text-white" : "text-xs text-slate-300"}>
-              {`Location ${locationNumber}`}
-            </span>
-            <span className="font-mono text-[11px] text-slate-400">
-              {wardCount === data.amount
-                ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
-                : `${wardCount.toLocaleString()} of ${data.amount.toLocaleString()} wards`}
-            </span>
-          </span>
-          <span className="mt-1 grid grid-cols-3 gap-2 text-[10px] text-slate-600">
-            <span>
-              {data.match_count.toLocaleString()} {data.match_count === 1 ? "match" : "matches"}
-            </span>
-            <span className="text-center">{survivalRate.toFixed(0)}% not dewarded</span>
-            <span className="text-right">{formatGameTime(data.time_placed)}</span>
-          </span>
-        </span>
-      </button>
+        label={`Location ${locationNumber}`}
+        matchCount={data.match_count}
+        metric={`${survivalRate.toFixed(0)}% not removed`}
+        placement={data.time_placed}
+        selected={selected}
+        wardCount={
+          wardCount === data.amount
+            ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
+            : `${wardCount.toLocaleString()} of ${data.amount.toLocaleString()} wards`
+        }
+        onSelect={() => selectLocation(entry, selected)}
+      />
     );
   }
 
@@ -223,33 +221,62 @@ export default function LocationList({
         />
       </div>
 
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <label className="contents text-[11px] text-slate-500">
+      <div className="mb-3 space-y-2">
+        <label className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
           <span className="shrink-0">Sort by</span>
-          <span className="block w-[13.5rem] shrink-0">
+          <span className="grid w-[13.5rem] shrink-0 grid-cols-2 gap-2">
             <select
               className={formControlClass}
               value={sort}
               onChange={(event) => setSort(event.target.value as LocationSort)}
             >
-              <option value="wards">Most wards</option>
-              <option value="matches">
-                {view === "matches" ? "Newest match" : "Most matches"}
-              </option>
-              <option value="survival-high">Highest not dewarded rate</option>
-              <option value="survival-low">Lowest not dewarded rate</option>
-              <option value="placement-early">Earliest placement</option>
-              <option value="placement-late">Latest placement</option>
-              <option value="lifetime-high">Longest lifetime</option>
+              <option value="wards">Wards</option>
+              <option value="matches">{view === "matches" ? "Match" : "Matches"}</option>
+              <option value="removals">Removal rate</option>
+              <option value="placement">Placement time</option>
+              <option value="lifetime">Lifetime</option>
+              <option value="added-vision">Added vision</option>
+              <option value="fresh-sightings">Fresh sightings</option>
             </select>
+            <select
+              aria-label="Sort order"
+              className={formControlClass}
+              value={sortDirection}
+              onChange={(event) => setSortDirection(event.target.value as SortDirection)}
+            >
+              <option value="descending">Descending</option>
+              <option value="ascending">Ascending</option>
+            </select>
+          </span>
+        </label>
+        <label className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+          <span className="shrink-0">Min wards</span>
+          <span className="w-[13.5rem] shrink-0">
+            <input
+              aria-label="Minimum wards"
+              className={`${formControlClass} text-right`}
+              min={1}
+              step={1}
+              type="number"
+              value={minimumWards}
+              onChange={(event) => {
+                const value = Number.parseInt(event.target.value, 10);
+
+                setMinimumWards(Number.isFinite(value) ? Math.max(1, value) : 1);
+              }}
+            />
           </span>
         </label>
       </div>
 
-      {view === "locations" ? (
+      {view === "locations" && visibleLocations.length === 0 ? (
+        <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
+      ) : view === "locations" ? (
         <div className="space-y-1">
-          {locations.map((entry) => renderLocation({ entry, wardCount: entry.data.amount }))}
+          {visibleLocations.map((entry) => renderLocation({ entry, wardCount: entry.data.amount }))}
         </div>
+      ) : groups.length === 0 ? (
+        <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
       ) : (
         <div className="space-y-1">
           {groups.map((group) => {

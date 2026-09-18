@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { BsChevronLeft } from "react-icons/bs";
+import { BsChevronLeft, BsPinAngle, BsPinAngleFill } from "react-icons/bs";
 import { useMapStore } from "../state/mapState";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
@@ -27,6 +27,8 @@ export default function WorkspaceInspector() {
   const clearSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
   const clearWardSelection = useMapStore((state) => state.clearWardSelection);
+  const focusCluster = useMapStore((state) => state.focusCluster);
+  const focusWard = useMapStore((state) => state.focusWard);
   const expandedClusterIds = useMapStore((state) => state.expandedClusterIds);
   const setClusterExpanded = useMapStore((state) => state.setClusterExpanded);
   const selectedWardId = useMapStore((state) => state.selectedWardId);
@@ -38,6 +40,7 @@ export default function WorkspaceInspector() {
   const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
   const setLocationView = useWorkspaceStore((state) => state.setLocationView);
   const wards = useWorkspaceStore((state) => state.wards);
+  const population = useWorkspaceStore((state) => state.population);
   const clusterSets = useWorkspaceStore((state) => state.clusterSets);
   const displayClusterSets = useWorkspaceStore(selectDisplayedClusterSets);
   const clusteringEnabled = useWorkspaceStore((state) => state.clusteringEnabled);
@@ -105,32 +108,41 @@ export default function WorkspaceInspector() {
   } else {
     detailsContent = (
       <>
-        {!selectedWard || (selectedSideData?.amount ?? 0) <= 1 ? (
+        <div className="mb-2 flex items-center justify-between gap-3">
           <button
-            className="-ml-1 mb-2 inline-flex items-center gap-1 rounded-sm px-1 py-1 text-xs text-slate-500 transition hover:bg-white/4 hover:text-slate-200"
+            className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 py-1 text-xs text-slate-500 transition hover:bg-white/4 hover:text-slate-200"
             type="button"
             onClick={() => {
-              clearSelection();
-              setInspectorTab(inspectorReturnTab);
+              if (selectedWard && (selectedSideData?.amount ?? 0) > 1) {
+                clearWardSelection();
+              } else {
+                clearSelection();
+                setInspectorTab(inspectorReturnTab);
+              }
             }}
           >
             <BsChevronLeft className="text-[10px]" />
-            {inspectorReturnTab === "overview" ? overviewTabLabel : "Context"}
+            {selectedWard && (selectedSideData?.amount ?? 0) > 1
+              ? "Location summary"
+              : inspectorReturnTab === "overview"
+                ? overviewTabLabel
+                : "Context"}
           </button>
-        ) : null}
-        {(selectedSideData?.amount ?? 0) > 1 ? (
-          <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
-            <input
-              checked={keepExpanded}
-              className="accent-cyan-400"
-              type="checkbox"
-              onChange={(event) =>
-                setClusterExpanded(selectedCluster.cluster_id, event.target.checked)
-              }
-            />
-            Keep expanded
-          </label>
-        ) : null}
+          {(selectedSideData?.amount ?? 0) > 1 ? (
+            <button
+              aria-label={keepExpanded ? "Unpin expanded location" : "Pin expanded location"}
+              aria-pressed={keepExpanded}
+              className={`rounded-sm p-1.5 text-sm transition hover:bg-white/4 hover:text-slate-200 ${
+                keepExpanded ? "text-cyan-400" : "text-slate-600"
+              }`}
+              title={keepExpanded ? "Unpin expanded location" : "Keep location expanded"}
+              type="button"
+              onClick={() => setClusterExpanded(selectedCluster.cluster_id, !keepExpanded)}
+            >
+              {keepExpanded ? <BsPinAngleFill /> : <BsPinAngle />}
+            </button>
+          ) : null}
+        </div>
         {!selectedWard && (selectedSideData?.amount ?? 0) > 1 ? (
           <>
             <LocationSummary flush />
@@ -145,14 +157,33 @@ export default function WorkspaceInspector() {
   const contentByTab: Record<InspectorTab, ReactNode> = {
     overview: (
       <DatasetOverview
+        clusters={displayClusterSets?.[currentSide] ?? []}
         contextLabel={
           contextLabels
             ? contextLabels.refinement
-              ? `${contextLabels.origin} · ${contextLabels.refinement}`
+              ? `${contextLabels.origin}, ${contextLabels.refinement}`
               : contextLabels.origin
             : null
         }
+        selectedClusterId={selectedCluster?.cluster_id ?? null}
+        side={currentSide}
+        showUnclustered={showUnclustered}
         wards={contextWards}
+        population={context.origin ? null : population}
+        onSelectCluster={(cluster, openDetails) => {
+          focusCluster(cluster.cluster_id);
+
+          if (openDetails) {
+            setInspectorTab("details");
+          }
+        }}
+        onSelectWard={(ward, openDetails) => {
+          focusWard(ward.id);
+
+          if (openDetails) {
+            setInspectorTab("details");
+          }
+        }}
         onChangeContext={() => {
           if (context.origin) {
             setLocationView(context.origin.kind === "player" ? "players" : "matches");
@@ -182,57 +213,59 @@ export default function WorkspaceInspector() {
       }}
     >
       <div className="sticky top-0 z-20 border-b border-white/10 bg-slate-900/95 px-4 pt-4 backdrop-blur">
-        <p className="text-sm font-semibold text-slate-100">Inspector</p>
-        <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-slate-500">
-          <span className="shrink-0">Showing:</span>
-          {contextLabels ? (
-            <>
-              <button
-                className={`min-w-0 truncate ${contextLabels.refinement ? "transition hover:text-slate-200" : "text-slate-300"}`}
-                type="button"
-                onClick={() => {
-                  if (context.refinement) {
-                    clearWardSelection();
-                    clearExpandedClusters();
-                    setContextRefinement(null);
-                  }
-                }}
-              >
-                {contextLabels.origin}
-              </button>
-              {contextLabels.refinement ? (
-                <>
-                  <span>/</span>
-                  <span className="min-w-0 truncate text-slate-300">
-                    {contextLabels.refinement}
-                  </span>
-                </>
-              ) : null}
-              <button
-                aria-label="Clear current context level"
-                className="ml-auto shrink-0 px-1 text-sm leading-none text-slate-600 transition hover:text-slate-200"
-                type="button"
-                onClick={() => {
-                  if (context.refinement) {
-                    clearWardSelection();
-                    clearExpandedClusters();
-                    setContextRefinement(null);
-                  } else {
-                    clearSelection();
-                    clearExpandedClusters();
-                    setContextOrigin(null);
-                  }
-                }}
-              >
-                ×
-              </button>
-              {context.status === "clustering" ? (
-                <span className="shrink-0 text-slate-600">Clustering…</span>
-              ) : null}
-            </>
-          ) : (
-            <span className="truncate text-slate-300">All wards</span>
-          )}
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <p className="shrink-0 text-sm font-semibold text-slate-100">Inspector</p>
+          <div className="flex min-w-0 items-center justify-end gap-1.5 text-xs text-slate-400">
+            <span className="shrink-0">Showing:</span>
+            {contextLabels ? (
+              <>
+                <button
+                  className={`min-w-0 truncate ${contextLabels.refinement ? "transition hover:text-slate-200" : "text-slate-300"}`}
+                  type="button"
+                  onClick={() => {
+                    if (context.refinement) {
+                      clearWardSelection();
+                      clearExpandedClusters();
+                      setContextRefinement(null);
+                    }
+                  }}
+                >
+                  {contextLabels.origin}
+                </button>
+                {contextLabels.refinement ? (
+                  <>
+                    <span>/</span>
+                    <span className="min-w-0 truncate text-slate-300">
+                      {contextLabels.refinement}
+                    </span>
+                  </>
+                ) : null}
+                <button
+                  aria-label="Clear current context level"
+                  className="shrink-0 px-1 text-sm leading-none text-slate-600 transition hover:text-slate-200"
+                  type="button"
+                  onClick={() => {
+                    if (context.refinement) {
+                      clearWardSelection();
+                      clearExpandedClusters();
+                      setContextRefinement(null);
+                    } else {
+                      clearSelection();
+                      clearExpandedClusters();
+                      setContextOrigin(null);
+                    }
+                  }}
+                >
+                  ×
+                </button>
+                {context.status === "clustering" ? (
+                  <span className="shrink-0 text-slate-600">Clustering…</span>
+                ) : null}
+              </>
+            ) : (
+              <span className="truncate text-slate-300">All wards</span>
+            )}
+          </div>
         </div>
         <SwitchNav
           className="mt-2"

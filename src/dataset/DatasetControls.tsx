@@ -2,7 +2,7 @@ import type { ReactNode, SelectHTMLAttributes } from "react";
 import type { League, Player, Side, Team } from "../types";
 import { numericIds } from "./model";
 import type { DatasetSettings, TeamResult, WardOutcome, WardType } from "./model";
-import { Field, GameTimeRange, Range, SelectionDialog } from "./DatasetFormControls";
+import { Field, GameTimeRange, OptionalRange, Range, SelectionDialog } from "./DatasetFormControls";
 import type { SelectionOption } from "./DatasetFormControls";
 import { fieldControlClass } from "../components/ui";
 
@@ -189,8 +189,11 @@ export default function DatasetControls({
             onChange={(event) => update("outcome", event.target.value as WardOutcome)}
           >
             <option value="all">All</option>
-            <option value="survived">Not dewarded</option>
-            <option value="destroyed">Dewarded</option>
+            <option value="dewarded">Dewarded</option>
+            <option value="expired">Expired</option>
+            <option value="allied_removed">Removed by allies</option>
+            <option value="match_ended">Match ended</option>
+            <option value="unresolved_removal">Unresolved removal</option>
           </CompactSelect>
         </section>
         <section className="mt-3 border-t border-white/7 pt-3">
@@ -256,6 +259,25 @@ export default function DatasetControls({
             setMin={(value) => update("minimumWardLifetime", value)}
             setMax={(value) => update("maximumWardLifetime", value)}
           />
+          <div className="border-t border-white/7 pt-3">
+            <h4 className="mb-3 text-[11px] font-medium text-slate-400">Observer vision</h4>
+            <div className="space-y-3">
+              <OptionalRange
+                label="Added vision (seconds)"
+                min={settings.minimumAddedVision}
+                max={settings.maximumAddedVision}
+                setMin={(value) => update("minimumAddedVision", value)}
+                setMax={(value) => update("maximumAddedVision", value)}
+              />
+              <OptionalRange
+                label="Fresh sightings"
+                min={settings.minimumFreshSightings}
+                max={settings.maximumFreshSightings}
+                setMin={(value) => update("minimumFreshSightings", value)}
+                setMax={(value) => update("maximumFreshSightings", value)}
+              />
+            </div>
+          </div>
         </div>
       </section>
     </>

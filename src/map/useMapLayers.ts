@@ -1,7 +1,9 @@
 import Feature from "ol/Feature";
 import Point from "ol/geom/Point";
+import LineString from "ol/geom/LineString";
 import { useEffect } from "react";
 import type { MapFocusRequest, VisionTechnique } from "../state/mapState";
+import type { MapPosition } from "../state/mapState";
 import type { Cluster, ClusterSets, ClusterWard, Side } from "../types";
 import { calculateGridNavVision } from "./calculateGridNavVision";
 import calculateVision from "./calculateVision";
@@ -170,6 +172,29 @@ export function useMapFocus({
 
     clearFocusRequest();
   }, [centerMapAt, clearFocusRequest, focusRequest, selectMapLocation]);
+}
+
+export function useSightingLayer(position: MapPosition | null, routes: MapPosition[][]) {
+  useEffect(() => {
+    const source = layers.sightings.getSource()!;
+
+    source.clear(true);
+
+    if (position) {
+      source.addFeature(new Feature({ geometry: new Point(unitToPixel(position)) }));
+    }
+
+    for (const route of routes) {
+      if (route.length > 1) {
+        source.addFeature(
+          new Feature({
+            geometry: new LineString(route.map((point) => unitToPixel(point))),
+            route: true,
+          }),
+        );
+      }
+    }
+  }, [position, routes]);
 }
 
 export function useVisionLayer({
