@@ -1,6 +1,6 @@
 import type { LocationSort, LocationView, SortDirection } from "../state/workspaceState";
 import type { Cluster, ClusterSideData, ClusterWard, Side } from "../types";
-import { percentile } from "./wardMetrics";
+import { mean } from "./wardMetrics";
 
 export interface LocationEntry {
   cluster: Cluster;
@@ -47,7 +47,7 @@ function compareMeasured(
   return compareNumbers(left, right, direction);
 }
 
-function typicalMeasurement(wards: ClusterWard[], sort: MeasurementSort): number | null {
+function meanMeasurement(wards: ClusterWard[], sort: MeasurementSort): number | null {
   const values = wards.flatMap((ward) => {
     const value =
       sort === "added-vision"
@@ -57,7 +57,7 @@ function typicalMeasurement(wards: ClusterWard[], sort: MeasurementSort): number
     return value == null ? [] : [value];
   });
 
-  return percentile(values, 0.5);
+  return mean(values);
 }
 
 export function locationSurvival(entry: LocationEntry): number {
@@ -84,8 +84,8 @@ export function compareLocations(
   if (sort === "added-vision" || sort === "fresh-sightings") {
     return (
       compareMeasured(
-        typicalMeasurement(wardsInEntry(left), sort),
-        typicalMeasurement(wardsInEntry(right), sort),
+        meanMeasurement(wardsInEntry(left), sort),
+        meanMeasurement(wardsInEntry(right), sort),
         direction,
       ) || right.data.amount - left.data.amount
     );
@@ -137,8 +137,8 @@ export function compareLocationGroups(
   if (sort === "added-vision" || sort === "fresh-sightings") {
     return (
       compareMeasured(
-        typicalMeasurement(left.wards, sort),
-        typicalMeasurement(right.wards, sort),
+        meanMeasurement(left.wards, sort),
+        meanMeasurement(right.wards, sort),
         direction,
       ) || left.label.localeCompare(right.label)
     );

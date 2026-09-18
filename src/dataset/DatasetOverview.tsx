@@ -95,9 +95,11 @@ export default function DatasetOverview({
         <InspectorSection separated title="Observer vision">
           <MetricRows
             rows={[
-              ["Typical added vision", formatGameTime(data.measurement.addedVision.median)],
+              ["Added vision, mean", formatGameTime(data.measurement.addedVision.mean)],
+              ["Added vision, median", formatGameTime(data.measurement.addedVision.median)],
+              ["Fresh sightings, mean", data.measurement.freshSightings.mean?.toFixed(1) ?? "--"],
               [
-                "Typical fresh sightings",
+                "Fresh sightings, median",
                 data.measurement.freshSightings.median?.toFixed(1) ?? "--",
               ],
             ]}
@@ -110,8 +112,10 @@ export default function DatasetOverview({
           <InspectorSection separated title="Ward lifetime">
             <MetricRows
               rows={[
-                ["Typical time to deward", formatGameTime(data.measurement.timeToDeward.median)],
-                ["Typical ward lifetime", formatGameTime(data.measurement.lifetime.median)],
+                ["Time to deward, mean", formatGameTime(data.measurement.timeToDeward.mean)],
+                ["Time to deward, median", formatGameTime(data.measurement.timeToDeward.median)],
+                ["Ward lifetime, mean", formatGameTime(data.measurement.lifetime.mean)],
+                ["Ward lifetime, median", formatGameTime(data.measurement.lifetime.median)],
               ]}
             />
           </InspectorSection>

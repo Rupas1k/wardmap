@@ -151,8 +151,10 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
       <InspectorSection separated title="Observer vision">
         <MetricRows
           rows={[
-            ["Typical added vision", formatGameTime(measured.addedVision.median)],
-            ["Typical fresh sightings", measured.freshSightings.median?.toFixed(1) ?? "--"],
+            ["Added vision, mean", formatGameTime(measured.addedVision.mean)],
+            ["Added vision, median", formatGameTime(measured.addedVision.median)],
+            ["Fresh sightings, mean", measured.freshSightings.mean?.toFixed(1) ?? "--"],
+            ["Fresh sightings, median", measured.freshSightings.median?.toFixed(1) ?? "--"],
             ...measured.dewardedWithin.map((item): [string, string] => [
               `Dewarded within ${item.seconds / 60} min`,
               item.rate === null ? "--" : `${(item.rate * 100).toFixed(1)}%`,

@@ -1,5 +1,5 @@
 import type { Ward } from "../types";
-import { percentile, wardTimeline } from "./wardMetrics";
+import { mean, percentile, wardTimeline } from "./wardMetrics";
 
 export interface DatasetAnalysis {
   matches: number;
@@ -14,6 +14,7 @@ export interface DatasetAnalysis {
 
 export interface DistributionSummary {
   count: number;
+  mean: number | null;
   median: number | null;
   lowerQuartile: number | null;
   upperQuartile: number | null;
@@ -38,6 +39,7 @@ export interface MeasurementSummary {
 function distribution(values: number[]): DistributionSummary {
   return {
     count: values.length,
+    mean: mean(values),
     median: percentile(values, 0.5),
     lowerQuartile: percentile(values, 0.25),
     upperQuartile: percentile(values, 0.75),

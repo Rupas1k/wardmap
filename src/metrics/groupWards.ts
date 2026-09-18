@@ -1,6 +1,6 @@
 import type { WardSort } from "../state/workspaceState";
 import type { ClusterWard } from "../types";
-import { percentile } from "./wardMetrics";
+import { mean } from "./wardMetrics";
 
 export interface PlayerWardGroup {
   id: number;
@@ -31,10 +31,10 @@ function measurementValue(ward: ClusterWard, sort: WardSort): number | null {
   return null;
 }
 
-function typicalMeasurement(wards: ClusterWard[], sort: WardSort): number {
+function meanMeasurement(wards: ClusterWard[], sort: WardSort): number {
   const values = wards.flatMap((ward) => measurementValue(ward, sort) ?? []);
 
-  return percentile(values, 0.5) ?? -1;
+  return mean(values) ?? -1;
 }
 
 export function sortWards(wards: ClusterWard[], sort: WardSort): ClusterWard[] {
@@ -80,7 +80,7 @@ export function groupWardsByPlayer(wards: ClusterWard[], sort: WardSort): Player
     switch (sort) {
       case "added-vision":
       case "fresh-sightings":
-        return typicalMeasurement(right.wards, sort) - typicalMeasurement(left.wards, sort);
+        return meanMeasurement(right.wards, sort) - meanMeasurement(left.wards, sort);
       case "player":
         return left.name.localeCompare(right.name);
       case "placement":
@@ -107,7 +107,7 @@ export function groupWardsByMatch(wards: ClusterWard[], sort: WardSort): [number
     switch (sort) {
       case "added-vision":
       case "fresh-sightings":
-        return typicalMeasurement(rightWards, sort) - typicalMeasurement(leftWards, sort);
+        return meanMeasurement(rightWards, sort) - meanMeasurement(leftWards, sort);
       case "placement":
         return earliestPlacement(leftWards) - earliestPlacement(rightWards);
       case "lifetime":
