@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { wardOutcomeTextClass } from "../colors";
 import { EmptyState } from "../components/ui";
 import { InspectorSection, MetricRows } from "../inspector/InspectorPrimitives";
 import { analyzeDataset } from "../metrics/analyzeDataset";
@@ -8,6 +9,14 @@ import PlacementChart, { timelineLabels } from "./PlacementChart";
 
 function percentage(amount: number, total: number, digits = 1): string {
   return total ? `${((amount / total) * 100).toFixed(digits)}%` : "--";
+}
+
+function outcomePercentage(
+  outcome: NonNullable<Ward["measurement"]>["outcome"],
+  amount: number,
+  total: number,
+) {
+  return <span className={wardOutcomeTextClass(outcome)}>{percentage(amount, total)}</span>;
 }
 
 export default function DatasetOverview({
@@ -134,26 +143,40 @@ export default function DatasetOverview({
               rows={[
                 [
                   "Dewarded",
-                  percentage(data.measurement.outcomes.dewarded, data.measurement.outcomeWards),
+                  outcomePercentage(
+                    "dewarded",
+                    data.measurement.outcomes.dewarded,
+                    data.measurement.outcomeWards,
+                  ),
                 ],
                 [
                   "Expired",
-                  percentage(data.measurement.outcomes.expired, data.measurement.outcomeWards),
+                  outcomePercentage(
+                    "expired",
+                    data.measurement.outcomes.expired,
+                    data.measurement.outcomeWards,
+                  ),
                 ],
                 [
                   "Removed by allies",
-                  percentage(
+                  outcomePercentage(
+                    "allied_removed",
                     data.measurement.outcomes.allied_removed,
                     data.measurement.outcomeWards,
                   ),
                 ],
                 [
                   "Match ended",
-                  percentage(data.measurement.outcomes.match_ended, data.measurement.outcomeWards),
+                  outcomePercentage(
+                    "match_ended",
+                    data.measurement.outcomes.match_ended,
+                    data.measurement.outcomeWards,
+                  ),
                 ],
                 [
                   "Unresolved removal",
-                  percentage(
+                  outcomePercentage(
+                    "unknown",
                     data.measurement.outcomes.unknown + data.measurement.outcomes.replay_ended,
                     data.measurement.outcomeWards,
                   ),

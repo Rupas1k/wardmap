@@ -1,6 +1,7 @@
 import { BsChevronLeft, BsGeoAlt, BsGeoAltFill } from "react-icons/bs";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWardEvidence } from "../api/fetchWardEvidence";
+import { wardOutcomeTextClass } from "../colors";
 import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
 import { groupWardsByMatch, groupWardsByPlayer, sortWards } from "../metrics/groupWards";
 import { useMapStore } from "../state/mapState";
@@ -102,6 +103,12 @@ function WardReport({
     : ward.is_destroyed
       ? "Dewarded"
       : "Not dewarded";
+  const removalSourceLabel =
+    ward.measurement?.outcome === "dewarded" || (!ward.measurement && ward.is_destroyed)
+      ? "Dewarded by"
+      : ward.measurement?.outcome === "allied_removed"
+        ? "Removed by ally"
+        : null;
   const hasSightings = (ward.measurement?.fresh_sightings ?? 0) > 0;
   const playerNames = new Map(
     [...players, ...opponentPlayers].map((player) => [player.id, player.name]),
@@ -164,9 +171,7 @@ function WardReport({
         <p className="mt-1 truncate text-xs text-slate-500">
           {ward.team_name ?? "Unknown team"} vs {ward.opponent_team_name ?? "Unknown opponent"}
           <span
-            className={
-              ward.measurement?.outcome === "dewarded" ? "text-rose-300" : "text-slate-400"
-            }
+            className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
           >
             {`, ${outcome.toLowerCase()}`}
           </span>
@@ -213,7 +218,12 @@ function WardReport({
                       ? formatGameTime(longestUnseen)
                       : "--",
                 ],
-                ["Outcome", formatWardOutcome(ward.measurement.outcome)],
+                [
+                  "Outcome",
+                  <span className={wardOutcomeTextClass(ward.measurement.outcome)} key="outcome">
+                    {formatWardOutcome(ward.measurement.outcome)}
+                  </span>,
+                ],
               ]}
             />
           </InspectorSection>
@@ -348,9 +358,9 @@ function WardReport({
         </>
       ) : null}
 
-      {ward.is_destroyed ? (
+      {removalSourceLabel ? (
         <p className="mt-3 text-xs text-slate-500">
-          Dewarded by <span className="text-slate-300">{destroyingPlayerName(ward)}</span>
+          {removalSourceLabel} <span className="text-slate-300">{destroyingPlayerName(ward)}</span>
         </p>
       ) : null}
     </div>

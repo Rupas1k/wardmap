@@ -2,6 +2,7 @@ import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
 import { useMapStore } from "../state/mapState";
 import type { ClusterWard, Ward } from "../types";
 import { selectableRowClass } from "../components/ui";
+import { wardOutcomeDotClass, wardOutcomeTextClass } from "../colors";
 
 type WardRowData = Pick<
   Ward,
@@ -55,7 +56,9 @@ export default function WardRow({
     >
       <i
         className={`mx-auto size-2 rounded-full ${
-          !ward.is_obs ? "bg-sky-400" : ward.is_destroyed ? "bg-rose-400" : "bg-emerald-400"
+          !ward.is_obs
+            ? "bg-sky-400"
+            : wardOutcomeDotClass(ward.measurement?.outcome ?? null, ward.is_destroyed)
         }`}
       />
       <button
@@ -88,10 +91,14 @@ export default function WardRow({
           {ward.player_name ?? "Unknown player"}
         </span>
         <span className="mt-1 block truncate text-[10px] text-slate-600">
-          {formatGameTime(ward.duration)} lifetime
-          {ward.measurement?.outcome === "dewarded" || (!ward.measurement && ward.is_destroyed)
-            ? `, dewarded by ${destroyingPlayer}`
-            : `, ${outcome.toLowerCase()}`}
+          {formatGameTime(ward.duration)} lifetime,{" "}
+          <span
+            className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
+          >
+            {ward.measurement?.outcome === "dewarded" || (!ward.measurement && ward.is_destroyed)
+              ? `dewarded by ${destroyingPlayer}`
+              : outcome.toLowerCase()}
+          </span>
         </span>
       </button>
       <span className="text-right">

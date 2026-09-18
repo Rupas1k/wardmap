@@ -1,5 +1,6 @@
 import type { Cluster, ClusterWard, Side } from "../types";
 import { elevatedSurfaceClass } from "../components/ui";
+import { wardOutcomeTextClass } from "../colors";
 import { formatWardOutcome } from "../metrics/wardMetrics";
 
 interface WardTooltipProps {
@@ -31,7 +32,7 @@ export function WardTooltip({ ward, x, y }: WardTooltipProps) {
           {ward.player_name ?? "Unknown player"}
         </span>
         <span
-          className={ward.measurement?.outcome === "dewarded" ? "text-rose-300" : "text-slate-400"}
+          className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
         >
           {outcome}
         </span>
@@ -81,9 +82,9 @@ export function ClusterTooltip({ cluster, side, x, y }: ClusterTooltipProps) {
             {data.amount.toLocaleString()}
           </dd>
           <dt className="text-slate-500">Removed</dt>
-          <dd className="text-right font-mono font-semibold text-rose-300">{data.destroyed}</dd>
+          <dd className="text-right font-mono font-semibold text-slate-200">{data.destroyed}</dd>
           <dt className="text-slate-500">Not removed</dt>
-          <dd className="text-right font-mono font-semibold text-emerald-300">
+          <dd className="text-right font-mono font-semibold text-slate-200">
             {survivalRate?.toFixed(1)}%
           </dd>
         </dl>
