@@ -1,6 +1,19 @@
-import type { Ward } from "../types";
+import type { Ward, WardMeasurement } from "../types";
 
 export const timelineBucketCount = 14;
+
+const outcomeLabels: Record<WardMeasurement["outcome"], string> = {
+  dewarded: "Dewarded",
+  expired: "Expired",
+  allied_removed: "Removed by allies",
+  match_ended: "Match ended",
+  replay_ended: "Unresolved removal",
+  unknown: "Unresolved removal",
+};
+
+export function formatWardOutcome(outcome: WardMeasurement["outcome"]): string {
+  return outcomeLabels[outcome];
+}
 
 export function mean(values: number[]): number | null {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -66,10 +79,9 @@ export function wardTimeline(wards: Ward[], dewardedOnly = false): number[] {
       continue;
     }
 
+    const eventTime = dewardedOnly ? ward.time_placed + effectiveLifetime(ward) : ward.time_placed;
     const index =
-      ward.time_placed < 0
-        ? 0
-        : Math.min(timelineBucketCount - 1, Math.floor(ward.time_placed / 300) + 1);
+      eventTime < 0 ? 0 : Math.min(timelineBucketCount - 1, Math.floor(eventTime / 300) + 1);
     values[index] = (values[index] ?? 0) + 1;
   }
 

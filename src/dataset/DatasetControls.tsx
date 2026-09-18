@@ -189,8 +189,11 @@ export default function DatasetControls({
             onChange={(event) => update("outcome", event.target.value as WardOutcome)}
           >
             <option value="all">All</option>
-            <option value="survived">Not dewarded</option>
-            <option value="destroyed">Dewarded</option>
+            <option value="dewarded">Dewarded</option>
+            <option value="expired">Expired</option>
+            <option value="allied_removed">Removed by allies</option>
+            <option value="match_ended">Match ended</option>
+            <option value="unresolved_removal">Unresolved removal</option>
           </CompactSelect>
         </section>
         <section className="mt-3 border-t border-white/7 pt-3">
@@ -257,63 +260,21 @@ export default function DatasetControls({
             setMax={(value) => update("maximumWardLifetime", value)}
           />
           <div className="border-t border-white/7 pt-3">
-            <h4 className="mb-3 text-[11px] font-medium text-slate-400">Vision</h4>
+            <h4 className="mb-3 text-[11px] font-medium text-slate-400">Observer vision</h4>
             <div className="space-y-3">
               <OptionalRange
-                label="Enemy hero vision (seconds)"
-                min={settings.minimumEnemyHeroVision}
-                max={settings.maximumEnemyHeroVision}
-                setMin={(value) => update("minimumEnemyHeroVision", value)}
-                setMax={(value) => update("maximumEnemyHeroVision", value)}
+                label="Added vision (seconds)"
+                min={settings.minimumAddedVision}
+                max={settings.maximumAddedVision}
+                setMin={(value) => update("minimumAddedVision", value)}
+                setMax={(value) => update("maximumAddedVision", value)}
               />
               <OptionalRange
-                label="Unique enemy vision (seconds)"
-                min={settings.minimumUniqueEnemyHeroVision}
-                max={settings.maximumUniqueEnemyHeroVision}
-                setMin={(value) => update("minimumUniqueEnemyHeroVision", value)}
-                setMax={(value) => update("maximumUniqueEnemyHeroVision", value)}
-              />
-              <OptionalRange
-                label="Heroes spotted"
-                min={settings.minimumHeroesSpotted}
-                max={settings.maximumHeroesSpotted}
-                setMin={(value) => update("minimumHeroesSpotted", value)}
-                setMax={(value) => update("maximumHeroesSpotted", value)}
-              />
-              <OptionalRange
-                label="Reveal events"
-                min={settings.minimumRevealEvents}
-                max={settings.maximumRevealEvents}
-                setMin={(value) => update("minimumRevealEvents", value)}
-                setMax={(value) => update("maximumRevealEvents", value)}
-              />
-              <OptionalRange
-                label="Unique reveals"
-                min={settings.minimumUniqueRevealEvents}
-                max={settings.maximumUniqueRevealEvents}
-                setMin={(value) => update("minimumUniqueRevealEvents", value)}
-                setMax={(value) => update("maximumUniqueRevealEvents", value)}
-              />
-              <OptionalRange
-                label="Scouting score"
-                min={settings.minimumScoutingScore}
-                max={settings.maximumScoutingScore}
-                setMin={(value) => update("minimumScoutingScore", value)}
-                setMax={(value) => update("maximumScoutingScore", value)}
-              />
-              <OptionalRange
-                label="Tracking (seconds)"
-                min={settings.minimumScoutingTracking}
-                max={settings.maximumScoutingTracking}
-                setMin={(value) => update("minimumScoutingTracking", value)}
-                setMax={(value) => update("maximumScoutingTracking", value)}
-              />
-              <OptionalRange
-                label="Discovery (seconds)"
-                min={settings.minimumScoutingDiscovery}
-                max={settings.maximumScoutingDiscovery}
-                setMin={(value) => update("minimumScoutingDiscovery", value)}
-                setMax={(value) => update("maximumScoutingDiscovery", value)}
+                label="Fresh sightings"
+                min={settings.minimumFreshSightings}
+                max={settings.maximumFreshSightings}
+                setMin={(value) => update("minimumFreshSightings", value)}
+                setMax={(value) => update("maximumFreshSightings", value)}
               />
             </div>
           </div>

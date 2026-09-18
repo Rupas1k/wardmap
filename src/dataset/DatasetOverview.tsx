@@ -1,12 +1,10 @@
 import { useMemo } from "react";
 import { EmptyState } from "../components/ui";
 import { InspectorSection, MetricRows } from "../inspector/InspectorPrimitives";
-import LineChart, { timelineLabels } from "../inspector/LineChart";
-import LocationRow from "../inspector/LocationRow";
-import WardRow from "../inspector/WardRow";
 import { analyzeDataset } from "../metrics/analyzeDataset";
 import { formatGameTime } from "../metrics/wardMetrics";
-import type { Cluster, ClusterWard, Side, Ward } from "../types";
+import type { Cluster, ClusterWard, Side, Ward, WardPopulation } from "../types";
+import PlacementChart, { timelineLabels } from "./PlacementChart";
 
 function percentage(amount: number, total: number, digits = 1): string {
   return total ? `${((amount / total) * 100).toFixed(digits)}%` : "--";
@@ -14,14 +12,9 @@ function percentage(amount: number, total: number, digits = 1): string {
 
 export default function DatasetOverview({
   contextLabel,
-  clusters,
-  selectedClusterId,
-  side,
-  showUnclustered,
   wards,
+  population,
   onChangeContext,
-  onSelectCluster,
-  onSelectWard,
 }: {
   contextLabel: string | null;
   clusters: Cluster[];
@@ -29,46 +22,14 @@ export default function DatasetOverview({
   side: Side;
   showUnclustered: boolean;
   wards: Ward[];
+  population: WardPopulation | null;
   onChangeContext: () => void;
   onSelectCluster: (cluster: Cluster, openDetails: boolean) => void;
   onSelectWard: (ward: ClusterWard, openDetails: boolean) => void;
 }) {
   const data = useMemo(() => analyzeDataset(wards), [wards]);
-  const bestClusters = useMemo(
-    () =>
-      clusters
-        .flatMap((cluster) => {
-          const sideData = cluster[side];
-
-          if (
-            !sideData ||
-            sideData.scouting_score === null ||
-            (cluster.unclustered && !showUnclustered)
-          ) {
-            return [];
-          }
-
-          return [{ cluster, score: sideData.scouting_score, sideData }];
-        })
-        .sort(
-          (left, right) =>
-            right.score - left.score ||
-            right.sideData.amount - left.sideData.amount ||
-            left.cluster.cluster_id - right.cluster.cluster_id,
-        )
-        .slice(0, 5),
-    [clusters, showUnclustered, side],
-  );
-  const visionMetrics = [
-    data.scoutingScore,
-    data.enemyHeroVision,
-    data.uniqueEnemyHeroVision,
-    data.heroesSpotted,
-    data.heroRevealEvents,
-    data.uniqueHeroRevealEvents,
-    data.scoutingTracking,
-    data.scoutingDiscovery,
-  ];
+  const hasVisionMeasurements = data.measurement.measuredWards > 0;
+  const hasLifecycleMeasurements = data.measurement.outcomeWards > 0;
   const coverageIssues = [
     ["player", data.missingPlayer] as const,
     ["side", data.missingSide] as const,
@@ -98,134 +59,105 @@ export default function DatasetOverview({
       <InspectorSection title="Sample">
         <MetricRows
           rows={[
-            ["Wards", wards.length.toLocaleString()],
-            ["Matches", data.matches.toLocaleString()],
-            ["Median wards per match", data.medianWardsPerMatch?.toFixed(1) ?? "--"],
-            ...(data.observerCount > 0 && data.sentryCount > 0
-              ? ([
-                  ["Observer wards", data.observerCount.toLocaleString()],
-                  ["Sentry wards", data.sentryCount.toLocaleString()],
-                ] as [string, string][])
-              : []),
+            ["Observer wards", data.observerCount.toLocaleString()],
+            ["Matches represented", data.matches.toLocaleString()],
+            ["Players represented", data.playerCount.toLocaleString()],
           ]}
         />
       </InspectorSection>
 
+      {population?.selection_conditioned ? (
+        <p className="mb-4 text-[11px] leading-4 text-slate-600">
+          The eligible population is conditioned by a result or ward-performance filter and should
+          not be used as an unbiased benchmark.
+        </p>
+      ) : null}
+
       <InspectorSection separated title="Placement timing">
-        <div className="mb-2 flex justify-end gap-3 text-[11px] text-slate-400">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-yellow-300" /> Placed
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-rose-400" /> Dewarded
-          </span>
-        </div>
         <div className="h-52">
-          <LineChart
-            datasets={[
-              {
-                data: data.placedTimeline,
-                label: "Placed",
-                borderColor: "#fde047",
-                backgroundColor: "#fde047",
-              },
-              {
-                data: data.dewardedTimeline,
-                label: "Dewarded",
-                borderColor: "#fb7185",
-                backgroundColor: "#fb7185",
-              },
-            ]}
+          <PlacementChart
             labels={timelineLabels}
+            placements={data.placedTimeline}
+            removals={data.removedTimeline}
           />
         </div>
       </InspectorSection>
 
-      <InspectorSection title="Game phases">
-        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 text-xs">
-          <span />
-          <span className="text-right text-slate-600">Placements</span>
-          <span className="text-right text-slate-600">Dewarded</span>
-          {data.phases.map(([name, phase]) => (
-            <div className="contents" key={name}>
-              <span className="truncate py-1.5 text-slate-500">{name}</span>
-              <span className="py-1.5 text-right text-slate-300">
-                {percentage(phase.amount, wards.length, 0)}
-              </span>
-              <span className="py-1.5 text-right text-slate-300">
-                {percentage(phase.dewarded, phase.amount, 0)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </InspectorSection>
+      {!hasVisionMeasurements && !hasLifecycleMeasurements ? (
+        <InspectorSection separated title="Observer metrics">
+          <p className="text-xs leading-5 text-slate-500">
+            No observer ward measurements are available for this dataset.
+          </p>
+        </InspectorSection>
+      ) : null}
 
-      <InspectorSection title="Outcomes">
-        <MetricRows
-          rows={[
-            ["Mean lifetime", formatGameTime(data.meanLifetime)],
-            ["Dewarded within 2 min", percentage(data.dewardedWithinTwoMinutes, wards.length)],
-            ["Dewarded within 4 min", percentage(data.dewardedWithinFourMinutes, wards.length)],
-            ["Dewarded within 6 min", percentage(data.dewardedWithinSixMinutes, wards.length)],
-          ]}
-        />
-      </InspectorSection>
-
-      {visionMetrics.some((value) => value !== null) ? (
-        <InspectorSection separated title="Vision per ward">
+      {hasVisionMeasurements ? (
+        <InspectorSection separated title="Observer vision">
           <MetricRows
             rows={[
-              ["Scouting score", data.scoutingScore?.toFixed(1) ?? "--"],
-              ["Enemy hero vision", formatGameTime(data.enemyHeroVision)],
-              ["Unique enemy vision", formatGameTime(data.uniqueEnemyHeroVision)],
-              ["Heroes spotted", data.heroesSpotted?.toFixed(1) ?? "--"],
-              ["Reveal events", data.heroRevealEvents?.toFixed(1) ?? "--"],
-              ["Unique reveals", data.uniqueHeroRevealEvents?.toFixed(1) ?? "--"],
-              ["Tracking", formatGameTime(data.scoutingTracking)],
-              ["Discovery", formatGameTime(data.scoutingDiscovery)],
+              ["Typical added vision", formatGameTime(data.measurement.addedVision.median)],
+              [
+                "Typical fresh sightings",
+                data.measurement.freshSightings.median?.toFixed(1) ?? "--",
+              ],
             ]}
           />
         </InspectorSection>
       ) : null}
 
-      {bestClusters.length > 0 ? (
-        <InspectorSection separated title="Best clusters by score">
-          <div>
-            {bestClusters.map(({ cluster, score, sideData }, index) => {
-              const clusterWards = (cluster.wards ?? []).filter(
-                (ward) => side === "all" || ward.is_radiant === (side === "radiant"),
-              );
-              const ward = sideData.amount === 1 ? (clusterWards[0] ?? null) : null;
+      {hasLifecycleMeasurements ? (
+        <>
+          <InspectorSection separated title="Ward lifetime">
+            <MetricRows
+              rows={[
+                ["Typical time to deward", formatGameTime(data.measurement.timeToDeward.median)],
+                ["Typical ward lifetime", formatGameTime(data.measurement.lifetime.median)],
+              ]}
+            />
+          </InspectorSection>
 
-              if (ward) {
-                return (
-                  <WardRow
-                    label={`Scouting score ${score.toFixed(1)}`}
-                    key={cluster.cluster_id}
-                    ward={ward}
-                    onSelect={() => onSelectWard(ward, false)}
-                    onSelected={() => onSelectWard(ward, true)}
-                  />
-                );
-              }
+          <InspectorSection separated title="Early dewards">
+            <MetricRows
+              rows={data.measurement.dewardedWithin.map((item): [string, string] => [
+                `Dewarded within ${item.seconds / 60} min`,
+                item.rate === null ? "--" : percentage(item.rate, 1),
+              ])}
+            />
+          </InspectorSection>
 
-              return (
-                <LocationRow
-                  key={cluster.cluster_id}
-                  label={`Location ${index + 1}`}
-                  matchCount={sideData.match_count}
-                  metric={`${score.toFixed(1)} score`}
-                  placement={sideData.time_placed}
-                  selected={cluster.cluster_id === selectedClusterId}
-                  wardCount={`${sideData.amount.toLocaleString()} wards`}
-                  onSelect={() =>
-                    onSelectCluster(cluster, cluster.cluster_id === selectedClusterId)
-                  }
-                />
-              );
-            })}
-          </div>
-        </InspectorSection>
+          <InspectorSection title="Outcomes">
+            <MetricRows
+              rows={[
+                [
+                  "Dewarded",
+                  percentage(data.measurement.outcomes.dewarded, data.measurement.outcomeWards),
+                ],
+                [
+                  "Expired",
+                  percentage(data.measurement.outcomes.expired, data.measurement.outcomeWards),
+                ],
+                [
+                  "Removed by allies",
+                  percentage(
+                    data.measurement.outcomes.allied_removed,
+                    data.measurement.outcomeWards,
+                  ),
+                ],
+                [
+                  "Match ended",
+                  percentage(data.measurement.outcomes.match_ended, data.measurement.outcomeWards),
+                ],
+                [
+                  "Unresolved removal",
+                  percentage(
+                    data.measurement.outcomes.unknown + data.measurement.outcomes.replay_ended,
+                    data.measurement.outcomeWards,
+                  ),
+                ],
+              ]}
+            />
+          </InspectorSection>
+        </>
       ) : null}
 
       {coverageIssues.length > 0 ? (
