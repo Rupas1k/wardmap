@@ -84,13 +84,13 @@ export default function WardRow({
           }
         }}
       >
-        {label ? <span className="block truncate text-[10px] text-slate-500">{label}</span> : null}
+        {label ? <span className="block truncate text-xs text-slate-500">{label}</span> : null}
         <span
           className={`block truncate text-xs font-medium ${selected ? "text-white" : "text-slate-300"}`}
         >
           {ward.player_name ?? "Unknown player"}
         </span>
-        <span className="mt-1 block truncate text-[10px] text-slate-600">
+        <span className="mt-1 block truncate text-xs text-slate-500">
           {formatGameTime(ward.duration)} lifetime,{" "}
           <span
             className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
@@ -102,12 +102,12 @@ export default function WardRow({
         </span>
       </button>
       <span className="text-right">
-        <span className="block font-mono text-[11px] text-slate-300">
+        <span className="block text-xs text-slate-300 tabular-nums">
           {formatGameTime(ward.time_placed)}
         </span>
         <a
           aria-label={`Open match ${ward.match_id} on OpenDota`}
-          className="block font-mono text-[10px] text-slate-600 hover:text-slate-200 hover:underline"
+          className="block font-mono text-[10px] text-slate-500 hover:text-slate-200 hover:underline"
           href={`https://www.opendota.com/matches/${ward.match_id}`}
           rel="noreferrer"
           target="_blank"

@@ -139,7 +139,7 @@ export default function MapSettings({
     >
       {() => (
         <div className="flex flex-col gap-2 text-sm">
-          <label className="text-[11px] text-slate-500">
+          <label className="text-xs text-slate-500">
             Vision model
             <select
               className={fieldControlClass}
@@ -152,9 +152,9 @@ export default function MapSettings({
           </label>
           <div className="mt-1 border-t border-white/10 pt-3">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] text-slate-500">Cluster marker size</p>
+              <p className="text-xs text-slate-500">Cluster marker size</p>
               <button
-                className="text-[10px] text-slate-600 hover:text-slate-300 disabled:cursor-default disabled:opacity-40"
+                className="text-xs text-slate-500 hover:text-slate-300 disabled:cursor-default disabled:opacity-40"
                 disabled={
                   clusterMarkerSize.minimum === defaultClusterMarkerSize.minimum &&
                   clusterMarkerSize.maximum === defaultClusterMarkerSize.maximum
@@ -165,7 +165,7 @@ export default function MapSettings({
                 Reset
               </button>
             </div>
-            <label className="mt-2 grid grid-cols-[3.5rem_1fr_2rem] items-center gap-2 text-[10px] text-slate-500">
+            <label className="mt-2 grid grid-cols-[3.5rem_1fr_2rem] items-center gap-2 text-xs text-slate-500">
               Smallest
               <input
                 className="accent-cyan-400"
@@ -183,11 +183,11 @@ export default function MapSettings({
                   });
                 }}
               />
-              <span className="text-right font-mono text-slate-300">
+              <span className="text-right text-slate-300 tabular-nums">
                 {clusterMarkerSize.minimum}px
               </span>
             </label>
-            <label className="mt-2 grid grid-cols-[3.5rem_1fr_2rem] items-center gap-2 text-[10px] text-slate-500">
+            <label className="mt-2 grid grid-cols-[3.5rem_1fr_2rem] items-center gap-2 text-xs text-slate-500">
               Largest
               <input
                 className="accent-cyan-400"
@@ -205,13 +205,13 @@ export default function MapSettings({
                   });
                 }}
               />
-              <span className="text-right font-mono text-slate-300">
+              <span className="text-right text-slate-300 tabular-nums">
                 {clusterMarkerSize.maximum}px
               </span>
             </label>
           </div>
           <div className="mt-1 border-t border-white/10 pt-3">
-            <label className="text-[11px] text-slate-500">
+            <label className="text-xs text-slate-500">
               Debug elevation
               <input
                 className={fieldControlClass}
@@ -234,7 +234,7 @@ export default function MapSettings({
             </button>
           </div>
           <div className="mt-1 border-t border-white/10 pt-3">
-            <p className="text-[11px] text-slate-500">View</p>
+            <p className="text-xs text-slate-500">View</p>
             <div className="mt-1">{viewActions}</div>
             <button
               className="flex w-full items-center gap-2 py-1.5 text-left text-xs text-slate-400 hover:text-white disabled:cursor-wait disabled:opacity-40"
@@ -251,7 +251,7 @@ export default function MapSettings({
               <BsDownload /> {downloading ? "Preparing image…" : "Download current map"}
             </button>
             {downloadError ? (
-              <p className="px-1 pt-1 text-[10px] text-rose-300">Unable to download image.</p>
+              <p className="px-1 pt-1 text-xs text-rose-300">Unable to download image.</p>
             ) : null}
           </div>
         </div>

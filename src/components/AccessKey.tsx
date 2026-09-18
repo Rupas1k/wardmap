@@ -50,10 +50,7 @@ export default function AccessKey() {
     >
       {() => (
         <>
-          <label
-            className="block text-xs font-semibold tracking-wide text-slate-400 uppercase"
-            htmlFor="api-key"
-          >
+          <label className="block text-xs font-medium text-slate-400" htmlFor="api-key">
             API key
           </label>
           <div className="mt-2 flex gap-2">

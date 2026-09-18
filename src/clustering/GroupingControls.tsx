@@ -74,7 +74,7 @@ export default function GroupingControls({
 
   return (
     <section>
-      <label className="block text-[11px] text-slate-500">
+      <label className="block text-xs text-slate-500">
         Mode
         <select
           className={fieldControlClass}
@@ -91,7 +91,7 @@ export default function GroupingControls({
         </select>
       </label>
       {algorithmName[mode] ? (
-        <p className="mt-1 text-[10px] text-slate-600">{algorithmName[mode]}</p>
+        <p className="mt-1 text-xs text-slate-500">{algorithmName[mode]}</p>
       ) : null}
 
       {usesClustering && settings.algorithm === "auto" ? (
@@ -164,7 +164,7 @@ export default function GroupingControls({
                     update("timeWindow", Math.max(60, Number(event.target.value) * 60))
                   }
                 />
-                <span className="pointer-events-none absolute right-2 bottom-1.5 text-[10px] text-slate-600">
+                <span className="pointer-events-none absolute right-2 bottom-1.5 text-xs text-slate-500">
                   min
                 </span>
               </div>
@@ -182,7 +182,7 @@ export default function GroupingControls({
                     update("timeScaleSeconds", Math.max(15, Number(event.target.value) * 60))
                   }
                 />
-                <span className="pointer-events-none absolute right-2 bottom-1.5 text-[10px] text-slate-600">
+                <span className="pointer-events-none absolute right-2 bottom-1.5 text-xs text-slate-500">
                   min
                 </span>
               </div>
@@ -242,7 +242,7 @@ export default function GroupingControls({
         </label>
       ) : null}
 
-      <p className="mt-3 text-[10px] text-slate-600">
+      <p className="mt-3 text-xs text-slate-500 tabular-nums">
         {clustering
           ? "Updating map…"
           : clusterSets
