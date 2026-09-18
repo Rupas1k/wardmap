@@ -73,7 +73,7 @@ export function measurementSummary(wards: Ward[]): MeasurementSummary {
     timeToDeward: distribution(
       dewarded.map((item) => item.ended_at_seconds - item.placed_at_seconds),
     ),
-    dewardedWithin: [60, 120, 180, 240, 300, 360].map((seconds) => ({
+    dewardedWithin: [60, 120, 180].map((seconds) => ({
       seconds,
       rate: lifecycle.length
         ? dewarded.filter((item) => item.ended_at_seconds - item.placed_at_seconds <= seconds)
