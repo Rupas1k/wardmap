@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   compareLocationGroups,
   compareLocations,
@@ -17,6 +17,25 @@ import LocationRow from "./LocationRow";
 import WardRow from "./WardRow";
 import { contextIds, sameScope } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
+
+type LocationSortOption = `${LocationSort}:${SortDirection}`;
+
+const sortOptions: { value: LocationSortOption; label: string }[] = [
+  { value: "wards:descending", label: "Most wards" },
+  { value: "wards:ascending", label: "Fewest wards" },
+  { value: "matches:descending", label: "Most matches" },
+  { value: "matches:ascending", label: "Fewest matches" },
+  { value: "removals:descending", label: "Highest removal rate" },
+  { value: "removals:ascending", label: "Lowest removal rate" },
+  { value: "placement:ascending", label: "Earliest placement" },
+  { value: "placement:descending", label: "Latest placement" },
+  { value: "lifetime:descending", label: "Longest lifetime" },
+  { value: "lifetime:ascending", label: "Shortest lifetime" },
+  { value: "added-vision:descending", label: "Highest mean added vision" },
+  { value: "added-vision:ascending", label: "Lowest mean added vision" },
+  { value: "fresh-sightings:descending", label: "Highest mean new enemy sightings" },
+  { value: "fresh-sightings:ascending", label: "Lowest mean new enemy sightings" },
+];
 
 export default function LocationList({
   baseClusters,
@@ -48,6 +67,7 @@ export default function LocationList({
   const focusWard = useMapStore((state) => state.focusWard);
   const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
   const setWardView = useWorkspaceStore((state) => state.setWardView);
+  const [query, setQuery] = useState("");
   const locations = useMemo(
     () =>
       clusters
@@ -99,6 +119,19 @@ export default function LocationList({
       .filter((group) => group.wardCount >= minimumWards)
       .sort((left, right) => compareLocationGroups(sort, sortDirection, view, left, right));
   }, [groupBaseLocations, minimumWards, side, sort, sortDirection, view]);
+  const visibleGroups = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+
+    if (!normalized) {
+      return groups;
+    }
+
+    return groups.filter(
+      (group) =>
+        group.label.toLocaleLowerCase().includes(normalized) ||
+        group.meta?.toLocaleLowerCase().includes(normalized),
+    );
+  }, [groups, query]);
   const contextGroups = useMemo(() => {
     if (view === "locations" || clusters === baseClusters) {
       return new Map<string, (typeof groups)[number]>();
@@ -111,10 +144,13 @@ export default function LocationList({
 
     return new Map(next.map((group) => [group.id, group]));
   }, [baseClusters, clusters, groups, locations, side, view]);
-  const locationNumbers = useMemo(
-    () => new Map(locations.map((entry, index) => [entry.cluster.cluster_id, index + 1])),
-    [locations],
-  );
+  const locationNumbers = useMemo(() => {
+    const stableLocations = [...locations].sort(
+      (left, right) => left.cluster.cluster_id - right.cluster.cluster_id,
+    );
+
+    return new Map(stableLocations.map((entry, index) => [entry.cluster.cluster_id, index + 1]));
+  }, [locations]);
 
   function changeContextOrigin(scope: AnalysisScope | null) {
     clearMapSelection();
@@ -164,7 +200,7 @@ export default function LocationList({
   function renderLocation({ entry, wardCount }: LocationInGroup) {
     const { cluster, data } = entry;
     const selected = cluster.cluster_id === selectedClusterId;
-    const survivalRate = locationSurvival(entry) * 100;
+    const removalRate = (1 - locationSurvival(entry)) * 100;
     const ward = singleWard(entry);
     const locationNumber = locationNumbers.get(cluster.cluster_id) ?? 0;
 
@@ -173,7 +209,7 @@ export default function LocationList({
         <WardRow
           key={cluster.cluster_id}
           ward={ward}
-          onSelect={() => selectLocation(entry, false)}
+          onSelect={() => selectLocation(entry, true)}
           onSelected={() => selectLocation(entry, true)}
         />
       );
@@ -184,7 +220,7 @@ export default function LocationList({
         key={cluster.cluster_id}
         label={`Location ${locationNumber}`}
         matchCount={data.match_count}
-        metric={`${survivalRate.toFixed(0)}% not removed`}
+        metric={`${removalRate.toFixed(0)}% removed`}
         placement={data.time_placed}
         selected={selected}
         wardCount={
@@ -192,7 +228,7 @@ export default function LocationList({
             ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
             : `${wardCount.toLocaleString()} of ${data.amount.toLocaleString()} wards`
         }
-        onSelect={() => selectLocation(entry, selected)}
+        onSelect={() => selectLocation(entry, true)}
       />
     );
   }
@@ -210,11 +246,12 @@ export default function LocationList({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-500">Browse by</p>
+        <p className="shrink-0 text-xs text-slate-500">Browse by</p>
         <BrowseTabs
           active={view}
           options={["locations", "players", "matches"]}
           onChange={(option) => {
+            setQuery("");
             setView(option);
             changeContextOrigin(null);
           }}
@@ -222,34 +259,35 @@ export default function LocationList({
       </div>
 
       <div className="mb-3 space-y-2">
-        <label className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+        <label className="flex items-center justify-between gap-3 text-xs text-slate-500">
           <span className="shrink-0">Sort by</span>
-          <span className="grid w-[13.5rem] shrink-0 grid-cols-2 gap-2">
+          <span className="w-[13.5rem] shrink-0">
             <select
               className={formControlClass}
-              value={sort}
-              onChange={(event) => setSort(event.target.value as LocationSort)}
+              value={`${sort}:${sortDirection}`}
+              onChange={(event) => {
+                const [nextSort, nextDirection] = event.target.value.split(":") as [
+                  LocationSort,
+                  SortDirection,
+                ];
+
+                setSort(nextSort);
+                setSortDirection(nextDirection);
+              }}
             >
-              <option value="wards">Wards</option>
-              <option value="matches">{view === "matches" ? "Match" : "Matches"}</option>
-              <option value="removals">Removal rate</option>
-              <option value="placement">Placement time</option>
-              <option value="lifetime">Lifetime</option>
-              <option value="added-vision">Added vision</option>
-              <option value="fresh-sightings">Fresh sightings</option>
-            </select>
-            <select
-              aria-label="Sort order"
-              className={formControlClass}
-              value={sortDirection}
-              onChange={(event) => setSortDirection(event.target.value as SortDirection)}
-            >
-              <option value="descending">Descending</option>
-              <option value="ascending">Ascending</option>
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {view === "matches" && option.value === "matches:descending"
+                    ? "Newest match"
+                    : view === "matches" && option.value === "matches:ascending"
+                      ? "Oldest match"
+                      : option.label}
+                </option>
+              ))}
             </select>
           </span>
         </label>
-        <label className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+        <label className="flex items-center justify-between gap-3 text-xs text-slate-500">
           <span className="shrink-0">Min wards</span>
           <span className="w-[13.5rem] shrink-0">
             <input
@@ -267,7 +305,28 @@ export default function LocationList({
             />
           </span>
         </label>
+        {view !== "locations" ? (
+          <label className="flex items-center justify-between gap-3 text-xs text-slate-500">
+            <span className="shrink-0">Search</span>
+            <span className="w-[13.5rem] shrink-0">
+              <input
+                aria-label={`Search ${view}`}
+                className={formControlClass}
+                placeholder={view === "players" ? "Player name" : "Match or team"}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </span>
+          </label>
+        ) : null}
       </div>
+
+      <p className="mb-2 border-t border-white/8 pt-3 text-xs text-slate-500 tabular-nums">
+        {view === "locations"
+          ? `${visibleLocations.length.toLocaleString()} locations`
+          : `${visibleGroups.length.toLocaleString()} ${view}`}
+      </p>
 
       {view === "locations" && visibleLocations.length === 0 ? (
         <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
@@ -275,11 +334,15 @@ export default function LocationList({
         <div className="space-y-1">
           {visibleLocations.map((entry) => renderLocation({ entry, wardCount: entry.data.amount }))}
         </div>
-      ) : groups.length === 0 ? (
-        <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
+      ) : visibleGroups.length === 0 ? (
+        <EmptyState className="py-10">
+          {query.trim()
+            ? `No ${view} match this search.`
+            : `No results with ${minimumWards} wards.`}
+        </EmptyState>
       ) : (
         <div className="space-y-1">
-          {groups.map((group) => {
+          {visibleGroups.map((group) => {
             const scope: AnalysisScope = {
               kind: view === "players" ? "player" : "match",
               id: group.sortId,
@@ -297,19 +360,28 @@ export default function LocationList({
                   label={group.label}
                   meta={group.meta}
                   trailing={
-                    <span className="text-right text-[10px] text-slate-500">
+                    <span className="text-right text-xs text-slate-500">
                       <span className="block">{group.wardCount} wards</span>
-                      {expanded && context.status === "ready" ? (
-                        <span className="block">
-                          {displayedLocations.length} contextual locations
-                        </span>
-                      ) : null}
                     </span>
                   }
                   onClick={() => changeContextOrigin(expanded ? null : scope)}
                 />
                 {expanded ? (
-                  <div className="mt-1 space-y-1 pl-3">
+                  <div className="mt-1 ml-2 space-y-1 border-l border-white/10 pl-3">
+                    <div className="flex items-center justify-between py-1 text-xs text-slate-500">
+                      <span>
+                        {context.status === "clustering"
+                          ? "Updating locations…"
+                          : `${displayedLocations.length.toLocaleString()} locations`}
+                      </span>
+                      <button
+                        className="rounded-sm px-1 py-0.5 text-slate-400 transition hover:bg-white/4 hover:text-slate-200"
+                        type="button"
+                        onClick={() => setInspectorTab("overview")}
+                      >
+                        View overview
+                      </button>
+                    </div>
                     {displayedLocations.length > 0 ? (
                       displayedLocations.map((location) => renderLocation(location))
                     ) : (
