@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { StoredAnalysis } from "../indexedDb";
 import type { LeagueFreshness } from "../indexedDb";
-import type { ClusterSets, League, Player, Team, Ward } from "../types";
+import type { ClusterSets, League, Player, Team, Ward, WardPopulation } from "../types";
 import { defaultDataset } from "../dataset/model";
 import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
 import { emptyAnalysisContext, sameScope } from "./analysisContext";
@@ -11,24 +11,14 @@ import type { WardLoadProgress } from "../api/fetchWards";
 export type InspectorTab = "overview" | "locations" | "details";
 export type InspectorReturnTab = Exclude<InspectorTab, "details">;
 export type LocationSort =
-  | "wards"
-  | "matches"
-  | "survival"
-  | "placement"
-  | "lifetime"
-  | "enemy-vision"
-  | "unique-enemy-vision"
-  | "heroes-spotted"
-  | "reveal-events"
-  | "unique-reveals"
-  | "scouting-score"
-  | "tracking"
-  | "discovery";
+  "wards" | "matches" | "removals" | "placement" | "lifetime" | "added-vision" | "fresh-sightings";
 export type SortDirection = "ascending" | "descending";
 export type LocationView = "locations" | "players" | "matches";
 export type WardView = "wards" | "players" | "matches";
-export type WardOutcomeFilter = "all" | "survived" | "dewarded";
-export type WardSort = "amount" | "placement" | "lifetime" | "match" | "player";
+export type WardOutcomeFilter =
+  "all" | "dewarded" | "expired" | "allied_removed" | "match_ended" | "unresolved_removal";
+export type WardSort =
+  "amount" | "placement" | "lifetime" | "match" | "player" | "added-vision" | "fresh-sightings";
 type Update<T> = T | ((current: T) => T);
 
 function resolve<T>(current: T, update: Update<T>): T {
@@ -43,6 +33,7 @@ export interface WorkspaceState {
   clusterSets: ClusterSets | null;
   contextClusterSets: ClusterSets | null;
   loadedLeagueFreshness: LeagueFreshness | null;
+  population: WardPopulation | null;
   savedViews: StoredAnalysis<WorkspaceSettings>[];
   teams: Team[];
   players: Player[];
@@ -53,6 +44,7 @@ export interface WorkspaceState {
   inspectorReturnTab: InspectorReturnTab;
   locationSort: LocationSort;
   locationSortDirection: SortDirection;
+  locationMinimumWards: number;
   locationView: LocationView;
   analysisContext: AnalysisContext;
   wardView: WardView;
@@ -80,12 +72,14 @@ export interface WorkspaceState {
     wards: Ward[],
     clusterSets: ClusterSets | null,
     leagueFreshness?: LeagueFreshness | null,
+    population?: WardPopulation | null,
   ) => void;
   setControlsOpen: (open: Update<boolean>) => void;
   setInspectorOpen: (open: Update<boolean>) => void;
   setInspectorTab: (tab: InspectorTab) => void;
   setLocationSort: (sort: LocationSort) => void;
   setLocationSortDirection: (direction: SortDirection) => void;
+  setLocationMinimumWards: (minimum: number) => void;
   setLocationView: (view: LocationView) => void;
   setContextOrigin: (scope: AnalysisScope | null) => void;
   setContextRefinement: (scope: AnalysisScope | null) => void;
@@ -111,6 +105,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   clusterSets: null,
   contextClusterSets: null,
   loadedLeagueFreshness: null,
+  population: null,
   savedViews: [],
   teams: [],
   players: [],
@@ -121,6 +116,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   inspectorReturnTab: "overview",
   locationSort: "wards",
   locationSortDirection: "descending",
+  locationMinimumWards: 3,
   locationView: "locations",
   analysisContext: emptyAnalysisContext,
   wardView: "wards",
@@ -145,7 +141,13 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   setLoadedLeagueFreshness: (loadedLeagueFreshness) => set({ loadedLeagueFreshness }),
   setSavedViews: (update) => set((state) => ({ savedViews: resolve(state.savedViews, update) })),
   setMetadata: (teams, players, opponentPlayers) => set({ teams, players, opponentPlayers }),
-  setDatasetSnapshot: (loadedDataset, wards, clusterSets, loadedLeagueFreshness = null) =>
+  setDatasetSnapshot: (
+    loadedDataset,
+    wards,
+    clusterSets,
+    loadedLeagueFreshness = null,
+    population = null,
+  ) =>
     set({
       loadedDataset,
       wards,
@@ -153,6 +155,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       contextClusterSets: null,
       analysisContext: emptyAnalysisContext,
       loadedLeagueFreshness,
+      population,
     }),
   setControlsOpen: (update) =>
     set((state) => ({ controlsOpen: resolve(state.controlsOpen, update) })),
@@ -170,6 +173,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     })),
   setLocationSort: (locationSort) => set({ locationSort }),
   setLocationSortDirection: (locationSortDirection) => set({ locationSortDirection }),
+  setLocationMinimumWards: (locationMinimumWards) => set({ locationMinimumWards }),
   setLocationView: (locationView) => set({ locationView }),
   setContextOrigin: (origin) =>
     set({

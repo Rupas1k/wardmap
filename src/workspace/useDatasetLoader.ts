@@ -64,7 +64,13 @@ export default function useDatasetLoader(leagues: League[], defaultLeague: Leagu
         setCurrentSide(compatible.side);
         setDraftDataset(compatible);
         clearSelection();
-        setDatasetSnapshot(compatible, result.wards, null, result.leagueFreshness);
+        setDatasetSnapshot(
+          compatible,
+          result.wards,
+          null,
+          result.leagueFreshness,
+          result.population,
+        );
       } catch (reason) {
         if (run === dataRun.current && !controller.signal.aborted) {
           setError(reason instanceof Error ? reason.message : "Unable to load ward data");

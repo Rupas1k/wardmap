@@ -1,5 +1,59 @@
 export type Side = "radiant" | "dire" | "all";
 
+export interface WardSightingSegment {
+  time: number;
+  gap_seconds: number | null;
+  start_position: [number, number, number] | null;
+  visible_seconds: number | null;
+  lost_position: [number, number, number] | null;
+  route: { time: number; position: [number, number, number] }[];
+}
+
+export interface WardSighting {
+  sample_tick: number | null;
+  time: number;
+  target_player_slot: number | null;
+  target_steam_id: string | null;
+  target_player_name: string | null;
+  target_hero_name: string | null;
+  target_is_radiant: boolean | null;
+  target_position: [number, number, number] | null;
+  hidden_seconds: number;
+  segments: WardSightingSegment[];
+  observer_handles: number[];
+  credit: number;
+}
+
+export interface WardEvidence {
+  ward_id: number;
+  measurement_version: number | null;
+  measurement_revision: number | null;
+  sightings: WardSighting[];
+}
+
+export interface WardMeasurement {
+  sightings: WardSighting[];
+  revision: number;
+  version: number;
+  vision_complete: boolean;
+  placed_at_seconds: number;
+  ended_at_seconds: number;
+  outcome: "dewarded" | "allied_removed" | "expired" | "match_ended" | "replay_ended" | "unknown";
+  outcome_reason: string;
+  added_vision_seconds: number | null;
+  fresh_sightings: number | null;
+  fresh_sighting_threshold_seconds: number;
+  vision_possible_seconds: number;
+  vision_measured_seconds: number;
+  vision_coverage: number | null;
+}
+
+export interface WardPopulation {
+  matches: number;
+  match_sides: number;
+  selection_conditioned: boolean;
+}
+
 export interface League {
   id: number;
   name: string;
@@ -53,6 +107,7 @@ export interface ClusterSideData {
 }
 
 export interface ClusterWard {
+  measurement: WardMeasurement | null;
   id: number;
   match_id: number;
   player_placed_id: number;
@@ -126,6 +181,12 @@ export interface Ward {
   scouting_score: number | null;
   scouting_tracking_seconds: number | null;
   scouting_discovery_seconds: number | null;
+  scouting_version: number | null;
+  scouting_tau_seconds: number | null;
+  scouting_complete: boolean | null;
+  measurement: WardMeasurement | null;
+  game_version: number | null;
+  map_asset_version: number | null;
   x_pos: number;
   y_pos: number;
   z_pos: number;

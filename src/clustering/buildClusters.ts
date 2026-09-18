@@ -100,6 +100,7 @@ function sideData(wards: Ward[]): ClusterSideData | null {
 
 function wardRecord(ward: Ward): ClusterWard {
   return {
+    measurement: ward.measurement,
     id: ward.id,
     match_id: ward.match_id,
     player_placed_id: ward.player_placed_id ?? 0,
