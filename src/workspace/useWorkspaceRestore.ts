@@ -11,6 +11,7 @@ import { clusterDataVersion, wardDataVersion } from "../dataset/storage";
 import { getAnalysis } from "../indexedDb";
 import { useWorkspaceMapSettings } from "../state/mapSelectors";
 import { useWorkspaceActions } from "../state/workspaceSelectors";
+import { useWorkspaceStore } from "../state/workspaceState";
 import type { League } from "../types";
 import type { BooleanRef } from "./useDatasetLoader";
 
@@ -39,6 +40,7 @@ export default function useWorkspaceRestore({
     setLoadingData,
     setShowUnclustered,
   } = useWorkspaceActions();
+  const setLocationChanges = useWorkspaceStore((state) => state.setLocationChanges);
 
   useEffect(() => {
     if (!ready || !defaultLeague) {
@@ -116,6 +118,11 @@ export default function useWorkspaceRestore({
           restoredWards,
           clustersMatchCurrentModel ? session.clusterSets : null,
           session.leagueFreshness ?? null,
+        );
+        setLocationChanges(
+          session.settings.excludedWardIds ?? [],
+          session.settings.hiddenLocationFingerprints ?? [],
+          session.settings.locationNames ?? {},
         );
         setLoadingData(false);
       })

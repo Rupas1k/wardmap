@@ -62,6 +62,10 @@ export default function useSavedViews({
     useWorkspaceMapSettings();
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const setLocationChanges = useWorkspaceStore((state) => state.setLocationChanges);
 
   async function saveView(name: string): Promise<boolean> {
     if (!loadedDataset || !clusterSets) {
@@ -81,6 +85,9 @@ export default function useSavedViews({
           clusteringEnabled,
           groupByGridCell,
           showUnclustered,
+          excludedWardIds,
+          hiddenLocationFingerprints,
+          locationNames,
           visionTechnique,
         }),
         wards,
@@ -111,6 +118,11 @@ export default function useSavedViews({
     setGroupByGridCell(view.settings.groupByGridCell ?? false);
     setShowUnclustered(view.settings.showUnclustered ?? false);
     setVisionTechnique(view.settings.visionTechnique);
+    setLocationChanges(
+      view.settings.excludedWardIds ?? [],
+      view.settings.hiddenLocationFingerprints ?? [],
+      view.settings.locationNames ?? {},
+    );
     setClusterMarkerSize(view.map.markerSize);
     setInspectorTab(view.inspector.tab === "details" ? "overview" : view.inspector.tab);
 
@@ -167,6 +179,11 @@ export default function useSavedViews({
     }
 
     setVisionTechnique(view.settings.visionTechnique);
+    setLocationChanges(
+      view.settings.excludedWardIds ?? [],
+      view.settings.hiddenLocationFingerprints ?? [],
+      view.settings.locationNames ?? {},
+    );
 
     if (removedIncompatibleLeagues || view.settings.wardDataVersion !== wardDataVersion) {
       setWards([]);

@@ -52,6 +52,9 @@ export interface WorkspaceSettings {
   clusteringEnabled?: boolean;
   groupByGridCell?: boolean;
   showUnclustered?: boolean;
+  excludedWardIds?: number[];
+  hiddenLocationFingerprints?: string[];
+  locationNames?: Record<string, string>;
   visionTechnique: VisionTechnique;
   clusterDataVersion?: number;
   wardDataVersion?: number;
@@ -175,6 +178,20 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
       typeof candidate.clusteringEnabled === "boolean") &&
     (candidate.groupByGridCell === undefined || typeof candidate.groupByGridCell === "boolean") &&
     (candidate.showUnclustered === undefined || typeof candidate.showUnclustered === "boolean") &&
+    (candidate.excludedWardIds === undefined ||
+      (Array.isArray(candidate.excludedWardIds) &&
+        candidate.excludedWardIds.every(Number.isFinite))) &&
+    (candidate.hiddenLocationFingerprints === undefined ||
+      (Array.isArray(candidate.hiddenLocationFingerprints) &&
+        candidate.hiddenLocationFingerprints.every(
+          (fingerprint) => typeof fingerprint === "string",
+        ))) &&
+    (candidate.locationNames === undefined ||
+      (candidate.locationNames !== null &&
+        typeof candidate.locationNames === "object" &&
+        Object.entries(candidate.locationNames).every(
+          ([fingerprint, name]) => fingerprint.length > 0 && typeof name === "string",
+        ))) &&
     (candidate.clusterDataVersion === undefined || Number.isFinite(candidate.clusterDataVersion)) &&
     (candidate.wardDataVersion === undefined || Number.isFinite(candidate.wardDataVersion)),
   );

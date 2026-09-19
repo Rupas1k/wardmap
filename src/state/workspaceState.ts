@@ -20,6 +20,11 @@ export type WardOutcomeFilter =
 export type WardSort =
   "amount" | "placement" | "lifetime" | "match" | "player" | "added-vision" | "fresh-sightings";
 type Update<T> = T | ((current: T) => T);
+export interface LocationReselection {
+  excludedWardId: number;
+  sourceFingerprint: string;
+  wardIds: number[];
+}
 
 function resolve<T>(current: T, update: Update<T>): T {
   return typeof update === "function" ? (update as (value: T) => T)(current) : update;
@@ -50,6 +55,10 @@ export interface WorkspaceState {
   wardView: WardView;
   wardOutcomeFilter: WardOutcomeFilter;
   wardSort: WardSort;
+  excludedWardIds: number[];
+  hiddenLocationFingerprints: string[];
+  locationNames: Record<string, string>;
+  pendingLocationReselection: LocationReselection | null;
   clusteringEnabled: boolean;
   groupByGridCell: boolean;
   showUnclustered: boolean;
@@ -87,6 +96,19 @@ export interface WorkspaceState {
   setWardView: (view: WardView) => void;
   setWardOutcomeFilter: (outcome: WardOutcomeFilter) => void;
   setWardSort: (sort: WardSort) => void;
+  excludeWard: (wardId: number) => void;
+  restoreWard: (wardId: number) => void;
+  hideLocation: (fingerprint: string) => void;
+  restoreLocation: (fingerprint: string) => void;
+  restoreLocationChanges: () => void;
+  setLocationName: (fingerprint: string, name: string | null) => void;
+  copyLocationName: (sourceFingerprint: string, targetFingerprint: string) => void;
+  setLocationChanges: (
+    excludedWardIds: number[],
+    hiddenLocationFingerprints: string[],
+    locationNames: Record<string, string>,
+  ) => void;
+  setPendingLocationReselection: (request: LocationReselection | null) => void;
   setClusteringEnabled: (enabled: boolean) => void;
   setGroupByGridCell: (enabled: boolean) => void;
   setShowUnclustered: (show: boolean) => void;
@@ -122,6 +144,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   wardView: "wards",
   wardOutcomeFilter: "all",
   wardSort: "placement",
+  excludedWardIds: [],
+  hiddenLocationFingerprints: [],
+  locationNames: {},
+  pendingLocationReselection: null,
   clusteringEnabled: true,
   groupByGridCell: false,
   showUnclustered: false,
@@ -135,7 +161,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     set((state) => ({ draftDataset: resolve(state.draftDataset, update) })),
   setLoadedDataset: (loadedDataset) => set({ loadedDataset }),
   setWards: (wards) =>
-    set({ wards, contextClusterSets: null, analysisContext: emptyAnalysisContext }),
+    set({
+      wards,
+      contextClusterSets: null,
+      analysisContext: emptyAnalysisContext,
+      pendingLocationReselection: null,
+    }),
   setClusterSets: (clusterSets) => set({ clusterSets }),
   setContextClusterSets: (contextClusterSets) => set({ contextClusterSets }),
   setLoadedLeagueFreshness: (loadedLeagueFreshness) => set({ loadedLeagueFreshness }),
@@ -156,6 +187,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       analysisContext: emptyAnalysisContext,
       loadedLeagueFreshness,
       population,
+      pendingLocationReselection: null,
     }),
   setControlsOpen: (update) =>
     set((state) => ({ controlsOpen: resolve(state.controlsOpen, update) })),
@@ -197,6 +229,51 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   setWardView: (wardView) => set({ wardView }),
   setWardOutcomeFilter: (wardOutcomeFilter) => set({ wardOutcomeFilter }),
   setWardSort: (wardSort) => set({ wardSort }),
+  excludeWard: (wardId) =>
+    set((state) => ({
+      excludedWardIds: [...new Set([...state.excludedWardIds, wardId])],
+    })),
+  restoreWard: (wardId) =>
+    set((state) => ({
+      excludedWardIds: state.excludedWardIds.filter((id) => id !== wardId),
+    })),
+  hideLocation: (fingerprint) =>
+    set((state) => ({
+      hiddenLocationFingerprints: [...new Set([...state.hiddenLocationFingerprints, fingerprint])],
+    })),
+  restoreLocation: (fingerprint) =>
+    set((state) => ({
+      hiddenLocationFingerprints: state.hiddenLocationFingerprints.filter(
+        (candidate) => candidate !== fingerprint,
+      ),
+    })),
+  restoreLocationChanges: () => set({ excludedWardIds: [], hiddenLocationFingerprints: [] }),
+  setLocationName: (fingerprint, name) =>
+    set((state) => {
+      const locationNames = { ...state.locationNames };
+
+      if (name) {
+        locationNames[fingerprint] = name;
+      } else {
+        delete locationNames[fingerprint];
+      }
+
+      return { locationNames };
+    }),
+  copyLocationName: (sourceFingerprint, targetFingerprint) =>
+    set((state) => {
+      const name = state.locationNames[sourceFingerprint];
+
+      if (!name || sourceFingerprint === targetFingerprint) {
+        return state;
+      }
+
+      return { locationNames: { ...state.locationNames, [targetFingerprint]: name } };
+    }),
+  setLocationChanges: (excludedWardIds, hiddenLocationFingerprints, locationNames) =>
+    set({ excludedWardIds, hiddenLocationFingerprints, locationNames }),
+  setPendingLocationReselection: (pendingLocationReselection) =>
+    set({ pendingLocationReselection }),
   setClusteringEnabled: (clusteringEnabled) => set({ clusteringEnabled }),
   setGroupByGridCell: (groupByGridCell) => set({ groupByGridCell }),
   setShowUnclustered: (showUnclustered) => set({ showUnclustered }),

@@ -7,6 +7,7 @@ import exportMapImage from "./exportMapImage";
 import { ClusterTooltip, WardTooltip } from "./MapTooltips";
 import {
   useClusterLayer,
+  useMapHoverState,
   useMapFocus,
   useSightingLayer,
   useVisionLayer,
@@ -14,6 +15,7 @@ import {
 } from "./useMapLayers";
 import useMapInteractions from "./useMapInteractions";
 import { useElevationGrid, useMapCamera } from "./useMapRuntime";
+import { withVisibleClusters } from "../locations/locationIdentity";
 
 interface MapViewProps {
   clusterSets: ClusterSets;
@@ -32,6 +34,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const {
     selectedClusterId,
     selectedWardId,
+    hoveredClusterId,
+    hoveredWardId,
     expandedClusterIds,
     focusRequest,
     sightingPosition,
@@ -51,6 +55,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const context = useWorkspaceStore((state) => state.analysisContext);
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const visibleClusterSets = useMemo(
+    () => withVisibleClusters(clusterSets, currentSide, hiddenLocationFingerprints),
+    [clusterSets, currentSide, hiddenLocationFingerprints],
+  );
 
   const { error, loading } = useElevationGrid(mapVersion);
   const { hover, mapElement, mapInstance, wardHover } = useMapInteractions({
@@ -75,8 +84,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, [context.origin]);
   const selectedCluster = useMemo(
     () =>
-      clusterSets[currentSide].find((cluster) => cluster.cluster_id === selectedClusterId) ?? null,
-    [clusterSets, currentSide, selectedClusterId],
+      visibleClusterSets[currentSide].find((cluster) => cluster.cluster_id === selectedClusterId) ??
+      null,
+    [currentSide, selectedClusterId, visibleClusterSets],
   );
   const detailedClusters = useMemo(() => {
     const ids = new Set(expandedClusterIds);
@@ -85,8 +95,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       ids.add(selectedClusterId);
     }
 
-    return clusterSets[currentSide].filter((cluster) => ids.has(cluster.cluster_id));
-  }, [clusterSets, currentSide, expandedClusterIds, selectedClusterId]);
+    return visibleClusterSets[currentSide].filter((cluster) => ids.has(cluster.cluster_id));
+  }, [currentSide, expandedClusterIds, selectedClusterId, visibleClusterSets]);
 
   useImperativeHandle(ref, () => ({
     async downloadImage() {
@@ -101,7 +111,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useMapCamera(mapInstance);
   useClusterLayer({
     clearMapLocationSelection,
-    clusterSets,
+    clusterSets: visibleClusterSets,
     currentSide,
     expandedClusterIds,
     selectedClusterId,
@@ -117,6 +127,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     selectedPlayerId,
     selectedWardId,
   });
+  useMapHoverState(hoveredClusterId, hoveredWardId);
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
   useSightingLayer(sightingPosition, sightingRoutes);
   useVisionLayer({ elevations, selectedCluster, selectedWardId, visionTechnique });

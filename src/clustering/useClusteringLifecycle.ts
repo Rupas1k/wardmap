@@ -5,6 +5,7 @@ import type { ClusterSets, Ward } from "../types";
 import clusterWards from "./clusterWards";
 import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
 import { persistWorkspace, withStorageVersion } from "../dataset/storage";
+import { useWorkspaceStore } from "../state/workspaceState";
 
 interface BooleanRef {
   current: boolean;
@@ -12,6 +13,7 @@ interface BooleanRef {
 
 export default function useClusteringLifecycle({
   clusterSets,
+  clusteringWards,
   clustering,
   clusteringEnabled,
   clusteringSettings,
@@ -28,6 +30,7 @@ export default function useClusteringLifecycle({
   wards,
 }: {
   clusterSets: ClusterSets | null;
+  clusteringWards: Ward[];
   clustering: boolean;
   clusteringEnabled: boolean;
   clusteringSettings: ClusteringSettings;
@@ -43,6 +46,9 @@ export default function useClusteringLifecycle({
   visionTechnique: WorkspaceSettings["visionTechnique"];
   wards: Ward[];
 }) {
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
   const run = useRef(0);
   const request = useRef<AbortController | null>(null);
   const persistedSession = useRef<{
@@ -75,7 +81,7 @@ export default function useClusteringLifecycle({
     setError(null);
 
     void clusterWards(
-      wards,
+      clusteringWards,
       clusteringSettings,
       clusteringEnabled,
       groupByGridCell,
@@ -105,6 +111,7 @@ export default function useClusteringLifecycle({
   }, [
     clusteringEnabled,
     clusteringSettings,
+    clusteringWards,
     clustersMatchSettings,
     groupByGridCell,
     loadedDataset,
@@ -126,6 +133,9 @@ export default function useClusteringLifecycle({
       clusteringEnabled,
       groupByGridCell,
       showUnclustered,
+      excludedWardIds,
+      hiddenLocationFingerprints,
+      locationNames,
       visionTechnique,
     });
     const signature = JSON.stringify(settings);
@@ -167,9 +177,12 @@ export default function useClusteringLifecycle({
     clusteringEnabled,
     clusteringSettings,
     clustersMatchSettings,
+    excludedWardIds,
     groupByGridCell,
+    hiddenLocationFingerprints,
     loadedDataset,
     loadedLeagueFreshness,
+    locationNames,
     setError,
     showUnclustered,
     visionTechnique,
