@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { StoredAnalysis } from "../indexedDb";
-import type { WorkspaceSettings } from "../dataset/model";
+import type { ViewState } from "./viewState";
 import Popup from "../components/Popup";
 import { fieldControlClass } from "../components/ui";
 
@@ -14,12 +14,12 @@ export default function SavedViewControls({
   views,
 }: {
   disabled: boolean;
-  remove: (view: StoredAnalysis<WorkspaceSettings>) => Promise<void>;
-  rename: (view: StoredAnalysis<WorkspaceSettings>) => Promise<void>;
+  remove: (view: StoredAnalysis<ViewState>) => Promise<void>;
+  rename: (view: StoredAnalysis<ViewState>) => Promise<void>;
   restore: (key: string) => void;
   save: (name: string) => Promise<boolean>;
-  share: (view: StoredAnalysis<WorkspaceSettings>) => Promise<void>;
-  views: StoredAnalysis<WorkspaceSettings>[];
+  share: (view: StoredAnalysis<ViewState>) => Promise<void>;
+  views: StoredAnalysis<ViewState>[];
 }) {
   return (
     <div className="flex flex-col items-start">

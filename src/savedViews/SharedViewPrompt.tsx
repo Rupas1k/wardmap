@@ -47,22 +47,22 @@ export default function SharedViewPrompt({
     >
       <h2 className="text-sm font-semibold">Open shared view?</h2>
       <p className="mt-2 text-xs leading-5 text-slate-500">
-        This will load {view.settings.dataset.leagueIds.length.toLocaleString()} selected{" "}
-        {view.settings.dataset.leagueIds.length === 1 ? "league" : "leagues"} and apply the shared
+        This will load {view.workspace.dataset.leagueIds.length.toLocaleString()} selected{" "}
+        {view.workspace.dataset.leagueIds.length === 1 ? "league" : "leagues"} and apply the shared
         filters and grouping settings.
       </p>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
         <dt className="text-slate-600">Leagues</dt>
         <dd className="truncate text-right font-mono text-slate-300">
-          {view.settings.dataset.leagueIds.join(", ")}
+          {view.workspace.dataset.leagueIds.join(", ")}
         </dd>
         <dt className="text-slate-600">Grouping</dt>
         <dd className="text-right text-slate-300">
-          {view.settings.clusteringEnabled === false
-            ? view.settings.groupByGridCell
+          {view.workspace.clusteringEnabled === false
+            ? view.workspace.groupByGridCell
               ? "GridNav cells"
               : "Individual wards"
-            : view.settings.clustering.algorithm.toUpperCase()}
+            : view.workspace.clustering.algorithm.toUpperCase()}
         </dd>
         <dt className="text-slate-600">Side</dt>
         <dd className="text-right capitalize text-slate-300">{view.map.side}</dd>

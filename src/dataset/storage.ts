@@ -16,7 +16,9 @@ import {
 import type { StoredAnalysis } from "../indexedDb";
 import type { LeagueFreshness } from "../indexedDb";
 import type { ClusterSets, League, Ward, WardPopulation } from "../types";
-import { isWorkspaceSettings, numericIds } from "./model";
+import { normalizeSavedViewState } from "../savedViews/viewState";
+import type { ViewState } from "../savedViews/viewState";
+import { numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
 
 export const clusterDataVersion = 16;
@@ -204,19 +206,45 @@ export async function persistWorkspace(
   });
 }
 
-export async function savedWorkspaceViews(): Promise<StoredAnalysis<WorkspaceSettings>[]> {
-  return (await listAnalyses("saved")).filter((view): view is StoredAnalysis<WorkspaceSettings> =>
-    isWorkspaceSettings(view.settings),
-  );
+export async function savedWorkspaceViews(): Promise<StoredAnalysis<ViewState>[]> {
+  return (await listAnalyses("saved")).flatMap((view) => {
+    const settings = normalizeSavedViewState(view.settings);
+
+    return settings ? [{ ...view, settings }] : [];
+  });
 }
 
 export async function renameWorkspaceView(
-  view: StoredAnalysis<WorkspaceSettings>,
+  view: StoredAnalysis<ViewState>,
   name: string,
-): Promise<StoredAnalysis<WorkspaceSettings>[]> {
+): Promise<StoredAnalysis<ViewState>[]> {
   await saveAnalysis({ ...view, name });
 
   return savedWorkspaceViews();
+}
+
+export async function persistSavedView(
+  key: string,
+  name: string,
+  settings: ViewState,
+  wards: Ward[],
+  clusterSets: ClusterSets,
+  freshness?: LeagueFreshness,
+): Promise<void> {
+  await saveAnalysis({
+    key,
+    kind: "saved",
+    name,
+    savedAt: Date.now(),
+    leagueId:
+      settings.workspace.dataset.leagueIds.length === 1
+        ? settings.workspace.dataset.leagueIds[0]!
+        : null,
+    settings,
+    wards,
+    clusterSets,
+    ...(freshness ? { leagueFreshness: freshness } : {}),
+  });
 }
 
 export async function deleteWorkspaceView(key: string): Promise<void> {

@@ -3,13 +3,14 @@ import type { StoredAnalysis } from "../indexedDb";
 import type { LeagueFreshness } from "../indexedDb";
 import type { ClusterSets, League, Player, Team, Ward, WardPopulation } from "../types";
 import { defaultDataset } from "../dataset/model";
-import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
+import type { DatasetSettings } from "../dataset/model";
 import { emptyAnalysisContext, sameScope } from "./analysisContext";
 import type { AnalysisContext, AnalysisScope, ContextStatus } from "./analysisContext";
 import type { WardLoadProgress } from "../api/fetchWards";
 import { normalizeLocationKeys } from "../locations/locationIdentity";
 import { compatibleManualLocations, manualLocationId } from "../locations/manualLocations";
 import type { ManualLocation } from "../locations/manualLocations";
+import type { ViewState } from "../savedViews/viewState";
 
 export type InspectorTab = "overview" | "locations" | "details";
 export type InspectorReturnTab = Exclude<InspectorTab, "details">;
@@ -47,7 +48,7 @@ export interface WorkspaceState {
   contextClusterSets: ClusterSets | null;
   loadedLeagueFreshness: LeagueFreshness | null;
   population: WardPopulation | null;
-  savedViews: StoredAnalysis<WorkspaceSettings>[];
+  savedViews: StoredAnalysis<ViewState>[];
   teams: Team[];
   players: Player[];
   opponentPlayers: Player[];
@@ -85,7 +86,7 @@ export interface WorkspaceState {
   setClusterSets: (sets: ClusterSets | null) => void;
   setContextClusterSets: (sets: ClusterSets | null) => void;
   setLoadedLeagueFreshness: (freshness: LeagueFreshness | null) => void;
-  setSavedViews: (views: Update<StoredAnalysis<WorkspaceSettings>[]>) => void;
+  setSavedViews: (views: Update<StoredAnalysis<ViewState>[]>) => void;
   setMetadata: (teams: Team[], players: Player[], opponentPlayers: Player[]) => void;
   setDatasetSnapshot: (
     dataset: DatasetSettings | null,

@@ -1,14 +1,10 @@
 import { useEffect } from "react";
-import { getSetting, listAnalyses, setSetting } from "../indexedDb";
-import type { StoredAnalysis } from "../indexedDb";
+import { getSetting, setSetting } from "../indexedDb";
+import { savedWorkspaceViews } from "../dataset/storage";
 import { useWorkspaceMapSettings } from "../state/mapSelectors";
 import type { ClusteringSettings, ClusterMarkerSize } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
-import {
-  isVisionTechnique,
-  isWorkspaceSettings,
-  normalizeClusteringSettings,
-} from "../dataset/model";
+import { isVisionTechnique, normalizeClusteringSettings } from "../dataset/model";
 import type { WorkspaceSettings } from "../dataset/model";
 
 const settingsKeys = {
@@ -71,7 +67,7 @@ export default function useWorkspaceSettings() {
       getSetting(settingsKeys.clusterMarkerSize),
       getSetting(settingsKeys.controlsOpen),
       getSetting(settingsKeys.inspectorOpen),
-      listAnalyses("saved"),
+      savedWorkspaceViews(),
     ])
       .then(
         ([
@@ -116,11 +112,7 @@ export default function useWorkspaceSettings() {
             setInspectorOpen(inspector);
           }
 
-          setSavedViews(
-            views.filter((view): view is StoredAnalysis<WorkspaceSettings> =>
-              isWorkspaceSettings(view.settings),
-            ),
-          );
+          setSavedViews(views);
           setReady(true);
         },
       )

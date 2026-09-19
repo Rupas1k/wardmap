@@ -1,12 +1,13 @@
 import { isWorkspaceSettings } from "../dataset/model";
 import type { WorkspaceSettings } from "../dataset/model";
 import type { AnalysisScope } from "../state/analysisContext";
+import { defaultClusterMarkerSize } from "../state/mapState";
 import type { ClusterMarkerSize } from "../state/mapState";
 import type { InspectorTab } from "../state/workspaceState";
 import type { Side } from "../types";
 
 export interface ViewState {
-  settings: WorkspaceSettings;
+  workspace: WorkspaceSettings;
   map: {
     side: Side;
     markerSize: ClusterMarkerSize;
@@ -22,14 +23,15 @@ export function normalizeViewState(value: unknown): ViewState | null {
     return null;
   }
 
-  const candidate = value as Partial<ViewState>;
+  const candidate = value as Partial<ViewState> & { settings?: unknown };
+  const workspace = candidate.workspace ?? candidate.settings;
   const map = candidate.map;
   const inspector = candidate.inspector;
   const markerSize = map?.markerSize;
   const context = inspector?.context;
 
   if (
-    !isWorkspaceSettings(candidate.settings) ||
+    !isWorkspaceSettings(workspace) ||
     !map ||
     !["all", "radiant", "dire"].includes(map.side) ||
     !markerSize ||
@@ -47,7 +49,7 @@ export function normalizeViewState(value: unknown): ViewState | null {
   }
 
   return {
-    settings: candidate.settings,
+    workspace,
     map: {
       side: map.side,
       markerSize,
@@ -55,6 +57,29 @@ export function normalizeViewState(value: unknown): ViewState | null {
     inspector: {
       tab: inspector.tab,
       context: context ?? null,
+    },
+  };
+}
+
+export function normalizeSavedViewState(value: unknown): ViewState | null {
+  const state = normalizeViewState(value);
+
+  if (state) {
+    return state;
+  }
+  if (!isWorkspaceSettings(value)) {
+    return null;
+  }
+
+  return {
+    workspace: value,
+    map: {
+      side: value.dataset.side,
+      markerSize: defaultClusterMarkerSize,
+    },
+    inspector: {
+      tab: "overview",
+      context: null,
     },
   };
 }

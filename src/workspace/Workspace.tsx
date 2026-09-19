@@ -14,11 +14,10 @@ import GroupingControls from "../clustering/GroupingControls";
 import { buildEmptyClusterSets } from "../clustering/buildClusters";
 import { defaultClusteringSettings, useMapStore } from "../state/mapState";
 import { sharedViewUrl } from "../savedViews/sharedView";
-import type { SharedView } from "../savedViews/sharedView";
 import type { StoredAnalysis } from "../indexedDb";
-import type { WorkspaceSettings } from "../dataset/model";
 import { useWorkspaceStore } from "../state/workspaceState";
 import { fallbackMapVersion } from "../map/constants";
+import type { ViewState } from "../savedViews/viewState";
 
 const WorkspaceInspector = lazy(() => import("./WorkspaceInspector"));
 const emptyClusterSets = buildEmptyClusterSets();
@@ -122,20 +121,8 @@ export default function Workspace({
   const mapVersion = mapLeague?.version ?? fallbackMapVersion;
   const displayedError = leagueError ?? error;
 
-  async function shareView(savedView: StoredAnalysis<WorkspaceSettings>) {
-    const sharedView: SharedView = {
-      settings: savedView.settings,
-      map: {
-        side: savedView.settings.dataset.side,
-        markerSize: clusterMarkerSize,
-      },
-      inspector: {
-        tab: "overview",
-        context: null,
-      },
-    };
-
-    const url = sharedViewUrl(sharedView);
+  async function shareView(savedView: StoredAnalysis<ViewState>) {
+    const url = sharedViewUrl(savedView.settings);
 
     try {
       if (navigator.clipboard) {
