@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
 import { useMapStore } from "../state/mapState";
 import type { ClusterWard, Ward } from "../types";
@@ -31,17 +32,24 @@ export default function WardRow({
   label,
   onSelect,
   onSelected,
+  primaryValue,
+  showLifetime = true,
   ward,
 }: {
   label?: string;
   onSelect?: () => void;
   onSelected?: () => void;
+  primaryValue?: string;
+  showLifetime?: boolean;
   ward: WardRowData | ClusterWard;
 }) {
   const selectedWardId = useMapStore((state) => state.selectedWardId);
+  const hoveredWardId = useMapStore((state) => state.hoveredWardId);
   const setSelectedWardId = useMapStore((state) => state.setSelectedWardId);
+  const setHoveredWardId = useMapStore((state) => state.setHoveredWardId);
   const centerMapAt = useMapStore((state) => state.centerMapAt);
   const selected = ward.id === selectedWardId;
+  const hovered = ward.id === hoveredWardId;
   const destroyingPlayer = destroyingPlayerName(ward);
   const outcome = ward.measurement
     ? formatWardOutcome(ward.measurement.outcome)
@@ -49,10 +57,21 @@ export default function WardRow({
       ? "Dewarded"
       : "Not dewarded";
 
+  useEffect(
+    () => () => {
+      if (useMapStore.getState().hoveredWardId === ward.id) {
+        setHoveredWardId(null);
+      }
+    },
+    [setHoveredWardId, ward.id],
+  );
+
   return (
     <div
-      className={`grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 py-2 ${selectableRowClass(selected)}`}
+      className={`grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 py-2 ${selectableRowClass(selected, hovered)}`}
       data-ward-id={ward.id}
+      onMouseEnter={() => setHoveredWardId(ward.id)}
+      onMouseLeave={() => setHoveredWardId(null)}
     >
       <i
         className={`mx-auto size-2 rounded-full ${
@@ -65,6 +84,7 @@ export default function WardRow({
         aria-pressed={selected}
         className="min-w-0 text-left"
         type="button"
+        onBlur={() => setHoveredWardId(null)}
         onClick={() => {
           if (selected) {
             if (onSelected) {
@@ -83,6 +103,7 @@ export default function WardRow({
             centerMapAt(ward.x_pos, ward.y_pos);
           }
         }}
+        onFocus={() => setHoveredWardId(ward.id)}
       >
         {label ? <span className="block truncate text-xs text-slate-500">{label}</span> : null}
         <span
@@ -91,7 +112,7 @@ export default function WardRow({
           {ward.player_name ?? "Unknown player"}
         </span>
         <span className="mt-1 block truncate text-xs text-slate-500">
-          {formatGameTime(ward.duration)} lifetime,{" "}
+          {showLifetime ? `${formatGameTime(ward.duration)} lifetime, ` : null}
           <span
             className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
           >
@@ -103,7 +124,7 @@ export default function WardRow({
       </button>
       <span className="text-right">
         <span className="block text-xs text-slate-300 tabular-nums">
-          {formatGameTime(ward.time_placed)}
+          {primaryValue ?? formatGameTime(ward.time_placed)}
         </span>
         <a
           aria-label={`Open match ${ward.match_id} on OpenDota`}

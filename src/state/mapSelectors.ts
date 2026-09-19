@@ -25,6 +25,8 @@ export function useMapViewState() {
     useShallow((state) => ({
       selectedClusterId: state.selectedClusterId,
       selectedWardId: state.selectedWardId,
+      hoveredClusterId: state.hoveredClusterId,
+      hoveredWardId: state.hoveredWardId,
       expandedClusterIds: state.expandedClusterIds,
       focusRequest: state.focusRequest,
       cameraRequest: state.cameraRequest,
@@ -36,6 +38,7 @@ export function useMapViewState() {
       visionTechnique: state.visionTechnique,
       setSelectedClusterId: state.setSelectedClusterId,
       setSelectedWardId: state.setSelectedWardId,
+      clearHover: state.clearHover,
       selectMapLocation: state.selectMapLocation,
       clearWardSelection: state.clearWardSelection,
       clearMapLocationSelection: state.clearMapLocationSelection,

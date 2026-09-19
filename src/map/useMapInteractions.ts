@@ -224,6 +224,7 @@ export default function useMapInteractions({
       if (event.dragging) {
         setHover(null);
         setWardHover(null);
+        useMapStore.getState().clearHover();
         targetElement.style.cursor = "";
 
         return;
@@ -250,6 +251,7 @@ export default function useMapInteractions({
       if (!hoveredFeature) {
         setHover(null);
         setWardHover(null);
+        useMapStore.getState().clearHover();
 
         return;
       }
@@ -264,20 +266,28 @@ export default function useMapInteractions({
           : pointerY + 14;
 
       if (hoveredFeature.get("wardData")) {
+        const wardData = getWardFeatureData(hoveredFeature);
+
+        useMapStore.getState().setHoveredMapItem(wardData.clusterId, wardData.ward.id);
         setHover(null);
-        setWardHover({ ward: getWardFeatureData(hoveredFeature).ward, x, y });
+        setWardHover({ ward: wardData.ward, x, y });
 
         return;
       }
 
       if (hoveredFeature.get("data")) {
         const cluster = getClusterFeatureData(hoveredFeature).cluster;
-        const wards = cluster.wards ?? [];
+        const mapState = useMapStore.getState();
+        const currentContext = useWorkspaceStore.getState().analysisContext;
+        const { playerId, matchId } = contextIds(currentContext);
+        const wards = visibleWards(cluster, mapState.currentSide, playerId, matchId);
 
         if (wards.length === 1) {
+          mapState.setHoveredMapItem(cluster.cluster_id, wards[0]!.id);
           setHover(null);
           setWardHover({ ward: wards[0]!, x, y });
         } else {
+          mapState.setHoveredMapItem(cluster.cluster_id, null);
           setWardHover(null);
           setHover({ cluster, x, y });
         }
@@ -287,11 +297,13 @@ export default function useMapInteractions({
 
       setHover(null);
       setWardHover(null);
+      useMapStore.getState().clearHover();
     }
 
     function handlePointerLeave() {
       setHover(null);
       setWardHover(null);
+      useMapStore.getState().clearHover();
       targetElement.style.cursor = "";
     }
 
@@ -319,6 +331,7 @@ export default function useMapInteractions({
       layers.vision.getSource()!.clear(true);
       layers.wards.getSource()!.clear(true);
       layers.wardDetails.getSource()!.clear(true);
+      useMapStore.getState().clearHover();
       clearSelection();
     };
   }, [

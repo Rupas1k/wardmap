@@ -41,6 +41,8 @@ interface MapState {
   currentSide: Side;
   selectedClusterId: number | null;
   selectedWardId: number | null;
+  hoveredClusterId: number | null;
+  hoveredWardId: number | null;
   elevations: number[][] | null;
   averageValues: Cluster | null;
   clusteringSettings: ClusteringSettings;
@@ -55,6 +57,10 @@ interface MapState {
   setCurrentSide: (side: Side) => void;
   setSelectedClusterId: (clusterId: number | null) => void;
   setSelectedWardId: (wardId: number | null) => void;
+  setHoveredClusterId: (clusterId: number | null) => void;
+  setHoveredWardId: (wardId: number | null) => void;
+  setHoveredMapItem: (clusterId: number | null, wardId: number | null) => void;
+  clearHover: () => void;
   selectMapLocation: (clusterId: number, wardId?: number | null) => void;
   clearWardSelection: () => void;
   clearMapLocationSelection: () => void;
@@ -79,6 +85,8 @@ export const useMapStore = create<MapState>((set) => ({
   currentSide: "all",
   selectedClusterId: null,
   selectedWardId: null,
+  hoveredClusterId: null,
+  hoveredWardId: null,
   elevations: null,
   averageValues: null,
   clusteringSettings: defaultClusteringSettings,
@@ -90,21 +98,42 @@ export const useMapStore = create<MapState>((set) => ({
   sightingPosition: null,
   sightingRoutes: [],
   sightingSelectionId: null,
-  setCurrentSide: (currentSide) => set({ currentSide, expandedClusterIds: [] }),
+  setCurrentSide: (currentSide) =>
+    set({ currentSide, expandedClusterIds: [], hoveredClusterId: null, hoveredWardId: null }),
   setSelectedClusterId: (selectedClusterId) =>
     set({
       selectedClusterId,
       selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
     }),
   setSelectedWardId: (selectedWardId) =>
     set({ selectedWardId, sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
+  setHoveredClusterId: (hoveredClusterId) =>
+    set((state) => (state.hoveredClusterId === hoveredClusterId ? state : { hoveredClusterId })),
+  setHoveredWardId: (hoveredWardId) =>
+    set((state) => (state.hoveredWardId === hoveredWardId ? state : { hoveredWardId })),
+  setHoveredMapItem: (hoveredClusterId, hoveredWardId) =>
+    set((state) =>
+      state.hoveredClusterId === hoveredClusterId && state.hoveredWardId === hoveredWardId
+        ? state
+        : { hoveredClusterId, hoveredWardId },
+    ),
+  clearHover: () =>
+    set((state) =>
+      state.hoveredClusterId === null && state.hoveredWardId === null
+        ? state
+        : { hoveredClusterId: null, hoveredWardId: null },
+    ),
   selectMapLocation: (selectedClusterId, selectedWardId = null) =>
     set({
       selectedClusterId,
       selectedWardId,
+      hoveredClusterId: null,
+      hoveredWardId: null,
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
@@ -112,6 +141,8 @@ export const useMapStore = create<MapState>((set) => ({
   clearWardSelection: () =>
     set({
       selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
@@ -120,6 +151,8 @@ export const useMapStore = create<MapState>((set) => ({
     set({
       selectedClusterId: null,
       selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
@@ -128,6 +161,8 @@ export const useMapStore = create<MapState>((set) => ({
     set({
       selectedClusterId: null,
       selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
@@ -139,6 +174,8 @@ export const useMapStore = create<MapState>((set) => ({
       clusteringSettings,
       selectedClusterId: null,
       selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
