@@ -105,18 +105,6 @@ export default function LocationSummary({ flush = false }: { flush?: boolean }) 
       advantage: mean(advantages),
       duration: mean(selectedWards.map((ward) => ward.duration)) ?? 0,
       time_placed: mean(selectedWards.map((ward) => ward.time_placed)) ?? 0,
-      enemy_hero_vision_seconds: meanAvailable(
-        selectedWards.map((ward) => ward.enemy_hero_vision_seconds),
-      ),
-      unique_enemy_hero_vision_seconds: meanAvailable(
-        selectedWards.map((ward) => ward.unique_enemy_hero_vision_seconds),
-      ),
-      heroes_spotted: meanAvailable(selectedWards.map((ward) => ward.heroes_spotted)),
-      hero_reveal_events: meanAvailable(selectedWards.map((ward) => ward.hero_reveal_events)),
-      unique_hero_reveal_events: meanAvailable(
-        selectedWards.map((ward) => ward.unique_hero_reveal_events),
-      ),
-      scouting_score: meanAvailable(selectedWards.map((ward) => ward.scouting_score)),
       scouting_tracking_seconds: meanAvailable(
         selectedWards.map((ward) => ward.scouting_tracking_seconds),
       ),

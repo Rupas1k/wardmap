@@ -47,9 +47,9 @@ function distribution(values: number[]): DistributionSummary {
 }
 
 export function measurementSummary(wards: Ward[]): MeasurementSummary {
-  const measured = wards.filter((ward) => ward.is_obs && ward.measurement !== null);
-  const measurements = measured.map((ward) => ward.measurement!);
-  const lifecycle = measured.map((ward) => ward.measurement!);
+  const measured = wards.filter((ward) => ward.is_obs);
+  const measurements = measured.map((ward) => ward.measurement);
+  const lifecycle = measured.map((ward) => ward.measurement);
   const dewarded = lifecycle.filter((measurement) => measurement.outcome === "dewarded");
   const outcomes: MeasurementSummary["outcomes"] = {
     dewarded: 0,

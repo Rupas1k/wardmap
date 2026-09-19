@@ -102,12 +102,6 @@ export default function Workspace({
     !groupByGridCell &&
     !showUnclustered;
   const visionRanges: [number | null, number | null][] = [
-    [draftDataset.minimumEnemyHeroVision, draftDataset.maximumEnemyHeroVision],
-    [draftDataset.minimumUniqueEnemyHeroVision, draftDataset.maximumUniqueEnemyHeroVision],
-    [draftDataset.minimumHeroesSpotted, draftDataset.maximumHeroesSpotted],
-    [draftDataset.minimumRevealEvents, draftDataset.maximumRevealEvents],
-    [draftDataset.minimumUniqueRevealEvents, draftDataset.maximumUniqueRevealEvents],
-    [draftDataset.minimumScoutingScore, draftDataset.maximumScoutingScore],
     [draftDataset.minimumScoutingTracking, draftDataset.maximumScoutingTracking],
     [draftDataset.minimumScoutingDiscovery, draftDataset.maximumScoutingDiscovery],
   ];

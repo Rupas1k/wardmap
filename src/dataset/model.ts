@@ -30,18 +30,6 @@ export interface DatasetSettings {
   maximumAddedVision: number | null;
   minimumFreshSightings: number | null;
   maximumFreshSightings: number | null;
-  minimumEnemyHeroVision: number | null;
-  maximumEnemyHeroVision: number | null;
-  minimumUniqueEnemyHeroVision: number | null;
-  maximumUniqueEnemyHeroVision: number | null;
-  minimumHeroesSpotted: number | null;
-  maximumHeroesSpotted: number | null;
-  minimumRevealEvents: number | null;
-  maximumRevealEvents: number | null;
-  minimumUniqueRevealEvents: number | null;
-  maximumUniqueRevealEvents: number | null;
-  minimumScoutingScore: number | null;
-  maximumScoutingScore: number | null;
   minimumScoutingTracking: number | null;
   maximumScoutingTracking: number | null;
   minimumScoutingDiscovery: number | null;
@@ -85,18 +73,6 @@ export const defaultDataset: DatasetSettings = {
   maximumAddedVision: null,
   minimumFreshSightings: null,
   maximumFreshSightings: null,
-  minimumEnemyHeroVision: null,
-  maximumEnemyHeroVision: null,
-  minimumUniqueEnemyHeroVision: null,
-  maximumUniqueEnemyHeroVision: null,
-  minimumHeroesSpotted: null,
-  maximumHeroesSpotted: null,
-  minimumRevealEvents: null,
-  maximumRevealEvents: null,
-  minimumUniqueRevealEvents: null,
-  maximumUniqueRevealEvents: null,
-  minimumScoutingScore: null,
-  maximumScoutingScore: null,
   minimumScoutingTracking: null,
   maximumScoutingTracking: null,
   minimumScoutingDiscovery: null,
@@ -154,18 +130,6 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
       dataset.maximumWardLifetime,
     ].every(Number.isFinite) &&
     [
-      dataset.minimumEnemyHeroVision,
-      dataset.maximumEnemyHeroVision,
-      dataset.minimumUniqueEnemyHeroVision,
-      dataset.maximumUniqueEnemyHeroVision,
-      dataset.minimumHeroesSpotted,
-      dataset.maximumHeroesSpotted,
-      dataset.minimumRevealEvents,
-      dataset.maximumRevealEvents,
-      dataset.minimumUniqueRevealEvents,
-      dataset.maximumUniqueRevealEvents,
-      dataset.minimumScoutingScore,
-      dataset.maximumScoutingScore,
       dataset.minimumScoutingTracking,
       dataset.maximumScoutingTracking,
       dataset.minimumScoutingDiscovery,

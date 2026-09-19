@@ -255,6 +255,13 @@ export function parseTeams(payload: unknown): Team[] {
 
 export function parseWard(value: unknown): Ward {
   const ward = fields(value, "ward");
+  const measurement = parseMeasurement(ward.raw("measurement"));
+
+  if (!measurement) {
+    throw new Error("Invalid API field: ward.measurement");
+  }
+
+  const duration = Math.max(0, measurement.ended_at_seconds - measurement.placed_at_seconds);
 
   return {
     id: ward.number("id"),
@@ -265,23 +272,12 @@ export function parseWard(value: unknown): Ward {
     player_destroyed_name: ward.optionalNullableString("player_destroyed_name"),
     is_radiant: ward.nullableBoolean("is_radiant"),
     is_obs: ward.boolean("is_obs"),
-    is_destroyed: ward.boolean("is_destroyed"),
+    is_destroyed: measurement.outcome === "dewarded",
     time_placed: ward.number("time_placed"),
-    duration: ward.number("duration"),
-    enemy_hero_vision_seconds: ward.optionalNullableNumber("enemy_hero_vision_seconds"),
-    unique_enemy_hero_vision_seconds: ward.optionalNullableNumber(
-      "unique_enemy_hero_vision_seconds",
-    ),
-    heroes_spotted: ward.optionalNullableNumber("heroes_spotted"),
-    hero_reveal_events: ward.optionalNullableNumber("hero_reveal_events"),
-    unique_hero_reveal_events: ward.optionalNullableNumber("unique_hero_reveal_events"),
-    scouting_score: ward.optionalNullableNumber("scouting_score"),
+    duration,
     scouting_tracking_seconds: ward.optionalNullableNumber("scouting_tracking_seconds"),
     scouting_discovery_seconds: ward.optionalNullableNumber("scouting_discovery_seconds"),
-    scouting_version: ward.optionalNullableNumber("scouting_version"),
-    scouting_tau_seconds: ward.optionalNullableNumber("scouting_tau_seconds"),
-    scouting_complete: ward.optionalNullableBoolean("scouting_complete"),
-    measurement: parseMeasurement(ward.raw("measurement")),
+    measurement,
     game_version: ward.optionalNullableNumber("game_version"),
     map_asset_version: ward.optionalNullableNumber("map_asset_version"),
     x_pos: ward.number("x_pos"),

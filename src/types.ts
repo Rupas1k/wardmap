@@ -89,12 +89,6 @@ export interface ClusterSideData {
   advantage: number | null;
   duration: number;
   time_placed: number;
-  enemy_hero_vision_seconds: number | null;
-  unique_enemy_hero_vision_seconds: number | null;
-  heroes_spotted: number | null;
-  hero_reveal_events: number | null;
-  unique_hero_reveal_events: number | null;
-  scouting_score: number | null;
   scouting_tracking_seconds: number | null;
   scouting_discovery_seconds: number | null;
   players: ClusterPlayer[];
@@ -107,7 +101,7 @@ export interface ClusterSideData {
 }
 
 export interface ClusterWard {
-  measurement: WardMeasurement | null;
+  measurement: WardMeasurement;
   id: number;
   match_id: number;
   player_placed_id: number;
@@ -119,12 +113,6 @@ export interface ClusterWard {
   is_destroyed: boolean;
   time_placed: number;
   duration: number;
-  enemy_hero_vision_seconds: number | null;
-  unique_enemy_hero_vision_seconds: number | null;
-  heroes_spotted: number | null;
-  hero_reveal_events: number | null;
-  unique_hero_reveal_events: number | null;
-  scouting_score: number | null;
   scouting_tracking_seconds: number | null;
   scouting_discovery_seconds: number | null;
   x_pos: number;
@@ -174,18 +162,9 @@ export interface Ward {
   is_destroyed: boolean;
   time_placed: number;
   duration: number;
-  enemy_hero_vision_seconds: number | null;
-  unique_enemy_hero_vision_seconds: number | null;
-  heroes_spotted: number | null;
-  hero_reveal_events: number | null;
-  unique_hero_reveal_events: number | null;
-  scouting_score: number | null;
   scouting_tracking_seconds: number | null;
   scouting_discovery_seconds: number | null;
-  scouting_version: number | null;
-  scouting_tau_seconds: number | null;
-  scouting_complete: boolean | null;
-  measurement: WardMeasurement | null;
+  measurement: WardMeasurement;
   game_version: number | null;
   map_asset_version: number | null;
   x_pos: number;

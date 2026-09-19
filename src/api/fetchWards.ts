@@ -25,18 +25,6 @@ export interface WardFilters {
   maximum_added_vision_seconds: number | null;
   minimum_fresh_sightings: number | null;
   maximum_fresh_sightings: number | null;
-  minimum_enemy_hero_vision_seconds: number | null;
-  maximum_enemy_hero_vision_seconds: number | null;
-  minimum_unique_enemy_hero_vision_seconds: number | null;
-  maximum_unique_enemy_hero_vision_seconds: number | null;
-  minimum_heroes_spotted: number | null;
-  maximum_heroes_spotted: number | null;
-  minimum_hero_reveal_events: number | null;
-  maximum_hero_reveal_events: number | null;
-  minimum_unique_hero_reveal_events: number | null;
-  maximum_unique_hero_reveal_events: number | null;
-  minimum_scouting_score: number | null;
-  maximum_scouting_score: number | null;
   minimum_scouting_tracking_seconds: number | null;
   maximum_scouting_tracking_seconds: number | null;
   minimum_scouting_discovery_seconds: number | null;

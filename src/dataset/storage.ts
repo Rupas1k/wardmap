@@ -20,7 +20,7 @@ import { isWorkspaceSettings, numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
 
 export const clusterDataVersion = 16;
-export const wardDataVersion = 7;
+export const wardDataVersion = 8;
 const datasetCacheLimit = 8;
 
 function canonicalDataset(dataset: DatasetSettings): DatasetSettings {
@@ -136,18 +136,6 @@ export async function loadWardDataset(
     maximum_added_vision_seconds: dataset.maximumAddedVision,
     minimum_fresh_sightings: dataset.minimumFreshSightings,
     maximum_fresh_sightings: dataset.maximumFreshSightings,
-    minimum_enemy_hero_vision_seconds: dataset.minimumEnemyHeroVision,
-    maximum_enemy_hero_vision_seconds: dataset.maximumEnemyHeroVision,
-    minimum_unique_enemy_hero_vision_seconds: dataset.minimumUniqueEnemyHeroVision,
-    maximum_unique_enemy_hero_vision_seconds: dataset.maximumUniqueEnemyHeroVision,
-    minimum_heroes_spotted: dataset.minimumHeroesSpotted,
-    maximum_heroes_spotted: dataset.maximumHeroesSpotted,
-    minimum_hero_reveal_events: dataset.minimumRevealEvents,
-    maximum_hero_reveal_events: dataset.maximumRevealEvents,
-    minimum_unique_hero_reveal_events: dataset.minimumUniqueRevealEvents,
-    maximum_unique_hero_reveal_events: dataset.maximumUniqueRevealEvents,
-    minimum_scouting_score: dataset.minimumScoutingScore,
-    maximum_scouting_score: dataset.maximumScoutingScore,
     minimum_scouting_tracking_seconds: dataset.minimumScoutingTracking,
     maximum_scouting_tracking_seconds: dataset.maximumScoutingTracking,
     minimum_scouting_discovery_seconds: dataset.minimumScoutingDiscovery,
