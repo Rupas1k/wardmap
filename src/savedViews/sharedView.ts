@@ -6,7 +6,6 @@ import { isWorkspaceSettings } from "../dataset/model";
 import type { WorkspaceSettings } from "../dataset/model";
 
 export interface SharedView {
-  version: 1;
   settings: WorkspaceSettings;
   map: {
     side: Side;
@@ -63,7 +62,6 @@ function isSharedView(value: unknown): value is SharedView {
   const context = inspector?.context;
 
   return Boolean(
-    candidate.version === 1 &&
     isWorkspaceSettings(candidate.settings) &&
     map &&
     ["all", "radiant", "dire"].includes(map.side) &&

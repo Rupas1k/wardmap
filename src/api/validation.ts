@@ -158,8 +158,6 @@ function parseMeasurement(value: unknown): WardMeasurement | null {
   }
 
   return {
-    version: measurement.number("version"),
-    revision: measurement.optionalNullableNumber("revision") ?? 0,
     sightings:
       measurement.raw("sightings") == null
         ? []
@@ -206,8 +204,6 @@ export function parseWardEvidence(payload: unknown): WardEvidence {
 
   return {
     ward_id: evidence.number("ward_id"),
-    measurement_version: evidence.optionalNullableNumber("measurement_version"),
-    measurement_revision: evidence.optionalNullableNumber("measurement_revision"),
     sightings: array(evidence.raw("sightings"), "ward evidence sightings").map(parseSighting),
   };
 }
@@ -278,8 +274,6 @@ export function parseWard(value: unknown): Ward {
     scouting_tracking_seconds: ward.optionalNullableNumber("scouting_tracking_seconds"),
     scouting_discovery_seconds: ward.optionalNullableNumber("scouting_discovery_seconds"),
     measurement,
-    game_version: ward.optionalNullableNumber("game_version"),
-    map_asset_version: ward.optionalNullableNumber("map_asset_version"),
     x_pos: ward.number("x_pos"),
     y_pos: ward.number("y_pos"),
     z_pos: ward.number("z_pos"),

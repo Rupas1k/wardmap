@@ -124,7 +124,6 @@ export default function Workspace({
 
   async function shareView(savedView: StoredAnalysis<WorkspaceSettings>) {
     const sharedView: SharedView = {
-      version: 1,
       settings: savedView.settings,
       map: {
         side: savedView.settings.dataset.side,

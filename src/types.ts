@@ -26,15 +26,11 @@ export interface WardSighting {
 
 export interface WardEvidence {
   ward_id: number;
-  measurement_version: number | null;
-  measurement_revision: number | null;
   sightings: WardSighting[];
 }
 
 export interface WardMeasurement {
   sightings: WardSighting[];
-  revision: number;
-  version: number;
   vision_complete: boolean;
   placed_at_seconds: number;
   ended_at_seconds: number;
@@ -165,8 +161,6 @@ export interface Ward {
   scouting_tracking_seconds: number | null;
   scouting_discovery_seconds: number | null;
   measurement: WardMeasurement;
-  game_version: number | null;
-  map_asset_version: number | null;
   x_pos: number;
   y_pos: number;
   z_pos: number;
