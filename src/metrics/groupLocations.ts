@@ -60,6 +60,17 @@ function meanMeasurement(wards: ClusterWard[], sort: MeasurementSort): number | 
   return mean(values);
 }
 
+export function locationMeasurementMean(
+  entry: LocationEntry,
+  sort: MeasurementSort,
+): number | null {
+  return meanMeasurement(wardsInEntry(entry), sort);
+}
+
+export function groupMeasurementMean(group: LocationGroup, sort: MeasurementSort): number | null {
+  return meanMeasurement(group.wards, sort);
+}
+
 export function locationSurvival(entry: LocationEntry): number {
   return entry.data.amount ? 1 - entry.data.destroyed / entry.data.amount : 0;
 }
@@ -84,8 +95,8 @@ export function compareLocations(
   if (sort === "added-vision" || sort === "fresh-sightings") {
     return (
       compareMeasured(
-        meanMeasurement(wardsInEntry(left), sort),
-        meanMeasurement(wardsInEntry(right), sort),
+        locationMeasurementMean(left, sort),
+        locationMeasurementMean(right, sort),
         direction,
       ) || right.data.amount - left.data.amount
     );
@@ -137,8 +148,8 @@ export function compareLocationGroups(
   if (sort === "added-vision" || sort === "fresh-sightings") {
     return (
       compareMeasured(
-        meanMeasurement(left.wards, sort),
-        meanMeasurement(right.wards, sort),
+        groupMeasurementMean(left, sort),
+        groupMeasurementMean(right, sort),
         direction,
       ) || left.label.localeCompare(right.label)
     );
