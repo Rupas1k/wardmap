@@ -139,6 +139,7 @@ export interface ClusterWard {
 
 export interface Cluster {
   cluster_id: number;
+  manual_location_id?: string;
   unclustered?: boolean;
   x_pos: number;
   y_pos: number;

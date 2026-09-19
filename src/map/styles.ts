@@ -1,5 +1,5 @@
 import type { FeatureLike } from "ol/Feature";
-import { Circle, Fill, Stroke, Style, Text } from "ol/style";
+import { Circle, Fill, Stroke, Style } from "ol/style";
 import type { ClusterFeatureData } from "./features";
 import type { Side } from "../types";
 import { defaultClusterMarkerSize } from "../state/mapState";
@@ -92,7 +92,6 @@ export default function mainStyle(
     const dimmed = Boolean(feature.get("dimmed"));
     const radius = unclustered ? 3.5 : sideData ? pointRadius(feature, side, markerSize) : 4;
     const color = sideData ? pointColor(feature, side) : "#808080";
-    const locationLabel = feature.get("locationLabel") as string | undefined;
     const marker = new Style({
       image: new Circle({
         radius,
@@ -102,16 +101,6 @@ export default function mainStyle(
           color: dimmed && !hovered ? "rgba(2, 6, 23, 0.45)" : "#020617",
         }),
       }),
-      text:
-        (selected || hovered) && locationLabel
-          ? new Text({
-              text: locationLabel,
-              offsetY: -radius - 10,
-              font: "600 11px ui-sans-serif, system-ui, sans-serif",
-              fill: new Fill({ color: "#f8fafc" }),
-              stroke: new Stroke({ color: "rgba(2, 6, 23, 0.95)", width: 3 }),
-            })
-          : undefined,
       zIndex: selected ? 21 : hovered ? 19 : dimmed ? 5 : 10,
     });
 

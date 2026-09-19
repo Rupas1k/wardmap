@@ -15,7 +15,7 @@ import { EmptyState, fieldControlClass } from "../components/ui";
 import { InspectorSection, MetricRows } from "./InspectorPrimitives";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
 import WardRow, { destroyingPlayerName } from "./WardRow";
-import { locationFingerprint } from "../locations/locationIdentity";
+import { locationKey } from "../locations/locationIdentity";
 
 const wardSortOptions: Record<WardView, { value: WardSort; label: string }[]> = {
   wards: [
@@ -263,8 +263,9 @@ function WardReport({
             }
 
             setPendingLocationReselection({
-              excludedWardId: ward.id,
-              sourceFingerprint: locationFingerprint(cluster, side),
+              changedWardIds: [ward.id],
+              kind: "exclude",
+              sourceFingerprint: locationKey(cluster, side),
               wardIds,
             });
             clearExpandedClusters();

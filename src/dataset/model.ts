@@ -1,5 +1,7 @@
 import type { ClusteringSettings, VisionTechnique } from "../state/mapState";
 import type { ClusterSets, Side } from "../types";
+import { isManualLocations } from "../locations/manualLocations";
+import type { ManualLocation } from "../locations/manualLocations";
 
 export type WardType = "all" | "observer" | "sentry";
 export type WardOutcome =
@@ -55,6 +57,7 @@ export interface WorkspaceSettings {
   excludedWardIds?: number[];
   hiddenLocationFingerprints?: string[];
   locationNames?: Record<string, string>;
+  manualLocations?: ManualLocation[];
   visionTechnique: VisionTechnique;
   clusterDataVersion?: number;
   wardDataVersion?: number;
@@ -192,6 +195,7 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
         Object.entries(candidate.locationNames).every(
           ([fingerprint, name]) => fingerprint.length > 0 && typeof name === "string",
         ))) &&
+    (candidate.manualLocations === undefined || isManualLocations(candidate.manualLocations)) &&
     (candidate.clusterDataVersion === undefined || Number.isFinite(candidate.clusterDataVersion)) &&
     (candidate.wardDataVersion === undefined || Number.isFinite(candidate.wardDataVersion)),
   );

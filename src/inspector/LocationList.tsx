@@ -20,7 +20,8 @@ import WardRow from "./WardRow";
 import { contextIds, sameScope } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
 import {
-  locationFingerprint,
+  locationKey,
+  locationName,
   visibleClusters as filterVisibleClusters,
 } from "../locations/locationIdentity";
 
@@ -47,10 +48,14 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
   const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const wards = useWorkspaceStore((state) => state.wards);
   const restoreWard = useWorkspaceStore((state) => state.restoreWard);
   const restoreLocation = useWorkspaceStore((state) => state.restoreLocation);
   const restoreAll = useWorkspaceStore((state) => state.restoreLocationChanges);
+  const setPendingLocationReselection = useWorkspaceStore(
+    (state) => state.setPendingLocationReselection,
+  );
   const clearSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
   const excluded = useMemo(() => {
@@ -60,7 +65,7 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
   }, [excludedWardIds, wards]);
   const hidden = useMemo(() => {
     const clustersByFingerprint = new Map(
-      baseClusters.map((cluster) => [locationFingerprint(cluster, side), cluster]),
+      baseClusters.map((cluster) => [locationKey(cluster, side), cluster]),
     );
 
     return hiddenLocationFingerprints.map((fingerprint) => ({
@@ -101,6 +106,16 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
           onClick={() => {
             clearSelection();
             clearExpandedClusters();
+
+            if (excludedWardIds.length > 0) {
+              setPendingLocationReselection({
+                changedWardIds: excludedWardIds,
+                kind: "restore",
+                sourceFingerprint: null,
+                wardIds: excludedWardIds,
+              });
+            }
+
             restoreAll();
           }}
         >
@@ -129,6 +144,12 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                 onClick={() => {
                   clearSelection();
                   clearExpandedClusters();
+                  setPendingLocationReselection({
+                    changedWardIds: [id],
+                    kind: "restore",
+                    sourceFingerprint: null,
+                    wardIds: [id],
+                  });
                   restoreWard(id);
                 }}
               >
@@ -144,7 +165,10 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
               <BsEyeSlash className="shrink-0 text-slate-600" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-slate-300">
-                  {locationNames[fingerprint] ?? "Unnamed location"}
+                  {cluster
+                    ? (locationName(cluster, side, locationNames, manualLocations) ??
+                      "Unnamed location")
+                    : "Unnamed location"}
                 </span>
                 <span className="mt-0.5 block truncate text-slate-500">
                   Hidden location, {cluster?.[side]?.amount.toLocaleString() ?? "unknown"} wards
@@ -281,6 +305,7 @@ export default function LocationList({
   const minimumWards = useWorkspaceStore((state) => state.locationMinimumWards);
   const setMinimumWards = useWorkspaceStore((state) => state.setLocationMinimumWards);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const clearMapSelection = useMapStore((state) => state.clearSelection);
@@ -428,7 +453,6 @@ export default function LocationList({
     const selected = cluster.cluster_id === selectedClusterId;
     const ward = singleWard(entry);
     const locationNumber = locationNumbers.get(cluster.cluster_id) ?? 0;
-    const fingerprint = locationFingerprint(cluster, side);
     const wardCountLabel =
       wardCount === data.amount
         ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
@@ -449,7 +473,10 @@ export default function LocationList({
       <LocationRow
         clusterId={cluster.cluster_id}
         key={cluster.cluster_id}
-        label={locationNames[fingerprint] ?? `Location ${locationNumber}`}
+        label={
+          locationName(cluster, side, locationNames, manualLocations) ??
+          `Location ${locationNumber}`
+        }
         primaryValue={locationSortSummary(entry, sort, wardCountLabel)}
         secondary={locationContext(entry, wardCountLabel)}
         selected={selected}

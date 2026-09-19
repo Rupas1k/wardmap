@@ -3,9 +3,11 @@ import Point from "ol/geom/Point";
 import LineString from "ol/geom/LineString";
 import { useEffect } from "react";
 import { useMapStore } from "../state/mapState";
+import { useWorkspaceStore } from "../state/workspaceState";
 import type { MapFocusRequest, VisionTechnique } from "../state/mapState";
 import type { MapPosition } from "../state/mapState";
-import type { Cluster, ClusterSets, ClusterWard, Side } from "../types";
+import type { Cluster, ClusterSets, Side } from "../types";
+import { locationWards } from "../locations/locationIdentity";
 import { calculateGridNavVision } from "./calculateGridNavVision";
 import calculateVision from "./calculateVision";
 import { mapSize, sentryDetectionRadius } from "./constants";
@@ -33,23 +35,28 @@ export function useClusterLayer({
   showUnclustered: boolean;
   locationFilter: { playerId: number } | { matchId: number } | null;
 }) {
+  const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
+
   useEffect(() => {
     const source = layers.wards.getSource()!;
+    const playerId =
+      locationFilter && "playerId" in locationFilter ? locationFilter.playerId : null;
+    const matchId = locationFilter && "matchId" in locationFilter ? locationFilter.matchId : null;
     const visibleClusters = clusterSets[currentSide].filter((cluster) => {
       if (!showUnclustered && cluster.unclustered === true) {
         return false;
       }
 
-      return (cluster.wards ?? []).some(
-        (ward) =>
-          (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")) &&
-          (!locationFilter ||
-            ("playerId" in locationFilter
-              ? ward.player_placed_id === locationFilter.playerId
-              : ward.match_id === locationFilter.matchId)),
+      return (
+        locationWards(cluster, {
+          side: currentSide,
+          playerId,
+          matchId,
+        }).length > 0
       );
     });
     const expandedIds = new Set(expandedClusterIds);
+    const selectedWards = new Set(selectedWardIds);
     const locationNumbers = new Map(
       [...visibleClusters]
         .sort((left, right) => left.cluster_id - right.cluster_id)
@@ -61,10 +68,18 @@ export function useClusterLayer({
 
       return new Feature({
         geometry: new Point(unitToPixel(coordinates)),
-        data: { cluster, coordinates },
+        data: {
+          cluster,
+          coordinates,
+          locationNumber: locationNumbers.get(cluster.cluster_id) ?? 0,
+        },
         dimmed: selectedClusterId !== null && cluster.cluster_id !== selectedClusterId,
-        hidden: cluster.cluster_id !== selectedClusterId && expandedIds.has(cluster.cluster_id),
-        locationLabel: String(locationNumbers.get(cluster.cluster_id) ?? ""),
+        hidden:
+          cluster.cluster_id !== selectedClusterId &&
+          (expandedIds.has(cluster.cluster_id) ||
+            locationWards(cluster, { side: currentSide, playerId, matchId }).some((ward) =>
+              selectedWards.has(ward.id),
+            )),
         hovered:
           cluster.cluster_id === hoverState.hoveredClusterId ||
           (cluster.wards?.some((ward) => ward.id === hoverState.hoveredWardId) ?? false),
@@ -90,6 +105,7 @@ export function useClusterLayer({
     currentSide,
     expandedClusterIds,
     selectedClusterId,
+    selectedWardIds,
     setAverageValues,
     showUnclustered,
     locationFilter,
@@ -99,6 +115,7 @@ export function useClusterLayer({
 export function useWardDetailLayer({
   clusters,
   currentSide,
+  expandedClusterIds,
   selectedClusterId,
   selectedMatchId,
   selectedPlayerId,
@@ -106,11 +123,14 @@ export function useWardDetailLayer({
 }: {
   clusters: Cluster[];
   currentSide: Side;
+  expandedClusterIds: number[];
   selectedClusterId: number | null;
   selectedMatchId: number | null;
   selectedPlayerId: number | null;
   selectedWardId: number | null;
 }) {
+  const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
+
   useEffect(() => {
     const source = layers.wardDetails.getSource()!;
 
@@ -121,32 +141,47 @@ export function useWardDetailLayer({
     }
 
     const hoveredWardId = useMapStore.getState().hoveredWardId;
+    const multiSelectedWardIds = new Set(selectedWardIds);
+    const expandedIds = new Set(expandedClusterIds);
 
     source.addFeatures(
-      clusters.flatMap((cluster) =>
-        (cluster.wards ?? [])
-          .filter(
-            (ward) =>
-              (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")) &&
-              (selectedPlayerId === null || ward.player_placed_id === selectedPlayerId) &&
-              (selectedMatchId === null || ward.match_id === selectedMatchId),
-          )
-          .map(
-            (ward) =>
-              new Feature({
-                geometry: new Point(unitToPixel([ward.x_pos, ward.y_pos])),
-                wardData: {
-                  clusterId: cluster.cluster_id,
-                  ward,
-                  coordinates: [ward.x_pos, ward.y_pos, ward.z_pos],
-                },
-                hovered: ward.id === hoveredWardId,
-                selected: cluster.cluster_id === selectedClusterId && ward.id === selectedWardId,
-              }),
-          ),
-      ),
+      clusters.flatMap((cluster) => {
+        const wards = locationWards(cluster, {
+          side: currentSide,
+          playerId: selectedPlayerId,
+          matchId: selectedMatchId,
+        });
+        const visibleWards =
+          cluster.cluster_id === selectedClusterId || expandedIds.has(cluster.cluster_id)
+            ? wards
+            : wards.filter((ward) => multiSelectedWardIds.has(ward.id));
+
+        return visibleWards.map(
+          (ward) =>
+            new Feature({
+              geometry: new Point(unitToPixel([ward.x_pos, ward.y_pos])),
+              wardData: {
+                clusterId: cluster.cluster_id,
+                ward,
+                coordinates: [ward.x_pos, ward.y_pos, ward.z_pos],
+              },
+              hovered: ward.id === hoveredWardId,
+              multiSelected: multiSelectedWardIds.has(ward.id),
+              selected: cluster.cluster_id === selectedClusterId && ward.id === selectedWardId,
+            }),
+        );
+      }),
     );
-  }, [clusters, currentSide, selectedClusterId, selectedMatchId, selectedPlayerId, selectedWardId]);
+  }, [
+    clusters,
+    currentSide,
+    expandedClusterIds,
+    selectedClusterId,
+    selectedMatchId,
+    selectedPlayerId,
+    selectedWardId,
+    selectedWardIds,
+  ]);
 }
 
 export function useMapHoverState(hoveredClusterId: number | null, hoveredWardId: number | null) {
@@ -273,18 +308,4 @@ export function useVisionLayer({
 
     layers.vision.getSource()!.addFeatures(visionFeatures);
   }, [elevations, selectedCluster, selectedWardId, visionTechnique]);
-}
-
-export function visibleWards(
-  cluster: Cluster | null,
-  side: Side,
-  playerId: number | null,
-  matchId: number | null,
-): ClusterWard[] {
-  return (cluster?.wards ?? []).filter(
-    (ward) =>
-      (side === "all" || ward.is_radiant === (side === "radiant")) &&
-      (playerId === null || ward.player_placed_id === playerId) &&
-      (matchId === null || ward.match_id === matchId),
-  );
 }

@@ -1,8 +1,26 @@
-import type { Cluster, ClusterSets, Side } from "../types";
+import type { Cluster, ClusterSets, ClusterWard, Side } from "../types";
+import type { ManualLocation } from "./manualLocations";
 
-function wardIds(cluster: Cluster, side: Side): number[] {
-  return (cluster.wards ?? [])
-    .filter((ward) => side === "all" || ward.is_radiant === (side === "radiant"))
+export interface LocationWardFilter {
+  side: Side;
+  playerId?: number | null;
+  matchId?: number | null;
+}
+
+export function locationWards(
+  cluster: Cluster | null,
+  { side, playerId = null, matchId = null }: LocationWardFilter,
+): ClusterWard[] {
+  return (cluster?.wards ?? []).filter(
+    (ward) =>
+      (side === "all" || ward.is_radiant === (side === "radiant")) &&
+      (playerId === null || ward.player_placed_id === playerId) &&
+      (matchId === null || ward.match_id === matchId),
+  );
+}
+
+export function locationWardIds(cluster: Cluster, side: Side): number[] {
+  return locationWards(cluster, { side })
     .map((ward) => ward.id)
     .sort((left, right) => left - right);
 }
@@ -23,9 +41,32 @@ function hashIds(ids: number[]): string {
 }
 
 export function locationFingerprint(cluster: Cluster, side: Side): string {
-  const ids = wardIds(cluster, side);
+  const ids = locationWardIds(cluster, side);
 
   return `${side}:${ids.length}:${hashIds(ids)}`;
+}
+
+export function locationKey(cluster: Cluster, side: Side): string {
+  return cluster.manual_location_id
+    ? `manual:${cluster.manual_location_id}`
+    : locationFingerprint(cluster, side);
+}
+
+export function locationName(
+  cluster: Cluster,
+  side: Side,
+  names: Readonly<Record<string, string>>,
+  manualLocations: readonly ManualLocation[] = [],
+): string | null {
+  const manualName = cluster.manual_location_id
+    ? manualLocations.find((location) => location.id === cluster.manual_location_id)?.name
+    : null;
+
+  return manualName ?? names[locationKey(cluster, side)] ?? null;
+}
+
+export function normalizeLocationKeys(keys: string[]): string[] {
+  return [...new Set(keys.map((key) => key.replace(/^(all|radiant|dire):manual:/, "manual:")))];
 }
 
 export function visibleClusters(
@@ -39,7 +80,7 @@ export function visibleClusters(
 
   const hidden = new Set(hiddenFingerprints);
 
-  return clusters.filter((cluster) => !hidden.has(locationFingerprint(cluster, side)));
+  return clusters.filter((cluster) => !hidden.has(locationKey(cluster, side)));
 }
 
 export function withVisibleClusters(
