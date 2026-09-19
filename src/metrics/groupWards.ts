@@ -8,15 +8,15 @@ export interface PlayerWardGroup {
   wards: ClusterWard[];
 }
 
-function earliestPlacement(wards: ClusterWard[]): number {
+export function earliestWardPlacement(wards: ClusterWard[]): number {
   return Math.min(...wards.map((ward) => ward.time_placed));
 }
 
-function averageLifetime(wards: ClusterWard[]): number {
+export function averageWardLifetime(wards: ClusterWard[]): number {
   return wards.reduce((total, ward) => total + ward.duration, 0) / wards.length;
 }
 
-function averagePlacement(wards: ClusterWard[]): number {
+export function averageWardPlacement(wards: ClusterWard[]): number {
   return wards.reduce((total, ward) => total + ward.time_placed, 0) / wards.length;
 }
 
@@ -31,10 +31,10 @@ function measurementValue(ward: ClusterWard, sort: WardSort): number | null {
   return null;
 }
 
-function meanMeasurement(wards: ClusterWard[], sort: WardSort): number {
+export function averageWardMeasurement(wards: ClusterWard[], sort: WardSort): number | null {
   const values = wards.flatMap((ward) => measurementValue(ward, sort) ?? []);
 
-  return mean(values) ?? -1;
+  return mean(values);
 }
 
 export function sortWards(wards: ClusterWard[], sort: WardSort): ClusterWard[] {
@@ -80,13 +80,16 @@ export function groupWardsByPlayer(wards: ClusterWard[], sort: WardSort): Player
     switch (sort) {
       case "added-vision":
       case "fresh-sightings":
-        return meanMeasurement(right.wards, sort) - meanMeasurement(left.wards, sort);
+        return (
+          (averageWardMeasurement(right.wards, sort) ?? -1) -
+          (averageWardMeasurement(left.wards, sort) ?? -1)
+        );
       case "player":
         return left.name.localeCompare(right.name);
       case "placement":
-        return averagePlacement(left.wards) - averagePlacement(right.wards);
+        return averageWardPlacement(left.wards) - averageWardPlacement(right.wards);
       case "lifetime":
-        return averageLifetime(right.wards) - averageLifetime(left.wards);
+        return averageWardLifetime(right.wards) - averageWardLifetime(left.wards);
       default:
         return right.wards.length - left.wards.length || left.name.localeCompare(right.name);
     }
@@ -107,11 +110,14 @@ export function groupWardsByMatch(wards: ClusterWard[], sort: WardSort): [number
     switch (sort) {
       case "added-vision":
       case "fresh-sightings":
-        return meanMeasurement(rightWards, sort) - meanMeasurement(leftWards, sort);
+        return (
+          (averageWardMeasurement(rightWards, sort) ?? -1) -
+          (averageWardMeasurement(leftWards, sort) ?? -1)
+        );
       case "placement":
-        return earliestPlacement(leftWards) - earliestPlacement(rightWards);
+        return earliestWardPlacement(leftWards) - earliestWardPlacement(rightWards);
       case "lifetime":
-        return averageLifetime(rightWards) - averageLifetime(leftWards);
+        return averageWardLifetime(rightWards) - averageWardLifetime(leftWards);
       case "match":
         return rightId - leftId;
       default:
