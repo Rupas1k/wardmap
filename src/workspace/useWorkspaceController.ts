@@ -111,7 +111,17 @@ export default function useWorkspaceController() {
     wards,
   });
 
-  const { applySharedView, removeView, renameView, restoreView, saveView } = useSavedViews({
+  const {
+    activeView,
+    applySharedView,
+    removeView,
+    renameView,
+    restoreView,
+    revertView,
+    saveView,
+    updateView,
+    viewModified,
+  } = useSavedViews({
     clusteringEnabled,
     clusteringSettings,
     clustersMatchSettings,
@@ -147,7 +157,16 @@ export default function useWorkspaceController() {
       visionTechnique,
       clusterMarkerSize,
     },
-    status: { ready, loadingData, dataLoadProgress, clustering, error, datasetFreshness },
+    status: {
+      ready,
+      loadingData,
+      dataLoadProgress,
+      clustering,
+      error,
+      datasetFreshness,
+      activeView,
+      viewModified,
+    },
     actions: {
       setDraftDataset,
       setControlsOpen: updateControlsOpen,
@@ -162,8 +181,10 @@ export default function useWorkspaceController() {
       saveView,
       applySharedView,
       restoreView,
+      revertView,
       renameView,
       removeView,
+      updateView,
       loadDataset,
       cancelDatasetLoad,
     },

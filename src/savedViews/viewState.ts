@@ -18,6 +18,19 @@ export interface ViewState {
   };
 }
 
+function normalizedWorkspace(settings: WorkspaceSettings): WorkspaceSettings {
+  return {
+    ...settings,
+    clusteringEnabled: settings.clusteringEnabled ?? true,
+    groupByGridCell: settings.groupByGridCell ?? false,
+    showUnclustered: settings.showUnclustered ?? false,
+    excludedWardIds: settings.excludedWardIds ?? [],
+    hiddenLocationFingerprints: settings.hiddenLocationFingerprints ?? [],
+    locationNames: settings.locationNames ?? {},
+    manualLocations: settings.manualLocations ?? [],
+  };
+}
+
 export function normalizeViewState(value: unknown): ViewState | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -49,7 +62,7 @@ export function normalizeViewState(value: unknown): ViewState | null {
   }
 
   return {
-    workspace,
+    workspace: normalizedWorkspace(workspace),
     map: {
       side: map.side,
       markerSize,
@@ -72,7 +85,7 @@ export function normalizeSavedViewState(value: unknown): ViewState | null {
   }
 
   return {
-    workspace: value,
+    workspace: normalizedWorkspace(value),
     map: {
       side: value.dataset.side,
       markerSize: defaultClusterMarkerSize,

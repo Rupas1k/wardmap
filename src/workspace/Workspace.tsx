@@ -66,7 +66,16 @@ export default function Workspace({
       visionTechnique,
       clusterMarkerSize,
     },
-    status: { ready, loadingData, dataLoadProgress, clustering, error, datasetFreshness },
+    status: {
+      ready,
+      loadingData,
+      dataLoadProgress,
+      clustering,
+      error,
+      datasetFreshness,
+      activeView,
+      viewModified,
+    },
     actions: {
       setDraftDataset,
       setControlsOpen,
@@ -81,8 +90,10 @@ export default function Workspace({
       saveView,
       applySharedView,
       restoreView,
+      revertView,
       renameView,
       removeView,
+      updateView,
       loadDataset,
       cancelDatasetLoad,
     },
@@ -320,12 +331,16 @@ export default function Workspace({
             setClusterMarkerSize={updateClusterMarkerSize}
             viewActions={
               <SavedViewControls
+                activeView={activeView}
                 disabled={!clusterSets}
+                modified={viewModified}
                 remove={removeView}
                 rename={renameView}
                 restore={restoreView}
+                revert={revertView}
                 save={saveView}
                 share={shareView}
+                update={updateView}
                 views={savedViews}
               />
             }

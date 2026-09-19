@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { parseWardRecords } from "../api/validation";
 import { isClusterSets, normalizeDataset } from "../dataset/model";
 import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
@@ -46,6 +47,7 @@ export default function useSavedViews({
   showUnclustered,
   visionTechnique,
 }: SavedViewOptions) {
+  const [activeViewKey, setActiveViewKey] = useState<string | null>(null);
   const { clusterSets, loadedDataset, loadedLeagueFreshness, savedViews, wards } =
     useWorkspaceData();
   const {
@@ -77,27 +79,24 @@ export default function useSavedViews({
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const setLocationChanges = useWorkspaceStore((state) => state.setLocationChanges);
-
-  async function saveView(name: string): Promise<boolean> {
-    if (!loadedDataset || !clusterSets) {
-      return false;
+  const currentViewState = useMemo<ViewState | null>(() => {
+    if (!loadedDataset) {
+      return null;
     }
 
-    const savedAt = Date.now();
-    const workspace = withStorageVersion({
-      dataset: loadedDataset,
-      clustering: clusteringSettings,
-      clusteringEnabled,
-      groupByGridCell,
-      showUnclustered,
-      excludedWardIds,
-      hiddenLocationFingerprints,
-      locationNames,
-      manualLocations,
-      visionTechnique,
-    });
-    const state: ViewState = {
-      workspace,
+    return {
+      workspace: withStorageVersion({
+        dataset: loadedDataset,
+        clustering: clusteringSettings,
+        clusteringEnabled,
+        groupByGridCell,
+        showUnclustered,
+        excludedWardIds,
+        hiddenLocationFingerprints,
+        locationNames,
+        manualLocations,
+        visionTechnique,
+      }),
       map: {
         side: currentSide,
         markerSize: clusterMarkerSize,
@@ -107,12 +106,67 @@ export default function useSavedViews({
         context: contextOrigin,
       },
     };
+  }, [
+    clusterMarkerSize,
+    clusteringEnabled,
+    clusteringSettings,
+    contextOrigin,
+    currentSide,
+    excludedWardIds,
+    groupByGridCell,
+    hiddenLocationFingerprints,
+    inspectorTab,
+    loadedDataset,
+    locationNames,
+    manualLocations,
+    showUnclustered,
+    visionTechnique,
+  ]);
+  const activeView = savedViews.find((view) => view.key === activeViewKey) ?? null;
+  const viewModified = Boolean(
+    activeView &&
+    currentViewState &&
+    JSON.stringify(activeView.settings) !== JSON.stringify(currentViewState),
+  );
+
+  async function saveView(name: string): Promise<boolean> {
+    if (!currentViewState || !clusterSets) {
+      return false;
+    }
+
+    const savedAt = Date.now();
+    const key = `workspace:saved:${savedAt}`;
 
     try {
       await persistSavedView(
-        `workspace:saved:${savedAt}`,
+        key,
         name,
-        state,
+        currentViewState,
+        wards,
+        clusterSets,
+        loadedLeagueFreshness ?? undefined,
+      );
+      setSavedViews(await savedWorkspaceViews());
+      setActiveViewKey(key);
+
+      return true;
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to save view");
+
+      return false;
+    }
+  }
+
+  async function updateView(): Promise<boolean> {
+    if (!activeView || !currentViewState || !clusterSets) {
+      return false;
+    }
+
+    try {
+      await persistSavedView(
+        activeView.key,
+        activeView.name,
+        currentViewState,
         wards,
         clusterSets,
         loadedLeagueFreshness ?? undefined,
@@ -121,7 +175,7 @@ export default function useSavedViews({
 
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to save view");
+      setError(reason instanceof Error ? reason.message : "Unable to update view");
 
       return false;
     }
@@ -150,6 +204,7 @@ export default function useSavedViews({
     );
     setClusterMarkerSize(view.map.markerSize);
     setInspectorTab(view.inspector.tab === "details" ? "overview" : view.inspector.tab);
+    setActiveViewKey(null);
 
     await loadDataset(dataset, false);
     setCurrentSide(view.map.side);
@@ -216,6 +271,7 @@ export default function useSavedViews({
     setCurrentSide(state.map.side);
     setInspectorTab(state.inspector.tab);
     setContextOrigin(state.inspector.context);
+    setActiveViewKey(key);
 
     if (removedIncompatibleLeagues || settings.wardDataVersion !== wardDataVersion) {
       setWards([]);
@@ -252,10 +308,30 @@ export default function useSavedViews({
     try {
       await deleteWorkspaceView(view.key);
       setSavedViews((current) => current.filter((candidate) => candidate.key !== view.key));
+
+      if (view.key === activeViewKey) {
+        setActiveViewKey(null);
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to delete view");
     }
   }
 
-  return { applySharedView, removeView, renameView, restoreView, saveView };
+  function revertView() {
+    if (activeView) {
+      restoreView(activeView.key);
+    }
+  }
+
+  return {
+    activeView,
+    applySharedView,
+    removeView,
+    renameView,
+    restoreView,
+    revertView,
+    saveView,
+    updateView,
+    viewModified,
+  };
 }
