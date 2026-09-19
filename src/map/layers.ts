@@ -33,6 +33,14 @@ const hoveredWardHalo = new Style({
   }),
   zIndex: 18,
 });
+const multiSelectedWardHalo = new Style({
+  image: new Circle({
+    radius: 10,
+    fill: new Fill({ color: "rgba(34, 211, 238, 0.16)" }),
+    stroke: new Stroke({ color: "rgba(103, 232, 249, 1)", width: 2.5 }),
+  }),
+  zIndex: 19,
+});
 const sightingStyle = [
   new Style({
     image: new Circle({
@@ -60,6 +68,9 @@ const wardDetailStyles = {
   hoveredDewarded: [hoveredWardHalo, wardPointStyle("#fb7185", true)],
   hoveredSentry: [hoveredWardHalo, wardPointStyle("#38bdf8", true)],
   hoveredSurvived: [hoveredWardHalo, wardPointStyle("#34d399", true)],
+  multiSelectedDewarded: [multiSelectedWardHalo, wardPointStyle("#fb7185", true)],
+  multiSelectedSentry: [multiSelectedWardHalo, wardPointStyle("#38bdf8", true)],
+  multiSelectedSurvived: [multiSelectedWardHalo, wardPointStyle("#34d399", true)],
   sentry: wardPointStyle("#38bdf8", false),
   selectedDewarded: [selectedWardHalo, wardPointStyle("#fb7185", true)],
   selectedSentry: [selectedWardHalo, wardPointStyle("#38bdf8", true)],
@@ -87,6 +98,7 @@ const layers = {
     style: (feature) => {
       const selected = Boolean(feature.get("selected"));
       const hovered = Boolean(feature.get("hovered"));
+      const multiSelected = Boolean(feature.get("multiSelected"));
       const wardData = feature.get("wardData") as WardFeatureData | undefined;
       const destroyed = Boolean(wardData?.ward.is_destroyed);
       const sentry = wardData?.ward.is_obs === false;
@@ -94,20 +106,26 @@ const layers = {
       return sentry
         ? selected
           ? wardDetailStyles.selectedSentry
-          : hovered
-            ? wardDetailStyles.hoveredSentry
-            : wardDetailStyles.sentry
+          : multiSelected
+            ? wardDetailStyles.multiSelectedSentry
+            : hovered
+              ? wardDetailStyles.hoveredSentry
+              : wardDetailStyles.sentry
         : selected
           ? destroyed
             ? wardDetailStyles.selectedDewarded
             : wardDetailStyles.selectedSurvived
-          : hovered
+          : multiSelected
             ? destroyed
-              ? wardDetailStyles.hoveredDewarded
-              : wardDetailStyles.hoveredSurvived
-            : destroyed
-              ? wardDetailStyles.dewarded
-              : wardDetailStyles.survived;
+              ? wardDetailStyles.multiSelectedDewarded
+              : wardDetailStyles.multiSelectedSurvived
+            : hovered
+              ? destroyed
+                ? wardDetailStyles.hoveredDewarded
+                : wardDetailStyles.hoveredSurvived
+              : destroyed
+                ? wardDetailStyles.dewarded
+                : wardDetailStyles.survived;
     },
   }),
   sightings: new VectorLayer({

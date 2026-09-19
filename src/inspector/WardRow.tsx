@@ -4,6 +4,8 @@ import { useMapStore } from "../state/mapState";
 import type { ClusterWard, Ward } from "../types";
 import { selectableRowClass } from "../components/ui";
 import { wardOutcomeDotClass, wardOutcomeTextClass } from "../colors";
+import { useWorkspaceStore } from "../state/workspaceState";
+import { useWardSelected } from "../state/workspaceSelectors";
 
 type WardRowData = Pick<
   Ward,
@@ -48,7 +50,9 @@ export default function WardRow({
   const setSelectedWardId = useMapStore((state) => state.setSelectedWardId);
   const setHoveredWardId = useMapStore((state) => state.setHoveredWardId);
   const centerMapAt = useMapStore((state) => state.centerMapAt);
+  const toggleWardSelection = useWorkspaceStore((state) => state.toggleWardSelection);
   const selected = ward.id === selectedWardId;
+  const multiSelected = useWardSelected(ward.id);
   const hovered = ward.id === hoveredWardId;
   const destroyingPlayer = destroyingPlayerName(ward);
   const outcome = ward.measurement
@@ -68,7 +72,7 @@ export default function WardRow({
 
   return (
     <div
-      className={`grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 py-2 ${selectableRowClass(selected, hovered)}`}
+      className={`grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 py-2 ${selectableRowClass(selected, hovered, multiSelected)}`}
       data-ward-id={ward.id}
       onMouseEnter={() => setHoveredWardId(ward.id)}
       onMouseLeave={() => setHoveredWardId(null)}
@@ -81,11 +85,17 @@ export default function WardRow({
         }`}
       />
       <button
-        aria-pressed={selected}
+        aria-pressed={selected || multiSelected}
         className="min-w-0 text-left"
         type="button"
         onBlur={() => setHoveredWardId(null)}
-        onClick={() => {
+        onClick={(event) => {
+          if (event.shiftKey) {
+            toggleWardSelection(ward.id);
+
+            return;
+          }
+
           if (selected) {
             if (onSelected) {
               onSelected();

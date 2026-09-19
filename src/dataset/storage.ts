@@ -19,7 +19,7 @@ import type { ClusterSets, League, Ward, WardPopulation } from "../types";
 import { isWorkspaceSettings, numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
 
-export const clusterDataVersion = 15;
+export const clusterDataVersion = 16;
 export const wardDataVersion = 7;
 const datasetCacheLimit = 8;
 

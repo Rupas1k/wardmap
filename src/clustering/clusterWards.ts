@@ -1,6 +1,8 @@
 import { gridOrigin, gridSize } from "../map/constants";
 import type { ClusteringSettings } from "../state/mapState";
-import type { ClusterResult, ClusterSets, Ward } from "../types";
+import type { Cluster, ClusterResult, ClusterSets, Ward } from "../types";
+import { activeManualLocations, validateManualLocations } from "../locations/manualLocations";
+import type { ManualLocation } from "../locations/manualLocations";
 import {
   automaticMergeDistance,
   automaticMinClusterSize,
@@ -173,47 +175,100 @@ function applyAutomaticFallback(
   return unclusteredLocations(wards, false);
 }
 
+function appendManualLocations(
+  automatic: ClusterResult,
+  wards: Ward[],
+  manualLocations: ManualLocation[],
+): ClusterResult {
+  const wardsById = new Map(wards.map((ward) => [ward.id, ward]));
+  let nextClusterId = automatic.clusters.reduce(
+    (next, cluster) => Math.max(next, cluster.cluster_id + 1),
+    0,
+  );
+  const manualClusters: Cluster[] = [];
+
+  for (const location of manualLocations) {
+    const members = location.wardIds
+      .map((id) => wardsById.get(id))
+      .filter((ward): ward is Ward => Boolean(ward));
+
+    if (members.length === 0) {
+      continue;
+    }
+
+    const result = buildClusters(
+      members,
+      new Map([[nextClusterId, members.map((ward) => ward.id)]]),
+    );
+    const cluster = result.clusters[0];
+
+    if (!cluster) {
+      continue;
+    }
+
+    manualClusters.push({
+      ...cluster,
+      cluster_id: nextClusterId++,
+      manual_location_id: location.id,
+      unclustered: false,
+    });
+  }
+
+  return {
+    clusters: [...automatic.clusters, ...manualClusters],
+    average: buildClusters(wards, new Map()).average,
+  };
+}
+
+async function clusterSet(
+  wards: Ward[],
+  settings: ClusteringSettings,
+  enabled: boolean,
+  groupByGridCell: boolean,
+  manualLocations: ManualLocation[],
+  signal?: AbortSignal,
+): Promise<ClusterResult> {
+  const activeLocations = activeManualLocations(wards, manualLocations);
+  const manualWardIds = new Set(activeLocations.flatMap((location) => location.wardIds));
+  const automaticWards = wards.filter((ward) => !manualWardIds.has(ward.id));
+  const automatic = enabled
+    ? applyAutomaticFallback(
+        automaticWards,
+        settings,
+        await clusteredLocations(automaticWards, settings, signal),
+      )
+    : unclusteredLocations(automaticWards, groupByGridCell);
+
+  return appendManualLocations(automatic, wards, activeLocations);
+}
+
 export default async function clusterWards(
   wards: Ward[],
   settings: ClusteringSettings,
   enabled: boolean,
   groupByGridCell: boolean,
+  manualLocations: ManualLocation[] = [],
   signal?: AbortSignal,
 ): Promise<ClusterSets> {
   if (wards.length === 0) {
     return buildEmptyClusterSets();
   }
 
+  validateManualLocations(wards, manualLocations);
+
   const radiant = wards.filter((ward) => ward.is_radiant === true);
   const dire = wards.filter((ward) => ward.is_radiant === false);
 
-  if (!enabled) {
-    const all = unclusteredLocations(wards, groupByGridCell);
-    const radiantClusters = unclusteredLocations(radiant, groupByGridCell);
-    const direClusters = unclusteredLocations(dire, groupByGridCell);
-
-    return {
-      all: all.clusters,
-      radiant: radiantClusters.clusters,
-      dire: direClusters.clusters,
-      average: all.average,
-    };
-  }
-
   const [all, radiantClusters, direClusters] = await Promise.all([
-    clusteredLocations(wards, settings, signal),
-    clusteredLocations(radiant, settings, signal),
-    clusteredLocations(dire, settings, signal),
+    clusterSet(wards, settings, enabled, groupByGridCell, manualLocations, signal),
+    clusterSet(radiant, settings, enabled, groupByGridCell, manualLocations, signal),
+    clusterSet(dire, settings, enabled, groupByGridCell, manualLocations, signal),
   ]);
 
-  const automaticAll = applyAutomaticFallback(wards, settings, all);
-  const automaticRadiant = applyAutomaticFallback(radiant, settings, radiantClusters);
-  const automaticDire = applyAutomaticFallback(dire, settings, direClusters);
-
   return {
-    all: automaticAll.clusters,
-    radiant: automaticRadiant.clusters,
-    dire: automaticDire.clusters,
+    all: all.clusters,
+    radiant: radiantClusters.clusters,
+    dire: direClusters.clusters,
     average: all.average,
   };
 }

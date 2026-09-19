@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { BsChevronLeft, BsPinAngle, BsPinAngleFill } from "react-icons/bs";
+import { BsChevronLeft, BsPinAngle, BsPinAngleFill, BsUnlock } from "react-icons/bs";
 import { useMapStore } from "../state/mapState";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
@@ -14,11 +14,13 @@ import { selectDisplayedClusterSets } from "../state/workspaceSelectors";
 import { contextIds } from "../state/analysisContext";
 import type { InspectorTab } from "../state/workspaceState";
 import { inspectorTabs } from "../inspector/tabs";
-import { locationFingerprint, visibleClusters } from "../locations/locationIdentity";
+import { locationKey, locationName, visibleClusters } from "../locations/locationIdentity";
 import { BsEyeSlash, BsPencil } from "react-icons/bs";
+import WardSelectionBar from "./WardSelectionBar";
 
 export default function WorkspaceInspector() {
   const panel = useRef<HTMLElement>(null);
+  const pendingManualLocationId = useRef<string | null>(null);
   const scrollPositions = useRef<Record<InspectorTab, number>>({
     overview: 0,
     locations: 0,
@@ -59,7 +61,11 @@ export default function WorkspaceInspector() {
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const hideLocation = useWorkspaceStore((state) => state.hideLocation);
   const setLocationName = useWorkspaceStore((state) => state.setLocationName);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
+  const removeManualLocation = useWorkspaceStore((state) => state.removeManualLocation);
+  const setManualLocationName = useWorkspaceStore((state) => state.setManualLocationName);
   const selectedCluster = useSelectedCluster();
+  const selectedManualLocationId = selectedCluster?.manual_location_id ?? null;
   const selectedSideData = selectedCluster?.[currentSide];
   const keepExpanded = selectedCluster
     ? expandedClusterIds.includes(selectedCluster.cluster_id)
@@ -70,10 +76,10 @@ export default function WorkspaceInspector() {
       (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")),
   );
   const selectedLocationFingerprint = selectedCluster
-    ? locationFingerprint(selectedCluster, currentSide)
+    ? locationKey(selectedCluster, currentSide)
     : null;
-  const selectedLocationName = selectedLocationFingerprint
-    ? locationNames[selectedLocationFingerprint]
+  const selectedLocationName = selectedCluster
+    ? locationName(selectedCluster, currentSide, locationNames, manualLocations)
     : null;
   const contextWards = useMemo(() => {
     const { playerId, matchId } = contextIds(context);
@@ -126,6 +132,50 @@ export default function WorkspaceInspector() {
   useEffect(() => clearHover(), [clearHover, inspectorTab]);
 
   useEffect(() => {
+    const manualId = pendingManualLocationId.current;
+
+    if (!manualId) {
+      return;
+    }
+
+    if (!displayClusterSets) {
+      return;
+    }
+
+    const cluster = displayClusterSets[currentSide].find(
+      (candidate) => candidate.manual_location_id === manualId,
+    );
+
+    if (cluster) {
+      pendingManualLocationId.current = null;
+      focusCluster(cluster.cluster_id);
+      setInspectorTab("details");
+
+      return;
+    }
+
+    const definitionExists = manualLocations.some((location) => location.id === manualId);
+    const mainResultExists = (clusterSets?.[currentSide] ?? []).some(
+      (candidate) => candidate.manual_location_id === manualId,
+    );
+    const resultIsCurrent = context.origin ? context.status === "ready" : !clustering;
+
+    if (!definitionExists || (resultIsCurrent && mainResultExists)) {
+      pendingManualLocationId.current = null;
+    }
+  }, [
+    clustering,
+    clusterSets,
+    context.origin,
+    context.status,
+    currentSide,
+    displayClusterSets,
+    focusCluster,
+    manualLocations,
+    setInspectorTab,
+  ]);
+
+  useEffect(() => {
     if (!pendingLocationReselection || !displayClusterSets) {
       return;
     }
@@ -133,12 +183,29 @@ export default function WorkspaceInspector() {
       return;
     }
 
-    const clusters = displayClusterSets[currentSide];
-    const oldResultVisible = clusters.some((cluster) =>
-      cluster.wards?.some((ward) => ward.id === pendingLocationReselection.excludedWardId),
+    const clusters = displayClusterSets[currentSide].filter(
+      (cluster) => showUnclustered || !cluster.unclustered,
+    );
+    const changed = new Set(pendingLocationReselection.changedWardIds);
+    const changedWardVisible = clusters.some((cluster) =>
+      cluster.wards?.some((ward) => changed.has(ward.id)),
     );
 
-    if (oldResultVisible) {
+    if (pendingLocationReselection.kind === "exclude" && changedWardVisible) {
+      return;
+    }
+    if (pendingLocationReselection.kind === "restore" && !changedWardVisible) {
+      const restoredOutsideContext =
+        Boolean(context.origin) &&
+        !clustering &&
+        (clusterSets?.[currentSide] ?? []).some((cluster) =>
+          cluster.wards?.some((ward) => changed.has(ward.id)),
+        );
+
+      if (restoredOutsideContext) {
+        setPendingLocationReselection(null);
+      }
+
       return;
     }
 
@@ -161,11 +228,13 @@ export default function WorkspaceInspector() {
 
     setPendingLocationReselection(null);
 
-    if (bestCluster) {
+    if (bestCluster && pendingLocationReselection.sourceFingerprint) {
       copyLocationName(
         pendingLocationReselection.sourceFingerprint,
-        locationFingerprint(bestCluster, currentSide),
+        locationKey(bestCluster, currentSide),
       );
+    }
+    if (bestCluster) {
       focusCluster(bestCluster.cluster_id);
 
       return;
@@ -176,6 +245,7 @@ export default function WorkspaceInspector() {
   }, [
     clearSelection,
     clustering,
+    clusterSets,
     context.origin,
     context.status,
     currentSide,
@@ -186,6 +256,7 @@ export default function WorkspaceInspector() {
     pendingLocationReselection,
     setInspectorTab,
     setPendingLocationReselection,
+    showUnclustered,
   ]);
 
   let detailsContent: ReactNode;
@@ -215,7 +286,7 @@ export default function WorkspaceInspector() {
                 ? overviewTabLabel
                 : "Browse"}
           </button>
-          {(selectedSideData?.amount ?? 0) > 1 ? (
+          {(selectedSideData?.amount ?? 0) > 1 || selectedManualLocationId ? (
             <div className="flex items-center gap-0.5">
               <button
                 aria-label="Rename location"
@@ -233,12 +304,31 @@ export default function WorkspaceInspector() {
                     .slice(0, 80);
 
                   if (name !== undefined) {
-                    setLocationName(selectedLocationFingerprint, name || null);
+                    if (selectedManualLocationId) {
+                      setManualLocationName(selectedManualLocationId, name || null);
+                    } else {
+                      setLocationName(selectedLocationFingerprint, name || null);
+                    }
                   }
                 }}
               >
                 <BsPencil />
               </button>
+              {selectedManualLocationId ? (
+                <button
+                  aria-label="Ungroup location"
+                  className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+                  title="Ungroup location"
+                  type="button"
+                  onClick={() => {
+                    removeManualLocation(selectedManualLocationId);
+                    clearSelection();
+                    setInspectorTab(inspectorReturnTab);
+                  }}
+                >
+                  <BsUnlock />
+                </button>
+              ) : null}
               <button
                 aria-label="Hide location"
                 className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
@@ -416,6 +506,15 @@ export default function WorkspaceInspector() {
           }))}
           value={inspectorTab}
           onChange={setInspectorTab}
+        />
+        <WardSelectionBar
+          onManualLocationChanged={(id) => {
+            if (id) {
+              pendingManualLocationId.current = id;
+            } else {
+              setInspectorTab(inspectorReturnTab);
+            }
+          }}
         />
       </div>
       <div className="px-4 py-3">{contentByTab[inspectorTab]}</div>

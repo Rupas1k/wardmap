@@ -7,6 +7,9 @@ import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
 import { emptyAnalysisContext, sameScope } from "./analysisContext";
 import type { AnalysisContext, AnalysisScope, ContextStatus } from "./analysisContext";
 import type { WardLoadProgress } from "../api/fetchWards";
+import { normalizeLocationKeys } from "../locations/locationIdentity";
+import { compatibleManualLocations, manualLocationId } from "../locations/manualLocations";
+import type { ManualLocation } from "../locations/manualLocations";
 
 export type InspectorTab = "overview" | "locations" | "details";
 export type InspectorReturnTab = Exclude<InspectorTab, "details">;
@@ -21,13 +24,18 @@ export type WardSort =
   "amount" | "placement" | "lifetime" | "match" | "player" | "added-vision" | "fresh-sightings";
 type Update<T> = T | ((current: T) => T);
 export interface LocationReselection {
-  excludedWardId: number;
-  sourceFingerprint: string;
+  changedWardIds: number[];
+  kind: "exclude" | "restore";
+  sourceFingerprint: string | null;
   wardIds: number[];
 }
 
 function resolve<T>(current: T, update: Update<T>): T {
   return typeof update === "function" ? (update as (value: T) => T)(current) : update;
+}
+
+function validWardId(id: number): boolean {
+  return Number.isSafeInteger(id) && id > 0;
 }
 
 export interface WorkspaceState {
@@ -55,9 +63,12 @@ export interface WorkspaceState {
   wardView: WardView;
   wardOutcomeFilter: WardOutcomeFilter;
   wardSort: WardSort;
+  selectedWardIds: number[];
   excludedWardIds: number[];
+  lastExcludedWardIds: number[];
   hiddenLocationFingerprints: string[];
   locationNames: Record<string, string>;
+  manualLocations: ManualLocation[];
   pendingLocationReselection: LocationReselection | null;
   clusteringEnabled: boolean;
   groupByGridCell: boolean;
@@ -96,17 +107,28 @@ export interface WorkspaceState {
   setWardView: (view: WardView) => void;
   setWardOutcomeFilter: (outcome: WardOutcomeFilter) => void;
   setWardSort: (sort: WardSort) => void;
+  toggleWardSelection: (wardId: number) => void;
+  clearWardSelectionSet: () => void;
   excludeWard: (wardId: number) => void;
+  excludeWards: (wardIds: number[]) => void;
+  undoLastExclusion: () => void;
+  dismissExclusionUndo: () => void;
   restoreWard: (wardId: number) => void;
   hideLocation: (fingerprint: string) => void;
   restoreLocation: (fingerprint: string) => void;
   restoreLocationChanges: () => void;
   setLocationName: (fingerprint: string, name: string | null) => void;
+  createManualLocation: (wardIds: number[]) => string | null;
+  addWardsToManualLocation: (id: string, wardIds: number[]) => boolean;
+  removeWardsFromManualLocation: (id: string, wardIds: number[]) => boolean;
+  removeManualLocation: (id: string) => void;
+  setManualLocationName: (id: string, name: string | null) => void;
   copyLocationName: (sourceFingerprint: string, targetFingerprint: string) => void;
   setLocationChanges: (
     excludedWardIds: number[],
     hiddenLocationFingerprints: string[],
     locationNames: Record<string, string>,
+    manualLocations?: ManualLocation[],
   ) => void;
   setPendingLocationReselection: (request: LocationReselection | null) => void;
   setClusteringEnabled: (enabled: boolean) => void;
@@ -144,9 +166,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   wardView: "wards",
   wardOutcomeFilter: "all",
   wardSort: "placement",
+  selectedWardIds: [],
   excludedWardIds: [],
+  lastExcludedWardIds: [],
   hiddenLocationFingerprints: [],
   locationNames: {},
+  manualLocations: [],
   pendingLocationReselection: null,
   clusteringEnabled: true,
   groupByGridCell: false,
@@ -161,11 +186,18 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     set((state) => ({ draftDataset: resolve(state.draftDataset, update) })),
   setLoadedDataset: (loadedDataset) => set({ loadedDataset }),
   setWards: (wards) =>
-    set({
-      wards,
-      contextClusterSets: null,
-      analysisContext: emptyAnalysisContext,
-      pendingLocationReselection: null,
+    set((state) => {
+      const availableWardIds = new Set(wards.map((ward) => ward.id));
+
+      return {
+        wards,
+        contextClusterSets: null,
+        analysisContext: emptyAnalysisContext,
+        pendingLocationReselection: null,
+        selectedWardIds: state.selectedWardIds.filter((id) => availableWardIds.has(id)),
+        manualLocations: compatibleManualLocations(state.manualLocations, wards),
+        lastExcludedWardIds: [],
+      };
     }),
   setClusterSets: (clusterSets) => set({ clusterSets }),
   setContextClusterSets: (contextClusterSets) => set({ contextClusterSets }),
@@ -179,15 +211,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     loadedLeagueFreshness = null,
     population = null,
   ) =>
-    set({
-      loadedDataset,
-      wards,
-      clusterSets,
-      contextClusterSets: null,
-      analysisContext: emptyAnalysisContext,
-      loadedLeagueFreshness,
-      population,
-      pendingLocationReselection: null,
+    set((state) => {
+      const availableWardIds = new Set(wards.map((ward) => ward.id));
+
+      return {
+        loadedDataset,
+        wards,
+        clusterSets,
+        contextClusterSets: null,
+        analysisContext: emptyAnalysisContext,
+        loadedLeagueFreshness,
+        population,
+        pendingLocationReselection: null,
+        selectedWardIds: state.selectedWardIds.filter((id) => availableWardIds.has(id)),
+        manualLocations: compatibleManualLocations(state.manualLocations, wards),
+        lastExcludedWardIds: [],
+      };
     }),
   setControlsOpen: (update) =>
     set((state) => ({ controlsOpen: resolve(state.controlsOpen, update) })),
@@ -229,13 +268,60 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   setWardView: (wardView) => set({ wardView }),
   setWardOutcomeFilter: (wardOutcomeFilter) => set({ wardOutcomeFilter }),
   setWardSort: (wardSort) => set({ wardSort }),
+  toggleWardSelection: (wardId) => {
+    if (!validWardId(wardId)) {
+      return;
+    }
+
+    set((state) => {
+      if (!state.wards.some((ward) => ward.id === wardId)) {
+        return state;
+      }
+
+      return {
+        selectedWardIds: state.selectedWardIds.includes(wardId)
+          ? state.selectedWardIds.filter((id) => id !== wardId)
+          : [...state.selectedWardIds, wardId],
+      };
+    });
+  },
+  clearWardSelectionSet: () => set({ selectedWardIds: [] }),
   excludeWard: (wardId) =>
     set((state) => ({
       excludedWardIds: [...new Set([...state.excludedWardIds, wardId])],
+      lastExcludedWardIds: state.excludedWardIds.includes(wardId) ? [] : [wardId],
+      selectedWardIds: state.selectedWardIds.filter((id) => id !== wardId),
     })),
+  excludeWards: (wardIds) =>
+    set((state) => {
+      const available = new Set(state.wards.map((ward) => ward.id));
+      const alreadyExcluded = new Set(state.excludedWardIds);
+      const excluded = [
+        ...new Set(
+          wardIds.filter((id) => validWardId(id) && available.has(id) && !alreadyExcluded.has(id)),
+        ),
+      ];
+
+      return {
+        excludedWardIds: [...new Set([...state.excludedWardIds, ...excluded])],
+        lastExcludedWardIds: excluded,
+        selectedWardIds: [],
+      };
+    }),
+  undoLastExclusion: () =>
+    set((state) => {
+      const undo = new Set(state.lastExcludedWardIds);
+
+      return {
+        excludedWardIds: state.excludedWardIds.filter((id) => !undo.has(id)),
+        lastExcludedWardIds: [],
+      };
+    }),
+  dismissExclusionUndo: () => set({ lastExcludedWardIds: [] }),
   restoreWard: (wardId) =>
     set((state) => ({
       excludedWardIds: state.excludedWardIds.filter((id) => id !== wardId),
+      lastExcludedWardIds: state.lastExcludedWardIds.filter((id) => id !== wardId),
     })),
   hideLocation: (fingerprint) =>
     set((state) => ({
@@ -247,7 +333,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         (candidate) => candidate !== fingerprint,
       ),
     })),
-  restoreLocationChanges: () => set({ excludedWardIds: [], hiddenLocationFingerprints: [] }),
+  restoreLocationChanges: () =>
+    set({ excludedWardIds: [], hiddenLocationFingerprints: [], lastExcludedWardIds: [] }),
   setLocationName: (fingerprint, name) =>
     set((state) => {
       const locationNames = { ...state.locationNames };
@@ -260,6 +347,149 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
 
       return { locationNames };
     }),
+  createManualLocation: (wardIds) => {
+    let createdId: string | null = null;
+
+    set((state) => {
+      const uniqueIds = [...new Set(wardIds.filter(validWardId))].sort(
+        (left, right) => left - right,
+      );
+      const wardsById = new Map(state.wards.map((ward) => [ward.id, ward]));
+      const selectedWards = uniqueIds.map((id) => wardsById.get(id)).filter(Boolean);
+      const assignedIds = new Set(state.manualLocations.flatMap((location) => location.wardIds));
+
+      if (
+        selectedWards.length < 2 ||
+        selectedWards.length !== uniqueIds.length ||
+        selectedWards.some((ward) => ward?.is_obs !== selectedWards[0]?.is_obs) ||
+        uniqueIds.some((id) => assignedIds.has(id))
+      ) {
+        return state;
+      }
+
+      createdId = manualLocationId();
+
+      return {
+        manualLocations: [
+          ...state.manualLocations,
+          { id: createdId, name: null, wardIds: uniqueIds },
+        ],
+        selectedWardIds: [],
+      };
+    });
+
+    return createdId;
+  },
+  addWardsToManualLocation: (id, wardIds) => {
+    let changed = false;
+
+    set((state) => {
+      const location = state.manualLocations.find((candidate) => candidate.id === id);
+
+      if (!location) {
+        return state;
+      }
+
+      const wardsById = new Map(state.wards.map((ward) => [ward.id, ward]));
+      const existingWard = location.wardIds.flatMap((wardId) => {
+        const ward = wardsById.get(wardId);
+
+        return ward ? [ward] : [];
+      })[0];
+      const assignedElsewhere = new Set(
+        state.manualLocations
+          .filter((candidate) => candidate.id !== id)
+          .flatMap((candidate) => candidate.wardIds),
+      );
+      const additionIds = [...new Set(wardIds.filter(validWardId))];
+      const additions = additionIds.map((wardId) => ({ id: wardId, ward: wardsById.get(wardId) }));
+
+      if (
+        !existingWard ||
+        additions.length === 0 ||
+        additions.some(
+          ({ id: wardId, ward }) =>
+            !ward ||
+            location.wardIds.includes(wardId) ||
+            assignedElsewhere.has(wardId) ||
+            ward.is_obs !== existingWard.is_obs,
+        )
+      ) {
+        return state;
+      }
+
+      changed = true;
+
+      return {
+        manualLocations: state.manualLocations.map((candidate) =>
+          candidate.id === id
+            ? {
+                ...candidate,
+                wardIds: [...candidate.wardIds, ...additionIds].sort((left, right) => left - right),
+              }
+            : candidate,
+        ),
+        selectedWardIds: [],
+      };
+    });
+
+    return changed;
+  },
+  removeWardsFromManualLocation: (id, wardIds) => {
+    let changed = false;
+
+    set((state) => {
+      const location = state.manualLocations.find((candidate) => candidate.id === id);
+
+      if (!location) {
+        return state;
+      }
+
+      const removedIds = new Set(wardIds.filter(validWardId));
+
+      if (
+        removedIds.size === 0 ||
+        [...removedIds].some((wardId) => !location.wardIds.includes(wardId))
+      ) {
+        return state;
+      }
+
+      const remainingIds = location.wardIds.filter((wardId) => !removedIds.has(wardId));
+      changed = true;
+
+      return {
+        manualLocations:
+          remainingIds.length < 2
+            ? state.manualLocations.filter((candidate) => candidate.id !== id)
+            : state.manualLocations.map((candidate) =>
+                candidate.id === id ? { ...candidate, wardIds: remainingIds } : candidate,
+              ),
+        selectedWardIds: [],
+      };
+    });
+
+    return changed;
+  },
+  removeManualLocation: (id) =>
+    set((state) => {
+      const manualLocations = state.manualLocations.filter((location) => location.id !== id);
+
+      return manualLocations.length === state.manualLocations.length
+        ? state
+        : {
+            manualLocations,
+          };
+    }),
+  setManualLocationName: (id, name) =>
+    set((state) => {
+      const normalizedName = name?.trim().slice(0, 80) || null;
+
+      return {
+        manualLocations: state.manualLocations.map((location) =>
+          location.id === id ? { ...location, name: normalizedName } : location,
+        ),
+      };
+    }),
   copyLocationName: (sourceFingerprint, targetFingerprint) =>
     set((state) => {
       const name = state.locationNames[sourceFingerprint];
@@ -270,8 +500,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
 
       return { locationNames: { ...state.locationNames, [targetFingerprint]: name } };
     }),
-  setLocationChanges: (excludedWardIds, hiddenLocationFingerprints, locationNames) =>
-    set({ excludedWardIds, hiddenLocationFingerprints, locationNames }),
+  setLocationChanges: (
+    excludedWardIds,
+    hiddenLocationFingerprints,
+    locationNames,
+    manualLocations = [],
+  ) =>
+    set({
+      excludedWardIds,
+      hiddenLocationFingerprints: normalizeLocationKeys(hiddenLocationFingerprints),
+      locationNames,
+      manualLocations,
+      lastExcludedWardIds: [],
+    }),
   setPendingLocationReselection: (pendingLocationReselection) =>
     set({ pendingLocationReselection }),
   setClusteringEnabled: (clusteringEnabled) => set({ clusteringEnabled }),

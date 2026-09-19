@@ -58,12 +58,18 @@ export function SwitchNav<T extends string>({
   );
 }
 
-export function selectableRowClass(selected: boolean, hovered = false): string {
+export function selectableRowClass(
+  selected: boolean,
+  hovered = false,
+  multiSelected = false,
+): string {
   return selected
     ? "rounded-sm bg-amber-300/8 ring-1 ring-inset ring-amber-300/40 transition"
-    : hovered
-      ? "rounded-sm bg-cyan-400/6 ring-1 ring-inset ring-cyan-300/25 transition"
-      : "rounded-sm transition hover:bg-white/4";
+    : multiSelected
+      ? "rounded-sm bg-cyan-400/8 ring-1 ring-inset ring-cyan-300/45 transition"
+      : hovered
+        ? "rounded-sm bg-cyan-400/6 ring-1 ring-inset ring-cyan-300/25 transition"
+        : "rounded-sm transition hover:bg-white/4";
 }
 
 export function FloatingIconButton({

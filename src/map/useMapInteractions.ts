@@ -10,7 +10,7 @@ import { getClusterFeatureData, getWardFeatureData } from "./features";
 import type { ClusterFeature, WardFeature } from "./features";
 import { createMap } from "./OLMap";
 import layers from "./layers";
-import { visibleWards } from "./useMapLayers";
+import { locationWards } from "../locations/locationIdentity";
 
 interface MapInteractionOptions {
   clearMapLocationSelection: () => void;
@@ -33,7 +33,12 @@ export default function useMapInteractions({
 }: MapInteractionOptions) {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<ReturnType<typeof createMap> | null>(null);
-  const [hover, setHover] = useState<{ cluster: Cluster; x: number; y: number } | null>(null);
+  const [hover, setHover] = useState<{
+    cluster: Cluster;
+    locationNumber: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [wardHover, setWardHover] = useState<{
     ward: ClusterWard;
     x: number;
@@ -70,7 +75,11 @@ export default function useMapInteractions({
           : null;
         const { playerId, matchId } = contextIds(currentContext);
         const singleWardLocation =
-          visibleWards(selectedCluster, mapState.currentSide, playerId, matchId).length <= 1;
+          locationWards(selectedCluster, {
+            side: mapState.currentSide,
+            playerId,
+            matchId,
+          }).length <= 1;
 
         if (singleWardLocation) {
           clearMapLocationSelection();
@@ -146,7 +155,19 @@ export default function useMapInteractions({
       const overlappingSelectedCluster =
         overlappingCluster?.cluster_id === mapState.selectedClusterId;
       const multiWardCluster =
-        visibleWards(overlappingCluster, mapState.currentSide, playerId, matchId).length > 1;
+        locationWards(overlappingCluster, {
+          side: mapState.currentSide,
+          playerId,
+          matchId,
+        }).length > 1;
+      const originalEvent = event.originalEvent;
+      const shiftPressed = "shiftKey" in originalEvent && Boolean(originalEvent.shiftKey);
+
+      if (shiftPressed) {
+        useWorkspaceStore.getState().toggleWardSelection(wardData.ward.id);
+
+        return true;
+      }
 
       if (
         wardData.clusterId === mapState.selectedClusterId &&
@@ -179,7 +200,11 @@ export default function useMapInteractions({
       const currentContext = useWorkspaceStore.getState().analysisContext;
       const origin = currentContext.origin;
       const { playerId, matchId } = contextIds(currentContext);
-      const wards = visibleWards(cluster, selection.currentSide, playerId, matchId);
+      const wards = locationWards(cluster, {
+        side: selection.currentSide,
+        playerId,
+        matchId,
+      });
 
       if (cluster.cluster_id === selection.selectedClusterId) {
         if (selection.selectedWardId !== null && wards.length > 1) {
@@ -276,11 +301,16 @@ export default function useMapInteractions({
       }
 
       if (hoveredFeature.get("data")) {
-        const cluster = getClusterFeatureData(hoveredFeature).cluster;
+        const featureData = getClusterFeatureData(hoveredFeature);
+        const cluster = featureData.cluster;
         const mapState = useMapStore.getState();
         const currentContext = useWorkspaceStore.getState().analysisContext;
         const { playerId, matchId } = contextIds(currentContext);
-        const wards = visibleWards(cluster, mapState.currentSide, playerId, matchId);
+        const wards = locationWards(cluster, {
+          side: mapState.currentSide,
+          playerId,
+          matchId,
+        });
 
         if (wards.length === 1) {
           mapState.setHoveredMapItem(cluster.cluster_id, wards[0]!.id);
@@ -289,7 +319,7 @@ export default function useMapInteractions({
         } else {
           mapState.setHoveredMapItem(cluster.cluster_id, null);
           setWardHover(null);
-          setHover({ cluster, x, y });
+          setHover({ cluster, locationNumber: featureData.locationNumber, x, y });
         }
 
         return;
@@ -309,6 +339,14 @@ export default function useMapInteractions({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        const workspaceState = useWorkspaceStore.getState();
+
+        if (workspaceState.selectedWardIds.length > 0) {
+          workspaceState.clearWardSelectionSet();
+
+          return;
+        }
+
         dismissSelectionLevel();
       }
     }

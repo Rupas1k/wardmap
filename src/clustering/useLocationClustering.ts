@@ -3,6 +3,7 @@ import type { ClusteringSettings } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
 import type { Ward } from "../types";
 import clusterWards from "./clusterWards";
+import { manualLocationMembershipKey } from "../locations/manualLocations";
 
 export default function useLocationClustering({
   clusteringEnabled,
@@ -19,6 +20,9 @@ export default function useLocationClustering({
   const setContextClusterSets = useWorkspaceStore((state) => state.setContextClusterSets);
   const setContextStatus = useWorkspaceStore((state) => state.setContextStatus);
   const setError = useWorkspaceStore((state) => state.setError);
+  const manualMembershipKey = useWorkspaceStore((state) =>
+    manualLocationMembershipKey(state.manualLocations),
+  );
   const request = useRef(0);
   const contextWards = useMemo(() => {
     if (!origin) {
@@ -50,6 +54,7 @@ export default function useLocationClustering({
       clusteringSettings,
       clusteringEnabled,
       groupByGridCell,
+      useWorkspaceStore.getState().manualLocations,
       controller.signal,
     )
       .then((clusterSets) => {
@@ -71,6 +76,7 @@ export default function useLocationClustering({
     clusteringSettings,
     contextWards,
     groupByGridCell,
+    manualMembershipKey,
     setContextClusterSets,
     setContextStatus,
     setError,

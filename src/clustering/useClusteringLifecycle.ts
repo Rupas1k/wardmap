@@ -6,6 +6,7 @@ import clusterWards from "./clusterWards";
 import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
 import { persistWorkspace, withStorageVersion } from "../dataset/storage";
 import { useWorkspaceStore } from "../state/workspaceState";
+import { manualLocationMembershipKey } from "../locations/manualLocations";
 
 interface BooleanRef {
   current: boolean;
@@ -49,6 +50,10 @@ export default function useClusteringLifecycle({
   const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
+  const manualMembershipKey = useWorkspaceStore((state) =>
+    manualLocationMembershipKey(state.manualLocations),
+  );
   const run = useRef(0);
   const request = useRef<AbortController | null>(null);
   const persistedSession = useRef<{
@@ -85,6 +90,7 @@ export default function useClusteringLifecycle({
       clusteringSettings,
       clusteringEnabled,
       groupByGridCell,
+      useWorkspaceStore.getState().manualLocations,
       controller.signal,
     )
       .then((nextClusterSets) => {
@@ -115,6 +121,7 @@ export default function useClusteringLifecycle({
     clustersMatchSettings,
     groupByGridCell,
     loadedDataset,
+    manualMembershipKey,
     restoredClusters,
     setClustering,
     setClusterSets,
@@ -136,6 +143,7 @@ export default function useClusteringLifecycle({
       excludedWardIds,
       hiddenLocationFingerprints,
       locationNames,
+      manualLocations,
       visionTechnique,
     });
     const signature = JSON.stringify(settings);
@@ -183,6 +191,7 @@ export default function useClusteringLifecycle({
     loadedDataset,
     loadedLeagueFreshness,
     locationNames,
+    manualLocations,
     setError,
     showUnclustered,
     visionTechnique,

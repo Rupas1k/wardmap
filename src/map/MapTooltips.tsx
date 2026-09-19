@@ -2,7 +2,7 @@ import type { Cluster, ClusterWard, Side } from "../types";
 import { elevatedSurfaceClass } from "../components/ui";
 import { wardOutcomeTextClass } from "../colors";
 import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
-import { locationFingerprint } from "../locations/locationIdentity";
+import { locationName } from "../locations/locationIdentity";
 import { useWorkspaceStore } from "../state/workspaceState";
 
 interface WardTooltipProps {
@@ -94,15 +94,17 @@ export function WardTooltip({ ward, x, y }: WardTooltipProps) {
 
 interface ClusterTooltipProps {
   cluster: Cluster;
+  locationNumber: number;
   side: Side;
   x: number;
   y: number;
 }
 
-export function ClusterTooltip({ cluster, side, x, y }: ClusterTooltipProps) {
+export function ClusterTooltip({ cluster, locationNumber, side, x, y }: ClusterTooltipProps) {
   const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const data = cluster[side];
-  const name = locationNames[locationFingerprint(cluster, side)];
+  const name = locationName(cluster, side, locationNames, manualLocations);
   const survivalRate = data?.amount ? Math.max(0, (1 - data.destroyed / data.amount) * 100) : null;
 
   return (
@@ -112,7 +114,9 @@ export function ClusterTooltip({ cluster, side, x, y }: ClusterTooltipProps) {
     >
       {data ? (
         <>
-          {name ? <p className="mb-2 truncate font-medium text-slate-100">{name}</p> : null}
+          <p className="mb-2 truncate font-medium text-slate-100">
+            {name ?? (locationNumber ? `Location ${locationNumber}` : "Location")}
+          </p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5">
             <dt className="text-slate-500">Wards</dt>
             <dd className="text-right text-slate-200 tabular-nums">

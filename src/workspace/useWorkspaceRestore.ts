@@ -101,6 +101,12 @@ export default function useWorkspaceRestore({
         }
 
         setVisionTechnique(session.settings.visionTechnique);
+        setLocationChanges(
+          session.settings.excludedWardIds ?? [],
+          session.settings.hiddenLocationFingerprints ?? [],
+          session.settings.locationNames ?? {},
+          session.settings.manualLocations ?? [],
+        );
 
         if (removedIncompatibleLeagues || session.settings.wardDataVersion !== wardDataVersion) {
           setDatasetSnapshot(null, [], null);
@@ -118,11 +124,6 @@ export default function useWorkspaceRestore({
           restoredWards,
           clustersMatchCurrentModel ? session.clusterSets : null,
           session.leagueFreshness ?? null,
-        );
-        setLocationChanges(
-          session.settings.excludedWardIds ?? [],
-          session.settings.hiddenLocationFingerprints ?? [],
-          session.settings.locationNames ?? {},
         );
         setLoadingData(false);
       })

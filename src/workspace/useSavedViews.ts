@@ -65,6 +65,7 @@ export default function useSavedViews({
   const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const setLocationChanges = useWorkspaceStore((state) => state.setLocationChanges);
 
   async function saveView(name: string): Promise<boolean> {
@@ -88,6 +89,7 @@ export default function useSavedViews({
           excludedWardIds,
           hiddenLocationFingerprints,
           locationNames,
+          manualLocations,
           visionTechnique,
         }),
         wards,
@@ -122,6 +124,7 @@ export default function useSavedViews({
       view.settings.excludedWardIds ?? [],
       view.settings.hiddenLocationFingerprints ?? [],
       view.settings.locationNames ?? {},
+      view.settings.manualLocations ?? [],
     );
     setClusterMarkerSize(view.map.markerSize);
     setInspectorTab(view.inspector.tab === "details" ? "overview" : view.inspector.tab);
@@ -183,6 +186,7 @@ export default function useSavedViews({
       view.settings.excludedWardIds ?? [],
       view.settings.hiddenLocationFingerprints ?? [],
       view.settings.locationNames ?? {},
+      view.settings.manualLocations ?? [],
     );
 
     if (removedIncompatibleLeagues || view.settings.wardDataVersion !== wardDataVersion) {
