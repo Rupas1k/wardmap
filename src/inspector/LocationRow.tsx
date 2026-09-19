@@ -1,44 +1,54 @@
+import { useEffect } from "react";
 import { selectableRowClass } from "../components/ui";
-import { formatGameTime } from "../metrics/wardMetrics";
+import { useMapStore } from "../state/mapState";
 
 export default function LocationRow({
+  clusterId,
   label,
-  matchCount,
-  metric,
-  placement,
+  primaryValue,
+  secondary,
   selected,
-  wardCount,
   onSelect,
 }: {
+  clusterId: number;
   label: string;
-  matchCount: number;
-  metric: string;
-  placement: number;
+  primaryValue: string;
+  secondary: string;
   selected: boolean;
-  wardCount: string;
   onSelect: () => void;
 }) {
+  const setHoveredClusterId = useMapStore((state) => state.setHoveredClusterId);
+  const hoveredClusterId = useMapStore((state) => state.hoveredClusterId);
+  const hovered = clusterId === hoveredClusterId;
+
+  useEffect(
+    () => () => {
+      if (useMapStore.getState().hoveredClusterId === clusterId) {
+        setHoveredClusterId(null);
+      }
+    },
+    [clusterId, setHoveredClusterId],
+  );
+
   return (
     <button
       aria-pressed={selected}
-      className={`w-full py-2 text-left ${selectableRowClass(selected)}`}
+      className={`w-full py-2 text-left ${selectableRowClass(selected, hovered)}`}
       type="button"
+      onBlur={() => setHoveredClusterId(null)}
       onClick={onSelect}
+      onFocus={() => setHoveredClusterId(clusterId)}
+      onMouseEnter={() => setHoveredClusterId(clusterId)}
+      onMouseLeave={() => setHoveredClusterId(null)}
     >
       <span className="block min-w-0">
         <span className="flex items-baseline justify-between gap-3">
           <span className={selected ? "text-xs text-white" : "text-xs text-slate-300"}>
             {label}
           </span>
-          <span className="text-xs text-slate-400 tabular-nums">{wardCount}</span>
+          <span className="shrink-0 text-xs text-slate-300 tabular-nums">{primaryValue}</span>
         </span>
-        <span className="mt-1 grid grid-cols-3 gap-2 text-xs text-slate-500 tabular-nums">
-          <span>
-            {matchCount.toLocaleString()} {matchCount === 1 ? "match" : "matches"}
-          </span>
-          <span className="text-center">{metric}</span>
-          <span className="text-right">{formatGameTime(placement)}</span>
-        </span>
+        <span className="mt-1 block truncate text-xs text-slate-500 tabular-nums">{secondary}</span>
       </span>
     </button>
   );

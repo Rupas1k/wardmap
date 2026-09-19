@@ -1,5 +1,5 @@
 import type { FeatureLike } from "ol/Feature";
-import { Circle, Fill, Stroke, Style } from "ol/style";
+import { Circle, Fill, Stroke, Style, Text } from "ol/style";
 import type { ClusterFeatureData } from "./features";
 import type { Side } from "../types";
 import { defaultClusterMarkerSize } from "../state/mapState";
@@ -87,33 +87,50 @@ export default function mainStyle(
     const cluster = featureData(feature)?.cluster;
     const sideData = cluster?.[side];
     const unclustered = cluster?.unclustered === true;
+    const hovered = Boolean(feature.get("hovered"));
     const selected = Boolean(feature.get("selected"));
     const dimmed = Boolean(feature.get("dimmed"));
     const radius = unclustered ? 3.5 : sideData ? pointRadius(feature, side, markerSize) : 4;
     const color = sideData ? pointColor(feature, side) : "#808080";
+    const locationLabel = feature.get("locationLabel") as string | undefined;
     const marker = new Style({
       image: new Circle({
         radius,
-        fill: new Fill({ color: dimmed ? colorWithAlpha(color, 0.24) : color }),
+        fill: new Fill({ color: dimmed && !hovered ? colorWithAlpha(color, 0.24) : color }),
         stroke: new Stroke({
           width: selected ? 2 : unclustered ? 1 : 1.5,
-          color: dimmed ? "rgba(2, 6, 23, 0.45)" : "#020617",
+          color: dimmed && !hovered ? "rgba(2, 6, 23, 0.45)" : "#020617",
         }),
       }),
-      zIndex: selected ? 21 : dimmed ? 5 : 10,
+      text:
+        (selected || hovered) && locationLabel
+          ? new Text({
+              text: locationLabel,
+              offsetY: -radius - 10,
+              font: "600 11px ui-sans-serif, system-ui, sans-serif",
+              fill: new Fill({ color: "#f8fafc" }),
+              stroke: new Stroke({ color: "rgba(2, 6, 23, 0.95)", width: 3 }),
+            })
+          : undefined,
+      zIndex: selected ? 21 : hovered ? 19 : dimmed ? 5 : 10,
     });
 
-    if (!selected) {
+    if (!selected && !hovered) {
       return marker;
     }
 
     const halo = new Style({
       image: new Circle({
         radius: radius + 4,
-        fill: new Fill({ color: "rgba(14, 165, 233, 0.12)" }),
-        stroke: new Stroke({ color: "rgba(224, 242, 254, 0.95)", width: 2.25 }),
+        fill: new Fill({
+          color: selected ? "rgba(14, 165, 233, 0.12)" : "rgba(34, 211, 238, 0.1)",
+        }),
+        stroke: new Stroke({
+          color: selected ? "rgba(224, 242, 254, 0.95)" : "rgba(103, 232, 249, 0.95)",
+          width: selected ? 2.25 : 2,
+        }),
       }),
-      zIndex: 20,
+      zIndex: selected ? 20 : 18,
     });
 
     return [halo, marker];

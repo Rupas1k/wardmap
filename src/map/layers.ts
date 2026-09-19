@@ -25,6 +25,14 @@ const selectedWardHalo = new Style({
   }),
   zIndex: 20,
 });
+const hoveredWardHalo = new Style({
+  image: new Circle({
+    radius: 9,
+    fill: new Fill({ color: "rgba(34, 211, 238, 0.12)" }),
+    stroke: new Stroke({ color: "rgba(103, 232, 249, 0.95)", width: 2 }),
+  }),
+  zIndex: 18,
+});
 const sightingStyle = [
   new Style({
     image: new Circle({
@@ -49,6 +57,9 @@ const sightingRouteStyle = new Style({
 });
 const wardDetailStyles = {
   dewarded: wardPointStyle("#fb7185", false),
+  hoveredDewarded: [hoveredWardHalo, wardPointStyle("#fb7185", true)],
+  hoveredSentry: [hoveredWardHalo, wardPointStyle("#38bdf8", true)],
+  hoveredSurvived: [hoveredWardHalo, wardPointStyle("#34d399", true)],
   sentry: wardPointStyle("#38bdf8", false),
   selectedDewarded: [selectedWardHalo, wardPointStyle("#fb7185", true)],
   selectedSentry: [selectedWardHalo, wardPointStyle("#38bdf8", true)],
@@ -75,6 +86,7 @@ const layers = {
     source: new VectorSource(),
     style: (feature) => {
       const selected = Boolean(feature.get("selected"));
+      const hovered = Boolean(feature.get("hovered"));
       const wardData = feature.get("wardData") as WardFeatureData | undefined;
       const destroyed = Boolean(wardData?.ward.is_destroyed);
       const sentry = wardData?.ward.is_obs === false;
@@ -82,14 +94,20 @@ const layers = {
       return sentry
         ? selected
           ? wardDetailStyles.selectedSentry
-          : wardDetailStyles.sentry
+          : hovered
+            ? wardDetailStyles.hoveredSentry
+            : wardDetailStyles.sentry
         : selected
           ? destroyed
             ? wardDetailStyles.selectedDewarded
             : wardDetailStyles.selectedSurvived
-          : destroyed
-            ? wardDetailStyles.dewarded
-            : wardDetailStyles.survived;
+          : hovered
+            ? destroyed
+              ? wardDetailStyles.hoveredDewarded
+              : wardDetailStyles.hoveredSurvived
+            : destroyed
+              ? wardDetailStyles.dewarded
+              : wardDetailStyles.survived;
     },
   }),
   sightings: new VectorLayer({
