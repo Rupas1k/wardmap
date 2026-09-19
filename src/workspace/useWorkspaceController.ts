@@ -16,6 +16,7 @@ import {
   datasetFreshness as calculateDatasetFreshness,
   selectDefaultLeague,
 } from "./workspaceDataset";
+import { useWorkspaceStore } from "../state/workspaceState";
 
 export default function useWorkspaceController() {
   const {
@@ -34,6 +35,16 @@ export default function useWorkspaceController() {
   const { controlsOpen, inspectorOpen } = useWorkspacePanels();
   const { ready, loadingData, dataLoadProgress, clustering, error } = useWorkspaceStatus();
   const { setClustering, setClusterSets, setDraftDataset, setError } = useWorkspaceActions();
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const activeWards = useMemo(() => {
+    if (excludedWardIds.length === 0) {
+      return wards;
+    }
+
+    const excluded = new Set(excludedWardIds);
+
+    return wards.filter((ward) => !excluded.has(ward.id));
+  }, [excludedWardIds, wards]);
 
   const {
     clusteringSettings,
@@ -58,7 +69,7 @@ export default function useWorkspaceController() {
     clusteringEnabled,
     clusteringSettings,
     groupByGridCell,
-    wards,
+    wards: activeWards,
   });
 
   const defaultLeague = selectDefaultLeague(leagues);
@@ -96,6 +107,7 @@ export default function useWorkspaceController() {
     setError,
     showUnclustered,
     visionTechnique,
+    clusteringWards: activeWards,
     wards,
   });
 

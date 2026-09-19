@@ -14,6 +14,8 @@ import { selectDisplayedClusterSets } from "../state/workspaceSelectors";
 import { contextIds } from "../state/analysisContext";
 import type { InspectorTab } from "../state/workspaceState";
 import { inspectorTabs } from "../inspector/tabs";
+import { locationFingerprint, visibleClusters } from "../locations/locationIdentity";
+import { BsEyeSlash, BsPencil } from "react-icons/bs";
 
 export default function WorkspaceInspector() {
   const panel = useRef<HTMLElement>(null);
@@ -25,6 +27,7 @@ export default function WorkspaceInspector() {
   const currentSide = useMapStore((state) => state.currentSide);
   const focusRequest = useMapStore((state) => state.focusRequest);
   const clearSelection = useMapStore((state) => state.clearSelection);
+  const clearHover = useMapStore((state) => state.clearHover);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
   const clearWardSelection = useMapStore((state) => state.clearWardSelection);
   const focusCluster = useMapStore((state) => state.focusCluster);
@@ -36,15 +39,26 @@ export default function WorkspaceInspector() {
   const inspectorReturnTab = useWorkspaceStore((state) => state.inspectorReturnTab);
   const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
   const context = useWorkspaceStore((state) => state.analysisContext);
+  const clustering = useWorkspaceStore((state) => state.clustering);
+  const pendingLocationReselection = useWorkspaceStore((state) => state.pendingLocationReselection);
+  const setPendingLocationReselection = useWorkspaceStore(
+    (state) => state.setPendingLocationReselection,
+  );
+  const copyLocationName = useWorkspaceStore((state) => state.copyLocationName);
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
   const setLocationView = useWorkspaceStore((state) => state.setLocationView);
   const wards = useWorkspaceStore((state) => state.wards);
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
   const population = useWorkspaceStore((state) => state.population);
   const clusterSets = useWorkspaceStore((state) => state.clusterSets);
   const displayClusterSets = useWorkspaceStore(selectDisplayedClusterSets);
   const clusteringEnabled = useWorkspaceStore((state) => state.clusteringEnabled);
   const showUnclustered = useWorkspaceStore((state) => state.showUnclustered);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const hideLocation = useWorkspaceStore((state) => state.hideLocation);
+  const setLocationName = useWorkspaceStore((state) => state.setLocationName);
   const selectedCluster = useSelectedCluster();
   const selectedSideData = selectedCluster?.[currentSide];
   const keepExpanded = selectedCluster
@@ -55,16 +69,24 @@ export default function WorkspaceInspector() {
       ward.id === selectedWardId &&
       (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")),
   );
+  const selectedLocationFingerprint = selectedCluster
+    ? locationFingerprint(selectedCluster, currentSide)
+    : null;
+  const selectedLocationName = selectedLocationFingerprint
+    ? locationNames[selectedLocationFingerprint]
+    : null;
   const contextWards = useMemo(() => {
     const { playerId, matchId } = contextIds(context);
+    const excluded = new Set(excludedWardIds);
 
     return wards.filter(
       (ward) =>
+        !excluded.has(ward.id) &&
         (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")) &&
         (playerId === null || ward.player_placed_id === playerId) &&
         (matchId === null || ward.match_id === matchId),
     );
-  }, [context, currentSide, wards]);
+  }, [context, currentSide, excludedWardIds, wards]);
   const contextLabels = useMemo(() => {
     if (!context.origin) {
       return null;
@@ -101,6 +123,71 @@ export default function WorkspaceInspector() {
     panel.current?.scrollTo({ top: scrollPositions.current[inspectorTab] });
   }, [inspectorTab]);
 
+  useEffect(() => clearHover(), [clearHover, inspectorTab]);
+
+  useEffect(() => {
+    if (!pendingLocationReselection || !displayClusterSets) {
+      return;
+    }
+    if (context.origin ? context.status !== "ready" : clustering) {
+      return;
+    }
+
+    const clusters = displayClusterSets[currentSide];
+    const oldResultVisible = clusters.some((cluster) =>
+      cluster.wards?.some((ward) => ward.id === pendingLocationReselection.excludedWardId),
+    );
+
+    if (oldResultVisible) {
+      return;
+    }
+
+    const expected = new Set(pendingLocationReselection.wardIds);
+    let bestCluster = null as (typeof clusters)[number] | null;
+    let bestOverlap = 0;
+
+    for (const cluster of clusters) {
+      const overlap = (cluster.wards ?? []).filter(
+        (ward) =>
+          expected.has(ward.id) &&
+          (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")),
+      ).length;
+
+      if (overlap > bestOverlap) {
+        bestCluster = cluster;
+        bestOverlap = overlap;
+      }
+    }
+
+    setPendingLocationReselection(null);
+
+    if (bestCluster) {
+      copyLocationName(
+        pendingLocationReselection.sourceFingerprint,
+        locationFingerprint(bestCluster, currentSide),
+      );
+      focusCluster(bestCluster.cluster_id);
+
+      return;
+    }
+
+    clearSelection();
+    setInspectorTab(inspectorReturnTab);
+  }, [
+    clearSelection,
+    clustering,
+    context.origin,
+    context.status,
+    currentSide,
+    displayClusterSets,
+    focusCluster,
+    inspectorReturnTab,
+    copyLocationName,
+    pendingLocationReselection,
+    setInspectorTab,
+    setPendingLocationReselection,
+  ]);
+
   let detailsContent: ReactNode;
 
   if (!selectedCluster) {
@@ -129,20 +216,66 @@ export default function WorkspaceInspector() {
                 : "Browse"}
           </button>
           {(selectedSideData?.amount ?? 0) > 1 ? (
-            <button
-              aria-label={keepExpanded ? "Unpin expanded location" : "Pin expanded location"}
-              aria-pressed={keepExpanded}
-              className={`rounded-sm p-1.5 text-sm transition hover:bg-white/4 hover:text-slate-200 ${
-                keepExpanded ? "text-cyan-400" : "text-slate-600"
-              }`}
-              title={keepExpanded ? "Unpin expanded location" : "Keep location expanded"}
-              type="button"
-              onClick={() => setClusterExpanded(selectedCluster.cluster_id, !keepExpanded)}
-            >
-              {keepExpanded ? <BsPinAngleFill /> : <BsPinAngle />}
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                aria-label="Rename location"
+                className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+                title="Rename location"
+                type="button"
+                onClick={() => {
+                  if (!selectedLocationFingerprint) {
+                    return;
+                  }
+
+                  const name = window
+                    .prompt("Location name", selectedLocationName ?? "")
+                    ?.trim()
+                    .slice(0, 80);
+
+                  if (name !== undefined) {
+                    setLocationName(selectedLocationFingerprint, name || null);
+                  }
+                }}
+              >
+                <BsPencil />
+              </button>
+              <button
+                aria-label="Hide location"
+                className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+                title="Hide location"
+                type="button"
+                onClick={() => {
+                  if (!selectedLocationFingerprint) {
+                    return;
+                  }
+
+                  hideLocation(selectedLocationFingerprint);
+                  clearSelection();
+                  setInspectorTab(inspectorReturnTab);
+                }}
+              >
+                <BsEyeSlash />
+              </button>
+              <button
+                aria-label={keepExpanded ? "Unpin expanded location" : "Pin expanded location"}
+                aria-pressed={keepExpanded}
+                className={`rounded-sm p-1.5 text-sm transition hover:bg-white/4 hover:text-slate-200 ${
+                  keepExpanded ? "text-cyan-400" : "text-slate-600"
+                }`}
+                title={keepExpanded ? "Unpin expanded location" : "Keep location expanded"}
+                type="button"
+                onClick={() => setClusterExpanded(selectedCluster.cluster_id, !keepExpanded)}
+              >
+                {keepExpanded ? <BsPinAngleFill /> : <BsPinAngle />}
+              </button>
+            </div>
           ) : null}
         </div>
+        {!selectedWard && (selectedSideData?.amount ?? 0) > 1 && selectedLocationName ? (
+          <h2 className="mb-3 truncate text-sm font-medium text-slate-100">
+            {selectedLocationName}
+          </h2>
+        ) : null}
         {!selectedWard && (selectedSideData?.amount ?? 0) > 1 ? (
           <>
             <LocationSummary flush />
@@ -157,7 +290,11 @@ export default function WorkspaceInspector() {
   const contentByTab: Record<InspectorTab, ReactNode> = {
     overview: (
       <DatasetOverview
-        clusters={displayClusterSets?.[currentSide] ?? []}
+        clusters={visibleClusters(
+          displayClusterSets?.[currentSide] ?? [],
+          currentSide,
+          hiddenLocationFingerprints,
+        )}
         contextLabel={
           contextLabels
             ? contextLabels.refinement
@@ -195,7 +332,11 @@ export default function WorkspaceInspector() {
     locations: (
       <LocationList
         baseClusters={clusterSets?.[currentSide] ?? []}
-        clusters={displayClusterSets?.[currentSide] ?? []}
+        clusters={visibleClusters(
+          displayClusterSets?.[currentSide] ?? [],
+          currentSide,
+          hiddenLocationFingerprints,
+        )}
         clusteringEnabled={clusteringEnabled}
         showUnclustered={showUnclustered}
         side={currentSide}

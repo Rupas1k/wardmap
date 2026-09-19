@@ -1,4 +1,4 @@
-import { BsChevronLeft, BsGeoAlt, BsGeoAltFill } from "react-icons/bs";
+import { BsChevronLeft, BsDashCircle, BsGeoAlt, BsGeoAltFill } from "react-icons/bs";
 import { useEffect, useMemo, useState } from "react";
 import { fetchWardEvidence } from "../api/fetchWardEvidence";
 import { wardOutcomeTextClass } from "../colors";
@@ -15,6 +15,7 @@ import { EmptyState, fieldControlClass } from "../components/ui";
 import { InspectorSection, MetricRows } from "./InspectorPrimitives";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
 import WardRow, { destroyingPlayerName } from "./WardRow";
+import { locationFingerprint } from "../locations/locationIdentity";
 
 const wardSortOptions: Record<WardView, { value: WardSort; label: string }[]> = {
   wards: [
@@ -28,18 +29,18 @@ const wardSortOptions: Record<WardView, { value: WardSort; label: string }[]> = 
   players: [
     { value: "amount", label: "Most wards" },
     { value: "player", label: "Player name" },
-    { value: "placement", label: "Earliest average placement" },
-    { value: "lifetime", label: "Longest average lifetime" },
-    { value: "added-vision", label: "Highest mean added vision" },
-    { value: "fresh-sightings", label: "Highest mean new enemy sightings" },
+    { value: "placement", label: "Earliest placement on average" },
+    { value: "lifetime", label: "Longest lifetime on average" },
+    { value: "added-vision", label: "Most added vision on average" },
+    { value: "fresh-sightings", label: "Most new enemy sightings on average" },
   ],
   matches: [
     { value: "amount", label: "Most wards" },
     { value: "match", label: "Newest match" },
     { value: "placement", label: "Earliest placement" },
-    { value: "lifetime", label: "Longest average lifetime" },
-    { value: "added-vision", label: "Highest mean added vision" },
-    { value: "fresh-sightings", label: "Highest mean new enemy sightings" },
+    { value: "lifetime", label: "Longest lifetime on average" },
+    { value: "added-vision", label: "Most added vision on average" },
+    { value: "fresh-sightings", label: "Most new enemy sightings on average" },
   ],
 };
 
@@ -69,6 +70,77 @@ function formatSeconds(value: number): string {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} sec`;
 }
 
+function averageWardPlacement(wards: ClusterWard[]): number {
+  return wards.reduce((total, ward) => total + ward.time_placed, 0) / wards.length;
+}
+
+function earliestWardPlacement(wards: ClusterWard[]): number {
+  return Math.min(...wards.map((ward) => ward.time_placed));
+}
+
+function averageWardLifetime(wards: ClusterWard[]): number {
+  return wards.reduce((total, ward) => total + ward.duration, 0) / wards.length;
+}
+
+function averageWardMeasurement(wards: ClusterWard[], sort: WardSort): number | null {
+  const values = wards.flatMap((ward) => {
+    const value =
+      sort === "added-vision"
+        ? ward.measurement?.added_vision_seconds
+        : ward.measurement?.fresh_sightings;
+
+    return value === null || value === undefined ? [] : [value];
+  });
+
+  return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
+}
+
+function wardSortSummary(ward: ClusterWard, sort: WardSort): string {
+  if (sort === "lifetime") {
+    return `${formatGameTime(ward.duration)} lifetime`;
+  }
+  if (sort === "added-vision") {
+    const value = ward.measurement?.added_vision_seconds;
+
+    return value == null ? "No vision data" : `${formatGameTime(value)} vision`;
+  }
+  if (sort === "fresh-sightings") {
+    const value = ward.measurement?.fresh_sightings;
+
+    return value == null ? "No sightings" : `${formatCount(value)} enemy sightings`;
+  }
+
+  return formatGameTime(ward.time_placed);
+}
+
+function wardGroupSortSummary(
+  wards: ClusterWard[],
+  sort: WardSort,
+  view: "matches" | "players",
+): string {
+  if (sort === "placement") {
+    const value = view === "players" ? averageWardPlacement(wards) : earliestWardPlacement(wards);
+
+    return `${formatGameTime(value)} placed`;
+  }
+  if (sort === "lifetime") {
+    return `${formatGameTime(averageWardLifetime(wards))} lifetime`;
+  }
+  if (sort === "added-vision" || sort === "fresh-sightings") {
+    const value = averageWardMeasurement(wards, sort);
+
+    if (value === null) {
+      return sort === "added-vision" ? "No vision data" : "No sightings";
+    }
+
+    return sort === "added-vision"
+      ? `${formatGameTime(value)} vision`
+      : `${formatCount(value)} enemy sightings`;
+  }
+
+  return `${wards.length.toLocaleString()} ${wards.length === 1 ? "ward" : "wards"}`;
+}
+
 function WardReport({
   ward,
   compact = false,
@@ -83,6 +155,13 @@ function WardReport({
   const sightingSelectionId = useMapStore((state) => state.sightingSelectionId);
   const showSightingAt = useMapStore((state) => state.showSightingAt);
   const clearSighting = useMapStore((state) => state.clearSighting);
+  const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
+  const excludeWard = useWorkspaceStore((state) => state.excludeWard);
+  const cluster = useSelectedCluster();
+  const side = useMapStore((state) => state.currentSide);
+  const setPendingLocationReselection = useWorkspaceStore(
+    (state) => state.setPendingLocationReselection,
+  );
   const [sightings, setSightings] = useState<WardSighting[] | null>(null);
   const [sightingError, setSightingError] = useState(false);
   const outcome = ward.measurement
@@ -151,18 +230,49 @@ function WardReport({
           Location summary
         </button>
       ) : null}
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-slate-100">
-          {ward.player_name ?? "Unknown player"}
-        </p>
-        <p className="mt-1 truncate text-xs text-slate-500">
-          {ward.team_name ?? "Unknown team"} vs {ward.opponent_team_name ?? "Unknown opponent"}
-          <span
-            className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
-          >
-            {`, ${outcome.toLowerCase()}`}
-          </span>
-        </p>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-slate-100">
+            {ward.player_name ?? "Unknown player"}
+          </p>
+          <p className="mt-1 truncate text-xs text-slate-500">
+            {ward.team_name ?? "Unknown team"} vs {ward.opponent_team_name ?? "Unknown opponent"}
+            <span
+              className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
+            >
+              {`, ${outcome.toLowerCase()}`}
+            </span>
+          </p>
+        </div>
+        <button
+          aria-label="Exclude ward from location"
+          className="shrink-0 rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+          title="Exclude ward from location"
+          type="button"
+          onClick={() => {
+            const wardIds = (cluster?.wards ?? [])
+              .filter(
+                (candidate) =>
+                  candidate.id !== ward.id &&
+                  (side === "all" || candidate.is_radiant === (side === "radiant")),
+              )
+              .map((candidate) => candidate.id);
+
+            if (!cluster) {
+              return;
+            }
+
+            setPendingLocationReselection({
+              excludedWardId: ward.id,
+              sourceFingerprint: locationFingerprint(cluster, side),
+              wardIds,
+            });
+            clearExpandedClusters();
+            excludeWard(ward.id);
+          }}
+        >
+          <BsDashCircle />
+        </button>
       </div>
 
       <InspectorSection title="Placement">
@@ -506,7 +616,12 @@ export default function WardList() {
       ) : view === "wards" ? (
         <div className="space-y-1">
           {wards.map((ward) => (
-            <WardRow key={ward.id} ward={ward} />
+            <WardRow
+              key={ward.id}
+              primaryValue={wardSortSummary(ward, sort)}
+              showLifetime={sort !== "lifetime"}
+              ward={ward}
+            />
           ))}
         </div>
       ) : view === "players" ? (
@@ -522,7 +637,11 @@ export default function WardList() {
                 <DisclosureRow
                   expanded={expanded}
                   label={player.name}
-                  trailing={<span className="text-xs text-slate-500">{player.wards.length}</span>}
+                  trailing={
+                    <span className="shrink-0 text-xs text-slate-300 tabular-nums">
+                      {wardGroupSortSummary(player.wards, sort, "players")}
+                    </span>
+                  }
                   onClick={() => {
                     setSelectedWardId(null);
                     setContextRefinement(expanded ? null : { kind: "player", id: player.id });
@@ -531,7 +650,12 @@ export default function WardList() {
                 {expanded ? (
                   <div className="mt-1 space-y-1 pl-3">
                     {player.wards.map((ward) => (
-                      <WardRow key={ward.id} ward={ward} />
+                      <WardRow
+                        key={ward.id}
+                        primaryValue={wardSortSummary(ward, sort)}
+                        showLifetime={sort !== "lifetime"}
+                        ward={ward}
+                      />
                     ))}
                   </div>
                 ) : null}
@@ -553,7 +677,11 @@ export default function WardList() {
                   expanded={expanded}
                   label={<span className="font-mono">{matchId}</span>}
                   meta={`${first.team_name ?? "Unknown"} vs ${first.opponent_team_name ?? "Unknown"}`}
-                  trailing={<span className="text-xs text-slate-500">{matchWards.length}</span>}
+                  trailing={
+                    <span className="shrink-0 text-xs text-slate-300 tabular-nums">
+                      {wardGroupSortSummary(matchWards, sort, "matches")}
+                    </span>
+                  }
                   onClick={() => {
                     setSelectedWardId(null);
                     setContextRefinement(expanded ? null : { kind: "match", id: matchId });
@@ -562,7 +690,12 @@ export default function WardList() {
                 {expanded ? (
                   <div className="mt-1 space-y-1 pl-3">
                     {matchWards.map((ward) => (
-                      <WardRow key={ward.id} ward={ward} />
+                      <WardRow
+                        key={ward.id}
+                        primaryValue={wardSortSummary(ward, sort)}
+                        showLifetime={sort !== "lifetime"}
+                        ward={ward}
+                      />
                     ))}
                   </div>
                 ) : null}
