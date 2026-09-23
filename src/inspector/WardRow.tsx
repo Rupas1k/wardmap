@@ -53,6 +53,7 @@ export default function WardRow({
   const toggleWardSelection = useWorkspaceStore((state) => state.toggleWardSelection);
   const selected = ward.id === selectedWardId;
   const multiSelected = useWardSelected(ward.id);
+  const selectionActive = useWorkspaceStore((state) => state.selectedWardIds.length > 0);
   const hovered = ward.id === hoveredWardId;
   const destroyingPlayer = destroyingPlayerName(ward);
   const outcome = ward.measurement
@@ -77,13 +78,23 @@ export default function WardRow({
       onMouseEnter={() => setHoveredWardId(ward.id)}
       onMouseLeave={() => setHoveredWardId(null)}
     >
-      <i
-        className={`mx-auto size-2 rounded-full ${
-          !ward.is_obs
-            ? "bg-sky-400"
-            : wardOutcomeDotClass(ward.measurement?.outcome ?? null, ward.is_destroyed)
-        }`}
-      />
+      {selectionActive ? (
+        <input
+          aria-label={`${multiSelected ? "Deselect" : "Select"} ward by ${ward.player_name ?? "unknown player"}`}
+          checked={multiSelected}
+          className="mx-auto size-3 cursor-pointer accent-cyan-400"
+          type="checkbox"
+          onChange={() => toggleWardSelection(ward.id)}
+        />
+      ) : (
+        <i
+          className={`mx-auto size-2 rounded-full ${
+            !ward.is_obs
+              ? "bg-sky-400"
+              : wardOutcomeDotClass(ward.measurement?.outcome ?? null, ward.is_destroyed)
+          }`}
+        />
+      )}
       <button
         aria-pressed={selected || multiSelected}
         className="min-w-0 text-left"

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
-import { BsLink45Deg } from "react-icons/bs";
+import { useEffect, useMemo, useState } from "react";
+import { BsChevronDown, BsLink45Deg, BsThreeDots } from "react-icons/bs";
 import { locationKey } from "../locations/locationIdentity";
+import { formatGameTime } from "../metrics/wardMetrics";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useMapStore } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
@@ -10,6 +11,7 @@ export default function WardSelectionBar({
 }: {
   onManualLocationChanged: (id: string | null) => void;
 }) {
+  const [reviewing, setReviewing] = useState(false);
   const currentSide = useMapStore((state) => state.currentSide);
   const clearSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
@@ -17,9 +19,10 @@ export default function WardSelectionBar({
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
   const clearWardSelection = useWorkspaceStore((state) => state.clearWardSelectionSet);
   const excludeWards = useWorkspaceStore((state) => state.excludeWards);
-  const lastExcludedWardIds = useWorkspaceStore((state) => state.lastExcludedWardIds);
-  const undoLastExclusion = useWorkspaceStore((state) => state.undoLastExclusion);
-  const dismissExclusionUndo = useWorkspaceStore((state) => state.dismissExclusionUndo);
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const locationChangeUndo = useWorkspaceStore((state) => state.locationChangeUndo);
+  const undoLocationChange = useWorkspaceStore((state) => state.undoLocationChange);
+  const dismissLocationChange = useWorkspaceStore((state) => state.dismissLocationChange);
   const setPendingLocationReselection = useWorkspaceStore(
     (state) => state.setPendingLocationReselection,
   );
@@ -62,6 +65,38 @@ export default function WardSelectionBar({
     selectedWardIds.length > 0 &&
     selectedWardIds.every((id) => selectedManualWardIds.has(id)),
   );
+
+  useEffect(() => {
+    if (selectedWardIds.length === 0) {
+      setReviewing(false);
+    }
+  }, [selectedWardIds.length]);
+
+  useEffect(() => {
+    if (!locationChangeUndo) {
+      return;
+    }
+
+    const timeout = window.setTimeout(dismissLocationChange, 6000);
+
+    return () => window.clearTimeout(timeout);
+  }, [dismissLocationChange, locationChangeUndo]);
+
+  useEffect(() => {
+    if (selectedWardIds.length === 0) {
+      return;
+    }
+
+    const clearOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        clearWardSelection();
+      }
+    };
+
+    window.addEventListener("keydown", clearOnEscape);
+
+    return () => window.removeEventListener("keydown", clearOnEscape);
+  }, [clearWardSelection, selectedWardIds.length]);
 
   function changeManualLocation() {
     if (!selectedManualLocation) {
@@ -123,20 +158,31 @@ export default function WardSelectionBar({
     excludeWards(selectedWardIds);
   }
 
-  function undoExclusion() {
-    if (lastExcludedWardIds.length === 0) {
+  function undoChange() {
+    if (!locationChangeUndo) {
       return;
     }
 
+    const previous = new Set(locationChangeUndo.excludedWardIds);
+    const current = new Set(excludedWardIds);
+    const changedWardIds = [...new Set([...previous, ...current])].filter(
+      (id) => previous.has(id) !== current.has(id),
+    );
     const currentWardIds = selectedCluster?.wards?.map((ward) => ward.id) ?? [];
+    const restoresWards = changedWardIds.some((id) => current.has(id) && !previous.has(id));
 
-    setPendingLocationReselection({
-      changedWardIds: lastExcludedWardIds,
-      kind: "restore",
-      sourceFingerprint: selectedCluster ? locationKey(selectedCluster, currentSide) : null,
-      wardIds: [...new Set([...currentWardIds, ...lastExcludedWardIds])],
-    });
-    undoLastExclusion();
+    if (changedWardIds.length > 0) {
+      setPendingLocationReselection({
+        changedWardIds,
+        kind: restoresWards ? "restore" : "exclude",
+        sourceFingerprint: selectedCluster ? locationKey(selectedCluster, currentSide) : null,
+        wardIds: restoresWards
+          ? [...new Set([...currentWardIds, ...changedWardIds])]
+          : currentWardIds.filter((id) => !changedWardIds.includes(id)),
+      });
+    }
+
+    undoLocationChange();
   }
 
   if (selectedWardIds.length > 0) {
@@ -159,56 +205,102 @@ export default function WardSelectionBar({
             : "Select at least two ungrouped wards of the same type";
 
     return (
-      <div className="-mx-4 mt-2 flex items-center gap-3 border-t border-cyan-300/15 bg-cyan-400/5 px-4 py-2 text-xs">
-        <span className="min-w-0 flex-1 truncate text-cyan-100 tabular-nums">
-          {selectedWardIds.length.toLocaleString()} selected
-        </span>
-        <button
-          className="inline-flex items-center gap-1 text-slate-300 enabled:hover:text-white disabled:cursor-not-allowed disabled:text-slate-600"
-          disabled={actionDisabled}
-          title={actionTitle}
-          type="button"
-          onClick={changeManualLocation}
-        >
-          <BsLink45Deg />
-          {actionLabel}
-        </button>
-        <button
-          className="text-slate-300 hover:text-white"
-          type="button"
-          onClick={excludeSelectedWards}
-        >
-          Exclude
-        </button>
-        <button
-          className="text-slate-500 hover:text-slate-200"
-          type="button"
-          onClick={clearWardSelection}
-        >
-          Clear
-        </button>
+      <div className="-mx-4 mt-2 border-t border-cyan-300/15 bg-cyan-400/5 px-4 py-2 text-xs">
+        <div className="flex items-center gap-3">
+          <button
+            aria-expanded={reviewing}
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-cyan-100 hover:text-white"
+            type="button"
+            onClick={() => setReviewing((current) => !current)}
+          >
+            <span className="truncate tabular-nums">
+              {selectedWardIds.length.toLocaleString()}{" "}
+              {selectedWardIds.length === 1 ? "ward" : "wards"} selected
+            </span>
+            <BsChevronDown
+              className={`shrink-0 text-slate-500 transition-transform ${reviewing ? "rotate-180" : ""}`}
+            />
+          </button>
+          {!actionDisabled ? (
+            <button
+              className="inline-flex items-center gap-1 text-slate-300 hover:text-white"
+              title={actionTitle}
+              type="button"
+              onClick={changeManualLocation}
+            >
+              <BsLink45Deg />
+              {actionLabel}
+            </button>
+          ) : null}
+          <details className="group relative">
+            <summary
+              aria-label="More selection actions"
+              className="cursor-pointer list-none rounded-sm p-1 text-slate-500 hover:bg-white/5 hover:text-white"
+              title="More actions"
+            >
+              <BsThreeDots />
+            </summary>
+            <div className="absolute top-full right-0 z-30 mt-1 w-44 border border-white/10 bg-slate-950 p-1 shadow-xl">
+              <button
+                className="block w-full rounded-sm px-2 py-1.5 text-left text-slate-300 hover:bg-white/5 hover:text-white"
+                type="button"
+                onClick={excludeSelectedWards}
+              >
+                Exclude from grouping
+              </button>
+              <button
+                className="block w-full rounded-sm px-2 py-1.5 text-left text-slate-500 hover:bg-white/5 hover:text-slate-200"
+                type="button"
+                onClick={clearWardSelection}
+              >
+                Clear selection
+              </button>
+            </div>
+          </details>
+        </div>
+        {reviewing ? (
+          <div className="mt-2 max-h-40 overflow-y-auto border-t border-cyan-300/10 pt-1">
+            {selectedWards.map((ward) => (
+              <div className="flex items-center gap-2 py-1.5" key={ward.id}>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-slate-300">
+                    {ward.player_name ?? "Unknown player"}
+                  </span>
+                  <span className="block truncate text-slate-500 tabular-nums">
+                    Match {ward.match_id} at {formatGameTime(ward.time_placed, true)}
+                  </span>
+                </span>
+                <button
+                  aria-label={`Deselect ward by ${ward.player_name ?? "unknown player"}`}
+                  className="shrink-0 px-1 text-sm text-slate-600 hover:text-slate-200"
+                  type="button"
+                  onClick={() => useWorkspaceStore.getState().toggleWardSelection(ward.id)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
     );
   }
 
-  if (lastExcludedWardIds.length === 0) {
+  if (!locationChangeUndo) {
     return null;
   }
 
   return (
     <div className="-mx-4 mt-2 flex items-center gap-3 border-t border-white/8 bg-white/[0.02] px-4 py-2 text-xs">
-      <span className="min-w-0 flex-1 truncate text-slate-400 tabular-nums">
-        {lastExcludedWardIds.length.toLocaleString()}{" "}
-        {lastExcludedWardIds.length === 1 ? "ward" : "wards"} excluded
-      </span>
-      <button className="text-cyan-400 hover:text-cyan-200" type="button" onClick={undoExclusion}>
+      <span className="min-w-0 flex-1 truncate text-slate-400">{locationChangeUndo.message}</span>
+      <button className="text-cyan-400 hover:text-cyan-200" type="button" onClick={undoChange}>
         Undo
       </button>
       <button
-        aria-label="Dismiss exclusion undo"
+        aria-label="Dismiss undo"
         className="px-1 text-sm leading-none text-slate-600 hover:text-slate-300"
         type="button"
-        onClick={dismissExclusionUndo}
+        onClick={dismissLocationChange}
       >
         ×
       </button>

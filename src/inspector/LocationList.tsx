@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BsArrowCounterclockwise, BsChevronDown, BsDashCircle, BsEyeSlash } from "react-icons/bs";
+import { BsDashCircle, BsEyeSlash } from "react-icons/bs";
 import {
   compareLocationGroups,
   compareLocations,
@@ -14,6 +14,7 @@ import { useWorkspaceStore } from "../state/workspaceState";
 import type { LocationSort, SortDirection } from "../state/workspaceState";
 import type { Cluster, Side } from "../types";
 import { EmptyState, formControlClass } from "../components/ui";
+import Popup from "../components/Popup";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
 import LocationRow from "./LocationRow";
 import WardRow from "./WardRow";
@@ -44,20 +45,22 @@ function measurementMean(
 }
 
 function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side: Side }) {
-  const [open, setOpen] = useState(false);
   const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const wards = useWorkspaceStore((state) => state.wards);
   const restoreWard = useWorkspaceStore((state) => state.restoreWard);
+  const restoreWards = useWorkspaceStore((state) => state.restoreWards);
   const restoreLocation = useWorkspaceStore((state) => state.restoreLocation);
-  const restoreAll = useWorkspaceStore((state) => state.restoreLocationChanges);
+  const restoreLocations = useWorkspaceStore((state) => state.restoreLocations);
   const setPendingLocationReselection = useWorkspaceStore(
     (state) => state.setPendingLocationReselection,
   );
   const clearSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
+  const focusCluster = useMapStore((state) => state.focusCluster);
+  const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
   const excluded = useMemo(() => {
     const wardsById = new Map(wards.map((ward) => [ward.id, ward]));
 
@@ -81,111 +84,137 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
   const count = excluded.length + hidden.length;
 
   return (
-    <div className="mb-3 overflow-hidden rounded-sm border border-white/8 bg-white/[0.02] text-xs">
-      <div className="flex items-center justify-between gap-2 px-2.5 py-2">
-        <button
-          aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left text-slate-300 hover:text-white"
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-        >
-          <BsEyeSlash className="shrink-0 text-slate-500" />
-          <span className="truncate">Hidden items</span>
-          <span className="text-slate-500 tabular-nums">{count}</span>
-          <BsChevronDown
-            className={`ml-auto shrink-0 text-[10px] text-slate-600 transition-transform ${
-              open ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-        <button
-          aria-label="Restore all hidden items"
-          className="rounded-sm p-1 text-slate-500 hover:bg-white/5 hover:text-slate-200"
-          title="Restore all"
-          type="button"
-          onClick={() => {
-            clearSelection();
-            clearExpandedClusters();
+    <Popup
+      align="right"
+      ariaLabel={`Open ${count.toLocaleString()} hidden entries`}
+      trigger={
+        <span className="flex items-center gap-1.5">
+          <BsEyeSlash className="shrink-0" />
+          <span className="tabular-nums">Hidden {count.toLocaleString()}</span>
+        </span>
+      }
+      triggerClassName="text-slate-500 hover:text-slate-200"
+      triggerTitle="Hidden entries"
+      width="wide"
+    >
+      {() => (
+        <div className="text-xs">
+          {excluded.length > 0 ? (
+            <section>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <p className="text-slate-300">Excluded wards</p>
+                <button
+                  className="text-slate-500 hover:text-slate-200"
+                  type="button"
+                  onClick={() => {
+                    clearSelection();
+                    clearExpandedClusters();
+                    setPendingLocationReselection({
+                      changedWardIds: excludedWardIds,
+                      kind: "restore",
+                      sourceFingerprint: null,
+                      wardIds: excludedWardIds,
+                    });
 
-            if (excludedWardIds.length > 0) {
-              setPendingLocationReselection({
-                changedWardIds: excludedWardIds,
-                kind: "restore",
-                sourceFingerprint: null,
-                wardIds: excludedWardIds,
-              });
-            }
+                    restoreWards(excludedWardIds);
+                  }}
+                >
+                  Restore all
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {excluded.map(({ id, ward }) => (
+                  <div
+                    className="flex items-center gap-2 border-b border-white/6 py-2 last:border-0"
+                    key={id}
+                  >
+                    <BsDashCircle className="shrink-0 text-slate-600" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-slate-300">
+                        {ward?.player_name ?? "Unknown player"}
+                      </span>
+                      <span className="mt-0.5 block truncate text-slate-500 tabular-nums">
+                        Match {ward?.match_id ?? id}
+                        {ward ? ` at ${formatGameTime(ward.time_placed, true)}` : ""}
+                      </span>
+                    </span>
+                    <button
+                      className="shrink-0 px-1 py-1 text-slate-400 hover:text-white"
+                      type="button"
+                      onClick={() => {
+                        clearSelection();
+                        clearExpandedClusters();
+                        setPendingLocationReselection({
+                          changedWardIds: [id],
+                          kind: "restore",
+                          sourceFingerprint: null,
+                          wardIds: [id],
+                        });
+                        restoreWard(id);
+                      }}
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-            restoreAll();
-          }}
-        >
-          <BsArrowCounterclockwise />
-        </button>
-      </div>
-      {open ? (
-        <div className="max-h-56 overflow-y-auto border-t border-white/8 px-2.5 py-1">
-          {excluded.map(({ id, ward }) => (
-            <div
-              className="flex items-center gap-2 border-b border-white/6 py-2 last:border-0"
-              key={id}
-            >
-              <BsDashCircle className="shrink-0 text-slate-600" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-slate-300">
-                  {ward?.player_name ?? "Unknown player"}
-                </span>
-                <span className="mt-0.5 block truncate text-slate-500">
-                  Excluded ward, match {ward?.match_id ?? id}
-                </span>
-              </span>
-              <button
-                className="shrink-0 px-1 py-1 text-slate-400 hover:text-white"
-                type="button"
-                onClick={() => {
-                  clearSelection();
-                  clearExpandedClusters();
-                  setPendingLocationReselection({
-                    changedWardIds: [id],
-                    kind: "restore",
-                    sourceFingerprint: null,
-                    wardIds: [id],
-                  });
-                  restoreWard(id);
-                }}
-              >
-                Restore
-              </button>
-            </div>
-          ))}
-          {hidden.map(({ fingerprint, cluster }) => (
-            <div
-              className="flex items-center gap-2 border-b border-white/6 py-2 last:border-0"
-              key={fingerprint}
-            >
-              <BsEyeSlash className="shrink-0 text-slate-600" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-slate-300">
-                  {cluster
-                    ? (locationName(cluster, side, locationNames, manualLocations) ??
-                      "Unnamed location")
-                    : "Unnamed location"}
-                </span>
-                <span className="mt-0.5 block truncate text-slate-500">
-                  Hidden location, {cluster?.[side]?.amount.toLocaleString() ?? "unknown"} wards
-                </span>
-              </span>
-              <button
-                className="shrink-0 px-1 py-1 text-slate-400 hover:text-white"
-                type="button"
-                onClick={() => restoreLocation(fingerprint)}
-              >
-                Restore
-              </button>
-            </div>
-          ))}
+          {hidden.length > 0 ? (
+            <section className={excluded.length > 0 ? "mt-3 border-t border-white/8 pt-3" : ""}>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <p className="text-slate-300">Hidden locations</p>
+                <button
+                  className="text-slate-500 hover:text-slate-200"
+                  type="button"
+                  onClick={() => {
+                    restoreLocations(hidden.map(({ fingerprint }) => fingerprint));
+                  }}
+                >
+                  Restore all
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {hidden.map(({ fingerprint, cluster }) => (
+                  <div
+                    className="flex items-center gap-2 border-b border-white/6 py-2 last:border-0"
+                    key={fingerprint}
+                  >
+                    <BsEyeSlash className="shrink-0 text-slate-600" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-slate-300">
+                        {cluster
+                          ? (locationName(cluster, side, locationNames, manualLocations) ??
+                            "Unnamed location")
+                          : "Unnamed location"}
+                      </span>
+                      <span className="mt-0.5 block truncate text-slate-500">
+                        {cluster?.[side]?.amount.toLocaleString() ?? "Unknown"} wards
+                      </span>
+                    </span>
+                    <button
+                      className="shrink-0 px-1 py-1 text-slate-400 hover:text-white"
+                      type="button"
+                      onClick={() => {
+                        restoreLocation(fingerprint);
+
+                        if (cluster) {
+                          focusCluster(cluster.cluster_id);
+                          setInspectorTab("details");
+                        }
+                      }}
+                    >
+                      {cluster ? "Restore and open" : "Restore"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
-      ) : null}
-    </div>
+      )}
+    </Popup>
   );
 }
 
@@ -488,7 +517,9 @@ export default function LocationList({
   if ((view === "locations" ? baseLocations : groupBaseLocations).length === 0) {
     return (
       <div>
-        <LocationChanges baseClusters={baseClusters} side={side} />
+        <div className="mb-2 flex justify-end">
+          <LocationChanges baseClusters={baseClusters} side={side} />
+        </div>
         <EmptyState className="py-10">
           {clusteringEnabled && !showUnclustered
             ? "No grouped locations. Enable unclustered wards to see individual entries."
@@ -500,7 +531,6 @@ export default function LocationList({
 
   return (
     <div>
-      <LocationChanges baseClusters={baseClusters} side={side} />
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="shrink-0 text-xs text-slate-500">Browse by</p>
         <BrowseTabs
@@ -578,13 +608,16 @@ export default function LocationList({
         ) : null}
       </div>
 
-      <p className="mb-2 border-t border-white/8 pt-3 text-xs text-slate-500 tabular-nums">
-        {view === "locations"
-          ? `${visibleLocations.length.toLocaleString()} locations`
-          : query.trim()
-            ? `${visibleGroups.length.toLocaleString()} of ${groups.length.toLocaleString()} ${view}`
-            : `${visibleGroups.length.toLocaleString()} ${view}`}
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-3 border-t border-white/8 pt-3 text-xs text-slate-500">
+        <p className="tabular-nums">
+          {view === "locations"
+            ? `${visibleLocations.length.toLocaleString()} locations`
+            : query.trim()
+              ? `${visibleGroups.length.toLocaleString()} of ${groups.length.toLocaleString()} ${view}`
+              : `${visibleGroups.length.toLocaleString()} ${view}`}
+        </p>
+        <LocationChanges baseClusters={baseClusters} side={side} />
+      </div>
 
       {view === "locations" && visibleLocations.length === 0 ? (
         <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
