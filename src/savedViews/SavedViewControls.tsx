@@ -21,11 +21,6 @@ interface SavedViewControlsProps {
   views: SavedView[];
 }
 
-interface PendingAction {
-  kind: "delete" | "open";
-  view: SavedView;
-}
-
 export default function SavedViewControls({
   activeView,
   deletedView,
@@ -44,41 +39,13 @@ export default function SavedViewControls({
   const [creating, setCreating] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
   function openView(view: SavedView) {
-    if (modified && view.key !== activeView?.key) {
-      setPendingAction({ kind: "open", view });
-
-      return;
-    }
-
     restore(view.key);
   }
 
   function deleteView(view: SavedView) {
-    if (modified && view.key === activeView?.key) {
-      setPendingAction({ kind: "delete", view });
-
-      return;
-    }
-
     void remove(view);
-  }
-
-  function confirmAction() {
-    if (!pendingAction) {
-      return;
-    }
-
-    const { kind, view } = pendingAction;
-    setPendingAction(null);
-
-    if (kind === "open") {
-      restore(view.key);
-    } else {
-      void remove(view);
-    }
   }
 
   return (
@@ -87,7 +54,7 @@ export default function SavedViewControls({
         <>
           <div className="flex min-w-0 items-baseline justify-between gap-3">
             <p className="truncate text-slate-300">{activeView.name}</p>
-            {modified ? <span className="shrink-0 text-amber-300">Unsaved changes</span> : null}
+            {modified ? <span className="shrink-0 text-slate-500">Snapshot differs</span> : null}
           </div>
           <div className="mt-1 flex items-center gap-3">
             <button
@@ -99,7 +66,7 @@ export default function SavedViewControls({
                 void update().finally(() => setPending(false));
               }}
             >
-              {pending ? "Saving…" : "Save"}
+              {pending ? "Updating…" : "Update snapshot"}
             </button>
             <button
               className="py-1 text-slate-500 hover:text-slate-300 disabled:cursor-default disabled:text-slate-700"
@@ -107,7 +74,7 @@ export default function SavedViewControls({
               type="button"
               onClick={revert}
             >
-              Revert
+              Restore snapshot
             </button>
             <button
               className="py-1 text-slate-500 hover:text-slate-300"
@@ -182,31 +149,6 @@ export default function SavedViewControls({
                 </div>
               ),
             )}
-          </div>
-        </div>
-      ) : null}
-
-      {pendingAction ? (
-        <div className="mt-2 border-l-2 border-amber-400/60 pl-3 text-slate-400">
-          <p>
-            Discard changes and {pendingAction.kind === "open" ? "open" : "delete"}{" "}
-            <span className="text-slate-200">{pendingAction.view.name}</span>?
-          </p>
-          <div className="mt-1 flex gap-3">
-            <button
-              className="py-1 text-slate-500 hover:text-white"
-              type="button"
-              onClick={() => setPendingAction(null)}
-            >
-              Cancel
-            </button>
-            <button
-              className="py-1 text-amber-300 hover:text-amber-200"
-              type="button"
-              onClick={confirmAction}
-            >
-              Discard changes
-            </button>
           </div>
         </div>
       ) : null}

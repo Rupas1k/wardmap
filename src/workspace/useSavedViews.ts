@@ -15,6 +15,7 @@ import {
 import type { StoredAnalysis } from "../indexedDb";
 import { getSetting, setSetting } from "../indexedDb";
 import type { SharedView } from "../savedViews/sharedView";
+import { autoViewSettingKey } from "../savedViews/viewState";
 import type { ViewState } from "../savedViews/viewState";
 import { locationKey } from "../locations/locationIdentity";
 import { useMapStore } from "../state/mapState";
@@ -36,6 +37,7 @@ interface SavedViewOptions {
   restoredClusters: BooleanRef;
   showUnclustered: boolean;
   visionTechnique: WorkspaceSettings["visionTechnique"];
+  autoViewReady: BooleanRef;
 }
 
 export default function useSavedViews({
@@ -49,6 +51,7 @@ export default function useSavedViews({
   restoredClusters,
   showUnclustered,
   visionTechnique,
+  autoViewReady,
 }: SavedViewOptions) {
   const [activeViewKey, setActiveViewKey] = useState<string | null>(null);
   const [deletedView, setDeletedView] = useState<StoredAnalysis<ViewState> | null>(null);
@@ -188,16 +191,14 @@ export default function useSavedViews({
   }, []);
 
   useEffect(() => {
-    if (!viewModified) {
+    if (!autoViewReady.current || !currentViewState) {
       return;
     }
 
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-
-    window.addEventListener("beforeunload", warnBeforeUnload);
-
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [viewModified]);
+    void setSetting(autoViewSettingKey, currentViewState).catch((reason: unknown) => {
+      console.warn("Unable to save Auto view", reason);
+    });
+  }, [autoViewReady, currentViewState]);
 
   useEffect(() => {
     if (!deletedView) {

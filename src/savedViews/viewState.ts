@@ -41,6 +41,8 @@ export interface ViewState {
   };
 }
 
+export const autoViewSettingKey = "workspace:auto-view";
+
 const defaultBrowse: ViewState["browse"] = {
   locationSort: "wards",
   locationSortDirection: "descending",

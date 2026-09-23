@@ -161,11 +161,7 @@ export default function Workspace({
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-950 xl:h-screen xl:min-h-0">
-      <SharedViewPrompt
-        activeViewName={activeView?.name ?? null}
-        apply={applySharedView}
-        modified={viewModified}
-      />
+      <SharedViewPrompt apply={applySharedView} />
       <div className={`grid min-h-0 flex-1 grid-cols-1 ${layoutClass}`}>
         <aside
           className={`${controlsOpen ? "flex" : "hidden"} min-h-0 flex-col border-r border-white/10 bg-slate-900`}
@@ -328,7 +324,7 @@ export default function Workspace({
 
         <section className="relative min-h-[60vh] overflow-hidden bg-slate-950 xl:min-h-0">
           <div className="absolute top-12 left-3 z-20 flex flex-col items-start gap-1">
-            <SavedViewsMenu disabled={!clusterSets} modified={viewModified} save={updateView}>
+            <SavedViewsMenu>
               <SavedViewControls
                 activeView={activeView}
                 deletedView={deletedView}

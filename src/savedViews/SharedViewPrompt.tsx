@@ -7,13 +7,9 @@ function clearSharedHash() {
 }
 
 export default function SharedViewPrompt({
-  activeViewName,
   apply,
-  modified,
 }: {
-  activeViewName: string | null;
   apply: (view: SharedView) => Promise<void>;
-  modified: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [view, setView] = useState(() => sharedViewFromHash());
@@ -55,11 +51,6 @@ export default function SharedViewPrompt({
         {view.workspace.dataset.leagueIds.length === 1 ? "league" : "leagues"} and apply the shared
         filters and grouping settings.
       </p>
-      {modified ? (
-        <p className="mt-3 border-l-2 border-amber-400/60 pl-3 text-xs leading-5 text-amber-200">
-          Unsaved changes{activeViewName ? ` to ${activeViewName}` : ""} will be discarded.
-        </p>
-      ) : null}
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
         <dt className="text-slate-600">Leagues</dt>
         <dd className="truncate text-right text-slate-300 tabular-nums">
@@ -96,7 +87,7 @@ export default function SharedViewPrompt({
               .finally(() => setPending(false));
           }}
         >
-          {pending ? "Loading…" : modified ? "Discard changes and open" : "Open shared view"}
+          {pending ? "Loading…" : "Open shared view"}
         </button>
       </div>
     </dialog>

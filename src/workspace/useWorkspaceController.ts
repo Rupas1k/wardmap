@@ -85,7 +85,7 @@ export default function useWorkspaceController() {
     restoredClusters,
   } = useDatasetLoader(leagues, defaultLeague);
 
-  useWorkspaceRestore({
+  const autoViewReady = useWorkspaceRestore({
     compatibleDataset,
     defaultLeague,
     loadDataset,
@@ -124,6 +124,7 @@ export default function useWorkspaceController() {
     undoRemoveView,
     viewModified,
   } = useSavedViews({
+    autoViewReady,
     clusteringEnabled,
     clusteringSettings,
     clustersMatchSettings,
