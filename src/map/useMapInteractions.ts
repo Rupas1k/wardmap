@@ -194,7 +194,7 @@ export default function useMapInteractions({
       return true;
     }
 
-    function selectCluster(feature: ClusterFeature): boolean {
+    function selectCluster(feature: ClusterFeature, event: MapBrowserEvent): boolean {
       const cluster = getClusterFeatureData(feature).cluster;
       const selection = useMapStore.getState();
       const currentContext = useWorkspaceStore.getState().analysisContext;
@@ -205,6 +205,14 @@ export default function useMapInteractions({
         playerId,
         matchId,
       });
+      const originalEvent = event.originalEvent;
+      const shiftPressed = "shiftKey" in originalEvent && Boolean(originalEvent.shiftKey);
+
+      if (shiftPressed) {
+        useWorkspaceStore.getState().toggleWardSelectionGroup(wards.map((ward) => ward.id));
+
+        return true;
+      }
 
       if (cluster.cluster_id === selection.selectedClusterId) {
         if (selection.selectedWardId !== null && wards.length > 1) {
@@ -230,6 +238,7 @@ export default function useMapInteractions({
     }
 
     function handleClick(event: MapBrowserEvent) {
+      useMapStore.getState().clearHiddenLocationPreview();
       const wardFeature = wardAt(event);
 
       if (wardFeature && selectWard(wardFeature, event)) {
@@ -238,7 +247,7 @@ export default function useMapInteractions({
 
       const clusterFeature = clusterAt(event);
 
-      if (clusterFeature && selectCluster(clusterFeature)) {
+      if (clusterFeature && selectCluster(clusterFeature, event)) {
         return;
       }
 

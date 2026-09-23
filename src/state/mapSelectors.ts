@@ -33,6 +33,7 @@ export function useMapViewState() {
       sightingPosition: state.sightingPosition,
       sightingRoutes: state.sightingRoutes,
       sightingSelectionId: state.sightingSelectionId,
+      hiddenLocationPreview: state.hiddenLocationPreview,
       elevations: state.elevations,
       currentSide: state.currentSide,
       visionTechnique: state.visionTechnique,

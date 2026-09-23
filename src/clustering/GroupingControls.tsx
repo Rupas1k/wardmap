@@ -1,11 +1,20 @@
+import type { ReactNode } from "react";
 import type { ClusteringSettings } from "../state/mapState";
 import type { ClusterSets, Side } from "../types";
-import { fieldControlClass } from "../components/ui";
-import { Field } from "../dataset/DatasetFormControls";
+import { formControlClass } from "../components/ui";
 import { automaticMergeDistance, automaticMinClusterSize, automaticMinSamples } from "./automatic";
 import { useMapStore } from "../state/mapState";
 
 type GroupingMode = ClusteringSettings["algorithm"] | "grid-cell" | "individual";
+
+function GroupingField({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <label className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-center gap-3 text-xs text-slate-500">
+      <span>{label}</span>
+      <span className="min-w-0">{children}</span>
+    </label>
+  );
+}
 
 export default function GroupingControls({
   clusterSets,
@@ -42,14 +51,6 @@ export default function GroupingControls({
   const usesFixedRadius = ["dbscan", "st_dbscan"].includes(settings.algorithm);
   const locations = clusterSets?.[currentSide] ?? [];
   const wardCount = locations.reduce((total, location) => total + (location.wards?.length ?? 0), 0);
-  const algorithmName: Partial<Record<GroupingMode, string>> = {
-    auto: "HDBSCAN",
-    hdbscan: "HDBSCAN",
-    time_weighted_hdbscan: "Time-weighted HDBSCAN",
-    dbscan: "DBSCAN",
-    st_dbscan: "ST-DBSCAN",
-  };
-
   function setMode(next: GroupingMode) {
     clearExpandedClusters();
 
@@ -74,10 +75,9 @@ export default function GroupingControls({
 
   return (
     <section>
-      <label className="block text-xs text-slate-500">
-        Mode
+      <GroupingField label="Mode">
         <select
-          className={fieldControlClass}
+          className={formControlClass}
           value={mode}
           onChange={(event) => setMode(event.target.value as GroupingMode)}
         >
@@ -89,59 +89,56 @@ export default function GroupingControls({
           <option value="grid-cell">Map grid cells</option>
           <option value="individual">Individual wards</option>
         </select>
-      </label>
-      {algorithmName[mode] ? (
-        <p className="mt-1 text-xs text-slate-500">{algorithmName[mode]}</p>
-      ) : null}
+      </GroupingField>
 
       {usesClustering && settings.algorithm === "auto" ? (
-        <div className="mt-3 grid grid-cols-2 gap-2 opacity-50">
-          <Field label="Minimum wards">
+        <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+          <GroupingField label="Minimum wards">
             <input
-              className={fieldControlClass}
+              className={`${formControlClass} disabled:opacity-50`}
               disabled
               type="number"
               value={automaticMinClusterSize(wardCount)}
             />
-          </Field>
-          <Field label="Minimum wards nearby">
+          </GroupingField>
+          <GroupingField label="Wards nearby">
             <input
-              className={fieldControlClass}
+              className={`${formControlClass} disabled:opacity-50`}
               disabled
               type="number"
               value={automaticMinSamples(wardCount)}
             />
-          </Field>
-          <Field label="Merge distance">
+          </GroupingField>
+          <GroupingField label="Merge distance">
             <input
-              className={fieldControlClass}
+              className={`${formControlClass} disabled:opacity-50`}
               disabled
               type="number"
               value={automaticMergeDistance(wardCount)}
             />
-          </Field>
-          <Field label="Cluster selection">
-            <select className={fieldControlClass} disabled value="leaf">
+          </GroupingField>
+          <GroupingField label="Selection">
+            <select className={`${formControlClass} disabled:opacity-50`} disabled value="leaf">
               <option value="leaf">Leaf</option>
             </select>
-          </Field>
+          </GroupingField>
         </div>
       ) : usesClustering ? (
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
           {usesFixedRadius ? (
-            <Field label="Radius">
+            <GroupingField label="Radius">
               <input
-                className={fieldControlClass}
+                className={formControlClass}
                 min="1"
                 type="number"
                 value={settings.radius}
                 onChange={(event) => update("radius", Math.max(1, Number(event.target.value)))}
               />
-            </Field>
+            </GroupingField>
           ) : (
-            <Field label="Minimum wards">
+            <GroupingField label="Minimum wards">
               <input
-                className={fieldControlClass}
+                className={formControlClass}
                 min="2"
                 type="number"
                 value={settings.minClusterSize}
@@ -149,14 +146,14 @@ export default function GroupingControls({
                   update("minClusterSize", Math.max(2, Number(event.target.value)))
                 }
               />
-            </Field>
+            </GroupingField>
           )}
 
           {settings.algorithm === "st_dbscan" ? (
-            <Field label="Time window">
+            <GroupingField label="Time window">
               <div className="relative">
                 <input
-                  className={`${fieldControlClass} pr-7`}
+                  className={`${formControlClass} pr-9`}
                   min="1"
                   type="number"
                   value={Math.round(settings.timeWindow / 60)}
@@ -164,16 +161,16 @@ export default function GroupingControls({
                     update("timeWindow", Math.max(60, Number(event.target.value) * 60))
                   }
                 />
-                <span className="pointer-events-none absolute right-2 bottom-1.5 text-xs text-slate-500">
+                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-slate-500">
                   min
                 </span>
               </div>
-            </Field>
+            </GroupingField>
           ) : settings.algorithm === "time_weighted_hdbscan" ? (
-            <Field label="Time scale">
+            <GroupingField label="Time scale">
               <div className="relative">
                 <input
-                  className={`${fieldControlClass} pr-7`}
+                  className={`${formControlClass} pr-9`}
                   min="0.25"
                   step="0.25"
                   type="number"
@@ -182,27 +179,27 @@ export default function GroupingControls({
                     update("timeScaleSeconds", Math.max(15, Number(event.target.value) * 60))
                   }
                 />
-                <span className="pointer-events-none absolute right-2 bottom-1.5 text-xs text-slate-500">
+                <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs text-slate-500">
                   min
                 </span>
               </div>
-            </Field>
+            </GroupingField>
           ) : null}
 
-          <Field label="Minimum wards nearby">
+          <GroupingField label="Wards nearby">
             <input
-              className={fieldControlClass}
+              className={formControlClass}
               min="1"
               type="number"
               value={settings.minSamples}
               onChange={(event) => update("minSamples", Math.max(1, Number(event.target.value)))}
             />
-          </Field>
+          </GroupingField>
 
           {!usesFixedRadius ? (
-            <Field label="Merge distance">
+            <GroupingField label="Merge distance">
               <input
-                className={fieldControlClass}
+                className={formControlClass}
                 min="0"
                 type="number"
                 value={settings.selectionEpsilon}
@@ -210,13 +207,13 @@ export default function GroupingControls({
                   update("selectionEpsilon", Math.max(0, Number(event.target.value)))
                 }
               />
-            </Field>
+            </GroupingField>
           ) : null}
 
           {!usesFixedRadius ? (
-            <Field label="Cluster selection">
+            <GroupingField label="Selection">
               <select
-                className={fieldControlClass}
+                className={formControlClass}
                 value={settings.selectionMethod ?? "eom"}
                 onChange={(event) =>
                   update("selectionMethod", event.target.value as "eom" | "leaf")
@@ -225,13 +222,13 @@ export default function GroupingControls({
                 <option value="eom">EOM</option>
                 <option value="leaf">Leaf</option>
               </select>
-            </Field>
+            </GroupingField>
           ) : null}
         </div>
       ) : null}
 
       {usesClustering ? (
-        <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+        <label className="mt-4 flex cursor-pointer items-center gap-2 border-t border-white/10 pt-4 text-xs text-slate-400">
           <input
             checked={showUnclustered}
             className="accent-cyan-400"
@@ -242,7 +239,7 @@ export default function GroupingControls({
         </label>
       ) : null}
 
-      <p className="mt-3 text-xs text-slate-500 tabular-nums">
+      <p className="mt-4 text-right text-xs text-slate-500 tabular-nums">
         {clustering
           ? "Updating map…"
           : clusterSets

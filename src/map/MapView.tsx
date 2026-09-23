@@ -7,6 +7,7 @@ import exportMapImage from "./exportMapImage";
 import { ClusterTooltip, WardTooltip } from "./MapTooltips";
 import {
   useClusterLayer,
+  useHiddenLocationPreviewLayer,
   useMapHoverState,
   useMapFocus,
   useSightingLayer,
@@ -40,6 +41,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     focusRequest,
     sightingPosition,
     sightingRoutes,
+    hiddenLocationPreview,
     elevations,
     currentSide,
     visionTechnique,
@@ -153,6 +155,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useMapHoverState(hoveredClusterId, hoveredWardId);
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
   useSightingLayer(sightingPosition, sightingRoutes);
+  useHiddenLocationPreviewLayer(hiddenLocationPreview);
   useVisionLayer({ elevations, selectedCluster, selectedWardId, visionTechnique });
 
   return (

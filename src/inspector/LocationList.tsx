@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BsDashCircle, BsEyeSlash } from "react-icons/bs";
+import { BsArrowCounterclockwise, BsDashCircle, BsEyeSlash, BsGeoAlt } from "react-icons/bs";
 import {
   compareLocationGroups,
   compareLocations,
@@ -23,6 +23,7 @@ import type { AnalysisScope } from "../state/analysisContext";
 import {
   locationKey,
   locationName,
+  locationWards,
   visibleClusters as filterVisibleClusters,
 } from "../locations/locationIdentity";
 
@@ -59,8 +60,9 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
   );
   const clearSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
-  const focusCluster = useMapStore((state) => state.focusCluster);
-  const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
+  const hiddenLocationPreview = useMapStore((state) => state.hiddenLocationPreview);
+  const showHiddenLocationAt = useMapStore((state) => state.showHiddenLocationAt);
+  const clearHiddenLocationPreview = useMapStore((state) => state.clearHiddenLocationPreview);
   const excluded = useMemo(() => {
     const wardsById = new Map(wards.map((ward) => [ward.id, ward]));
 
@@ -82,6 +84,18 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
   }
 
   const count = excluded.length + hidden.length;
+  const previewing = (position: [number, number, number]) =>
+    hiddenLocationPreview?.every((coordinate, index) => coordinate === position[index]) ?? false;
+
+  function togglePreview(position: [number, number, number]) {
+    if (previewing(position)) {
+      clearHiddenLocationPreview();
+
+      return;
+    }
+
+    showHiddenLocationAt(position);
+  }
 
   return (
     <Popup
@@ -109,6 +123,7 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                   onClick={() => {
                     clearSelection();
                     clearExpandedClusters();
+                    clearHiddenLocationPreview();
                     setPendingLocationReselection({
                       changedWardIds: excludedWardIds,
                       kind: "restore",
@@ -138,8 +153,25 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                         {ward ? ` at ${formatGameTime(ward.time_placed, true)}` : ""}
                       </span>
                     </span>
+                    {ward ? (
+                      <button
+                        aria-label={`Show ward by ${ward.player_name ?? "unknown player"} on map`}
+                        className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
+                          previewing([ward.x_pos, ward.y_pos, ward.z_pos])
+                            ? "text-cyan-300"
+                            : "text-slate-600"
+                        }`}
+                        title="Show on map"
+                        type="button"
+                        onClick={() => togglePreview([ward.x_pos, ward.y_pos, ward.z_pos])}
+                      >
+                        <BsGeoAlt />
+                      </button>
+                    ) : null}
                     <button
-                      className="shrink-0 px-1 py-1 text-slate-400 hover:text-white"
+                      aria-label={`Restore ward by ${ward?.player_name ?? "unknown player"}`}
+                      className="shrink-0 rounded-sm p-1.5 text-sm text-slate-500 hover:bg-white/5 hover:text-white"
+                      title="Restore"
                       type="button"
                       onClick={() => {
                         clearSelection();
@@ -150,10 +182,11 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                           sourceFingerprint: null,
                           wardIds: [id],
                         });
+                        clearHiddenLocationPreview();
                         restoreWard(id);
                       }}
                     >
-                      Restore
+                      <BsArrowCounterclockwise />
                     </button>
                   </div>
                 ))}
@@ -169,6 +202,7 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                   className="text-slate-500 hover:text-slate-200"
                   type="button"
                   onClick={() => {
+                    clearHiddenLocationPreview();
                     restoreLocations(hidden.map(({ fingerprint }) => fingerprint));
                   }}
                 >
@@ -193,19 +227,32 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                         {cluster?.[side]?.amount.toLocaleString() ?? "Unknown"} wards
                       </span>
                     </span>
+                    {cluster ? (
+                      <button
+                        aria-label="Show hidden location on map"
+                        className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
+                          previewing([cluster.x_pos, cluster.y_pos, cluster.z_pos])
+                            ? "text-cyan-300"
+                            : "text-slate-600"
+                        }`}
+                        title="Show on map"
+                        type="button"
+                        onClick={() => togglePreview([cluster.x_pos, cluster.y_pos, cluster.z_pos])}
+                      >
+                        <BsGeoAlt />
+                      </button>
+                    ) : null}
                     <button
-                      className="shrink-0 px-1 py-1 text-slate-400 hover:text-white"
+                      aria-label="Restore hidden location"
+                      className="shrink-0 rounded-sm p-1.5 text-sm text-slate-500 hover:bg-white/5 hover:text-white"
+                      title="Restore"
                       type="button"
                       onClick={() => {
+                        clearHiddenLocationPreview();
                         restoreLocation(fingerprint);
-
-                        if (cluster) {
-                          focusCluster(cluster.cluster_id);
-                          setInspectorTab("details");
-                        }
                       }}
                     >
-                      {cluster ? "Restore and open" : "Restore"}
+                      <BsArrowCounterclockwise />
                     </button>
                   </div>
                 ))}
@@ -336,6 +383,8 @@ export default function LocationList({
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
+  const toggleWardSelectionGroup = useWorkspaceStore((state) => state.toggleWardSelectionGroup);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const clearMapSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
@@ -482,6 +531,11 @@ export default function LocationList({
     const selected = cluster.cluster_id === selectedClusterId;
     const ward = singleWard(entry);
     const locationNumber = locationNumbers.get(cluster.cluster_id) ?? 0;
+    const { playerId, matchId } = contextIds(context);
+    const wardIds = locationWards(cluster, { side, playerId, matchId }).map((ward) => ward.id);
+    const selectedWardCount = wardIds.filter((id) => selectedWardIds.includes(id)).length;
+    const selectionState =
+      selectedWardCount === 0 ? null : selectedWardCount === wardIds.length ? "full" : "partial";
     const wardCountLabel =
       wardCount === data.amount
         ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
@@ -509,7 +563,9 @@ export default function LocationList({
         primaryValue={locationSortSummary(entry, sort, wardCountLabel)}
         secondary={locationContext(entry, wardCountLabel)}
         selected={selected}
+        selectionState={selectionState}
         onSelect={() => selectLocation(entry, true)}
+        onToggleSelection={() => toggleWardSelectionGroup(wardIds)}
       />
     );
   }
@@ -517,7 +573,8 @@ export default function LocationList({
   if ((view === "locations" ? baseLocations : groupBaseLocations).length === 0) {
     return (
       <div>
-        <div className="mb-2 flex justify-end">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-slate-300">Locations</p>
           <LocationChanges baseClusters={baseClusters} side={side} />
         </div>
         <EmptyState className="py-10">
@@ -531,6 +588,11 @@ export default function LocationList({
 
   return (
     <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-slate-300">Locations</p>
+        <LocationChanges baseClusters={baseClusters} side={side} />
+      </div>
+
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="shrink-0 text-xs text-slate-500">Browse by</p>
         <BrowseTabs
@@ -608,7 +670,7 @@ export default function LocationList({
         ) : null}
       </div>
 
-      <div className="mb-2 flex items-center justify-between gap-3 border-t border-white/8 pt-3 text-xs text-slate-500">
+      <div className="mb-2 border-t border-white/8 pt-3 text-xs text-slate-500">
         <p className="tabular-nums">
           {view === "locations"
             ? `${visibleLocations.length.toLocaleString()} locations`
@@ -616,7 +678,6 @@ export default function LocationList({
               ? `${visibleGroups.length.toLocaleString()} of ${groups.length.toLocaleString()} ${view}`
               : `${visibleGroups.length.toLocaleString()} ${view}`}
         </p>
-        <LocationChanges baseClusters={baseClusters} side={side} />
       </div>
 
       {view === "locations" && visibleLocations.length === 0 ? (

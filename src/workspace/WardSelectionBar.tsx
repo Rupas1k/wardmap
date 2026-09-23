@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BsChevronDown, BsLink45Deg, BsThreeDots } from "react-icons/bs";
+import { BsChevronDown, BsLink45Deg, BsSlashCircle, BsX } from "react-icons/bs";
 import { locationKey } from "../locations/locationIdentity";
 import { formatGameTime } from "../metrics/wardMetrics";
 import { useSelectedCluster } from "../state/mapSelectors";
@@ -28,8 +28,9 @@ export default function WardSelectionBar({
   );
   const wards = useWorkspaceStore((state) => state.wards);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
-  const createManualLocation = useWorkspaceStore((state) => state.createManualLocation);
-  const addWardsToManualLocation = useWorkspaceStore((state) => state.addWardsToManualLocation);
+  const mergeWardsIntoManualLocation = useWorkspaceStore(
+    (state) => state.mergeWardsIntoManualLocation,
+  );
   const removeWardsFromManualLocation = useWorkspaceStore(
     (state) => state.removeWardsFromManualLocation,
   );
@@ -38,28 +39,23 @@ export default function WardSelectionBar({
 
     return wards.filter((ward) => selected.has(ward.id));
   }, [selectedWardIds, wards]);
-  const assignedWardIds = useMemo(
-    () => new Set(manualLocations.flatMap((location) => location.wardIds)),
-    [manualLocations],
-  );
   const selectedManualLocation = selectedCluster?.manual_location_id
     ? (manualLocations.find((location) => location.id === selectedCluster.manual_location_id) ??
       null)
     : null;
   const selectedManualWardIds = new Set(selectedManualLocation?.wardIds ?? []);
-  const selectedManualWardType = selectedCluster?.wards?.[0]?.is_obs;
-  const canCreateLocation =
-    selectedWards.length >= 2 &&
-    selectedWards.every((ward) => ward.is_obs === selectedWards[0]?.is_obs) &&
-    selectedWards.every((ward) => !assignedWardIds.has(ward.id));
-  const canAddToLocation = Boolean(
-    selectedManualLocation &&
+  const mergeWards = [
+    ...selectedWards,
+    ...(selectedManualLocation?.wardIds ?? []).flatMap((id) => {
+      const ward = wards.find((candidate) => candidate.id === id);
+
+      return ward ? [ward] : [];
+    }),
+  ];
+  const canMergeLocations =
+    mergeWards.length >= 2 &&
     selectedWards.length > 0 &&
-    selectedManualWardType !== undefined &&
-    selectedWards.every(
-      (ward) => !assignedWardIds.has(ward.id) && ward.is_obs === selectedManualWardType,
-    ),
-  );
+    mergeWards.every((ward) => ward.is_obs === mergeWards[0]?.is_obs);
   const canRemoveFromLocation = Boolean(
     selectedManualLocation &&
     selectedWardIds.length > 0 &&
@@ -99,20 +95,10 @@ export default function WardSelectionBar({
   }, [clearWardSelection, selectedWardIds.length]);
 
   function changeManualLocation() {
-    if (!selectedManualLocation) {
-      const id = createManualLocation(selectedWardIds);
-
-      if (id) {
-        clearExpandedClusters();
-        onManualLocationChanged(id);
-      }
-
-      return;
-    }
-
-    const changed = canRemoveFromLocation
-      ? removeWardsFromManualLocation(selectedManualLocation.id, selectedWardIds)
-      : addWardsToManualLocation(selectedManualLocation.id, selectedWardIds);
+    const changed =
+      canRemoveFromLocation && selectedManualLocation
+        ? removeWardsFromManualLocation(selectedManualLocation.id, selectedWardIds)
+        : mergeWardsIntoManualLocation(selectedWardIds, selectedManualLocation?.id);
 
     if (!changed) {
       return;
@@ -120,15 +106,16 @@ export default function WardSelectionBar({
 
     clearExpandedClusters();
 
+    const locationId = typeof changed === "string" ? changed : selectedManualLocation?.id;
     const stillExists = useWorkspaceStore
       .getState()
-      .manualLocations.some((location) => location.id === selectedManualLocation.id);
+      .manualLocations.some((location) => location.id === locationId);
 
     if (!stillExists) {
       clearSelection();
     }
 
-    onManualLocationChanged(stillExists ? selectedManualLocation.id : null);
+    onManualLocationChanged(stillExists ? (locationId ?? null) : null);
   }
 
   function excludeSelectedWards() {
@@ -186,23 +173,12 @@ export default function WardSelectionBar({
   }
 
   if (selectedWardIds.length > 0) {
-    const actionDisabled = selectedManualLocation
-      ? !canAddToLocation && !canRemoveFromLocation
-      : !canCreateLocation;
-    const actionLabel = canRemoveFromLocation
-      ? "Remove from location"
-      : canAddToLocation
-        ? "Add to location"
-        : "Group as location";
+    const actionDisabled = !canRemoveFromLocation && !canMergeLocations;
     const actionTitle = canRemoveFromLocation
       ? "Remove selected wards from this location"
-      : canAddToLocation
-        ? "Add selected wards to this location"
-        : canCreateLocation
-          ? "Group selected wards as one location"
-          : selectedManualLocation
-            ? "Select ungrouped wards of the same type, or members of this location"
-            : "Select at least two ungrouped wards of the same type";
+      : canMergeLocations
+        ? "Merge selected wards into one location"
+        : "Select at least two wards of the same type";
 
     return (
       <div className="-mx-4 mt-2 border-t border-cyan-300/15 bg-cyan-400/5 px-4 py-2 text-xs">
@@ -221,42 +197,36 @@ export default function WardSelectionBar({
               className={`shrink-0 text-slate-500 transition-transform ${reviewing ? "rotate-180" : ""}`}
             />
           </button>
-          {!actionDisabled ? (
+          <div className="flex shrink-0 items-center gap-1">
             <button
-              className="inline-flex items-center gap-1 text-slate-300 hover:text-white"
+              aria-label={actionTitle}
+              className="rounded-sm p-1.5 text-sm text-slate-300 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:text-slate-600 disabled:hover:bg-transparent"
+              disabled={actionDisabled}
               title={actionTitle}
               type="button"
               onClick={changeManualLocation}
             >
               <BsLink45Deg />
-              {actionLabel}
             </button>
-          ) : null}
-          <details className="group relative">
-            <summary
-              aria-label="More selection actions"
-              className="cursor-pointer list-none rounded-sm p-1 text-slate-500 hover:bg-white/5 hover:text-white"
-              title="More actions"
+            <button
+              aria-label="Exclude selected wards from grouping"
+              className="rounded-sm p-1.5 text-sm text-slate-400 hover:bg-white/5 hover:text-white"
+              title="Exclude selected wards from grouping"
+              type="button"
+              onClick={excludeSelectedWards}
             >
-              <BsThreeDots />
-            </summary>
-            <div className="absolute top-full right-0 z-30 mt-1 w-44 border border-white/10 bg-slate-950 p-1 shadow-xl">
-              <button
-                className="block w-full rounded-sm px-2 py-1.5 text-left text-slate-300 hover:bg-white/5 hover:text-white"
-                type="button"
-                onClick={excludeSelectedWards}
-              >
-                Exclude from grouping
-              </button>
-              <button
-                className="block w-full rounded-sm px-2 py-1.5 text-left text-slate-500 hover:bg-white/5 hover:text-slate-200"
-                type="button"
-                onClick={clearWardSelection}
-              >
-                Clear selection
-              </button>
-            </div>
-          </details>
+              <BsSlashCircle />
+            </button>
+            <button
+              aria-label="Clear ward selection"
+              className="rounded-sm p-1.5 text-sm text-slate-500 hover:bg-white/5 hover:text-slate-200"
+              title="Clear ward selection"
+              type="button"
+              onClick={clearWardSelection}
+            >
+              <BsX />
+            </button>
+          </div>
         </div>
         {reviewing ? (
           <div className="mt-2 max-h-40 overflow-y-auto border-t border-cyan-300/10 pt-1">

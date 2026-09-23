@@ -1,6 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { BsChevronLeft, BsPinAngle, BsPinAngleFill, BsUnlock } from "react-icons/bs";
+import {
+  BsChevronLeft,
+  BsDashCircle,
+  BsEyeSlash,
+  BsPencil,
+  BsPinAngle,
+  BsPinAngleFill,
+  BsUnlock,
+} from "react-icons/bs";
 import { useMapStore } from "../state/mapState";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
@@ -14,8 +22,12 @@ import { selectDisplayedClusterSets } from "../state/workspaceSelectors";
 import { contextIds } from "../state/analysisContext";
 import type { InspectorTab } from "../state/workspaceState";
 import { inspectorTabs } from "../inspector/tabs";
-import { locationKey, locationName, visibleClusters } from "../locations/locationIdentity";
-import { BsEyeSlash, BsPencil } from "react-icons/bs";
+import {
+  locationKey,
+  locationName,
+  locationWards,
+  visibleClusters,
+} from "../locations/locationIdentity";
 import WardSelectionBar from "./WardSelectionBar";
 
 export default function WorkspaceInspector() {
@@ -60,6 +72,7 @@ export default function WorkspaceInspector() {
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const hideLocation = useWorkspaceStore((state) => state.hideLocation);
+  const excludeWards = useWorkspaceStore((state) => state.excludeWards);
   const setLocationName = useWorkspaceStore((state) => state.setLocationName);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const removeManualLocation = useWorkspaceStore((state) => state.removeManualLocation);
@@ -81,6 +94,12 @@ export default function WorkspaceInspector() {
   const selectedLocationName = selectedCluster
     ? locationName(selectedCluster, currentSide, locationNames, manualLocations)
     : null;
+  const selectedLocationWards = selectedCluster
+    ? locationWards(selectedCluster, {
+        side: currentSide,
+        ...contextIds(context),
+      })
+    : [];
   const contextWards = useMemo(() => {
     const { playerId, matchId } = contextIds(context);
     const excluded = new Set(excludedWardIds);
@@ -314,21 +333,6 @@ export default function WorkspaceInspector() {
               >
                 <BsPencil />
               </button>
-              {selectedManualLocationId ? (
-                <button
-                  aria-label="Ungroup location"
-                  className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
-                  title="Ungroup location"
-                  type="button"
-                  onClick={() => {
-                    removeManualLocation(selectedManualLocationId);
-                    clearSelection();
-                    setInspectorTab(inspectorReturnTab);
-                  }}
-                >
-                  <BsUnlock />
-                </button>
-              ) : null}
               <button
                 aria-label="Hide location"
                 className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
@@ -346,6 +350,43 @@ export default function WorkspaceInspector() {
               >
                 <BsEyeSlash />
               </button>
+              <button
+                aria-label="Exclude location from grouping"
+                className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-rose-300"
+                title="Exclude location from grouping"
+                type="button"
+                onClick={() => {
+                  const wardIds = selectedLocationWards.map((ward) => ward.id);
+
+                  setPendingLocationReselection({
+                    changedWardIds: wardIds,
+                    kind: "exclude",
+                    sourceFingerprint: selectedLocationFingerprint,
+                    wardIds: [],
+                  });
+                  clearExpandedClusters();
+                  excludeWards(wardIds);
+                  clearSelection();
+                  setInspectorTab(inspectorReturnTab);
+                }}
+              >
+                <BsDashCircle />
+              </button>
+              {selectedManualLocationId ? (
+                <button
+                  aria-label="Dissolve location"
+                  className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+                  title="Dissolve location"
+                  type="button"
+                  onClick={() => {
+                    removeManualLocation(selectedManualLocationId);
+                    clearSelection();
+                    setInspectorTab(inspectorReturnTab);
+                  }}
+                >
+                  <BsUnlock />
+                </button>
+              ) : null}
               <button
                 aria-label={keepExpanded ? "Unpin expanded location" : "Pin expanded location"}
                 aria-pressed={keepExpanded}

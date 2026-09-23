@@ -8,14 +8,18 @@ export default function LocationRow({
   primaryValue,
   secondary,
   selected,
+  selectionState,
   onSelect,
+  onToggleSelection,
 }: {
   clusterId: number;
   label: string;
   primaryValue: string;
   secondary: string;
   selected: boolean;
+  selectionState: "full" | "partial" | null;
   onSelect: () => void;
+  onToggleSelection: () => void;
 }) {
   const setHoveredClusterId = useMapStore((state) => state.setHoveredClusterId);
   const hoveredClusterId = useMapStore((state) => state.hoveredClusterId);
@@ -33,10 +37,23 @@ export default function LocationRow({
   return (
     <button
       aria-pressed={selected}
-      className={`w-full py-2 text-left ${selectableRowClass(selected, hovered)}`}
+      className={`w-full py-2 text-left ${selectableRowClass(
+        selected,
+        hovered,
+        selectionState !== null,
+      )} ${selectionState === "partial" && !selected ? "ring-cyan-300/25" : ""}`}
+      title="Shift-click to select this location's wards"
       type="button"
       onBlur={() => setHoveredClusterId(null)}
-      onClick={onSelect}
+      onClick={(event) => {
+        if (event.shiftKey) {
+          onToggleSelection();
+
+          return;
+        }
+
+        onSelect();
+      }}
       onFocus={() => setHoveredClusterId(clusterId)}
       onMouseEnter={() => setHoveredClusterId(clusterId)}
       onMouseLeave={() => setHoveredClusterId(null)}

@@ -115,6 +115,7 @@ export interface WorkspaceState {
   setWardOutcomeFilter: (outcome: WardOutcomeFilter) => void;
   setWardSort: (sort: WardSort) => void;
   toggleWardSelection: (wardId: number) => void;
+  toggleWardSelectionGroup: (wardIds: number[]) => void;
   clearWardSelectionSet: () => void;
   excludeWard: (wardId: number) => void;
   excludeWards: (wardIds: number[]) => void;
@@ -126,8 +127,7 @@ export interface WorkspaceState {
   restoreLocation: (fingerprint: string) => void;
   restoreLocations: (fingerprints: string[]) => void;
   setLocationName: (fingerprint: string, name: string | null) => void;
-  createManualLocation: (wardIds: number[]) => string | null;
-  addWardsToManualLocation: (id: string, wardIds: number[]) => boolean;
+  mergeWardsIntoManualLocation: (wardIds: number[], preferredId?: string | null) => string | null;
   removeWardsFromManualLocation: (id: string, wardIds: number[]) => boolean;
   removeManualLocation: (id: string) => void;
   setManualLocationName: (id: string, name: string | null) => void;
@@ -293,6 +293,31 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       };
     });
   },
+  toggleWardSelectionGroup: (wardIds) =>
+    set((state) => {
+      const available = new Set(state.wards.map((ward) => ward.id));
+      const excluded = new Set(state.excludedWardIds);
+      const group = [
+        ...new Set(
+          wardIds.filter((id) => validWardId(id) && available.has(id) && !excluded.has(id)),
+        ),
+      ];
+
+      if (group.length === 0) {
+        return state;
+      }
+
+      const selected = new Set(state.selectedWardIds);
+      const groupSelected = group.every((id) => selected.has(id));
+
+      if (groupSelected) {
+        const groupIds = new Set(group);
+
+        return { selectedWardIds: state.selectedWardIds.filter((id) => !groupIds.has(id)) };
+      }
+
+      return { selectedWardIds: [...new Set([...state.selectedWardIds, ...group])] };
+    }),
   clearWardSelectionSet: () => set({ selectedWardIds: [] }),
   excludeWard: (wardId) =>
     set((state) => ({
@@ -427,93 +452,75 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
 
       return { locationNames };
     }),
-  createManualLocation: (wardIds) => {
-    let createdId: string | null = null;
+  mergeWardsIntoManualLocation: (wardIds, preferredId = null) => {
+    let mergedId: string | null = null;
 
     set((state) => {
-      const uniqueIds = [...new Set(wardIds.filter(validWardId))].sort(
+      const selectedIds = [...new Set(wardIds.filter(validWardId))].sort(
         (left, right) => left - right,
       );
+      const selectedIdSet = new Set(selectedIds);
       const wardsById = new Map(state.wards.map((ward) => [ward.id, ward]));
-      const selectedWards = uniqueIds.map((id) => wardsById.get(id)).filter(Boolean);
-      const assignedIds = new Set(state.manualLocations.flatMap((location) => location.wardIds));
-
-      if (
-        selectedWards.length < 2 ||
-        selectedWards.length !== uniqueIds.length ||
-        selectedWards.some((ward) => ward?.is_obs !== selectedWards[0]?.is_obs) ||
-        uniqueIds.some((id) => assignedIds.has(id))
-      ) {
-        return state;
-      }
-
-      createdId = manualLocationId();
-
-      return {
-        manualLocations: [
-          ...state.manualLocations,
-          { id: createdId, name: null, wardIds: uniqueIds },
-        ],
-        selectedWardIds: [],
-      };
-    });
-
-    return createdId;
-  },
-  addWardsToManualLocation: (id, wardIds) => {
-    let changed = false;
-
-    set((state) => {
-      const location = state.manualLocations.find((candidate) => candidate.id === id);
-
-      if (!location) {
-        return state;
-      }
-
-      const wardsById = new Map(state.wards.map((ward) => [ward.id, ward]));
-      const existingWard = location.wardIds.flatMap((wardId) => {
-        const ward = wardsById.get(wardId);
+      const selectedWards = selectedIds.flatMap((id) => {
+        const ward = wardsById.get(id);
 
         return ward ? [ward] : [];
-      })[0];
-      const assignedElsewhere = new Set(
-        state.manualLocations
-          .filter((candidate) => candidate.id !== id)
-          .flatMap((candidate) => candidate.wardIds),
-      );
-      const additionIds = [...new Set(wardIds.filter(validWardId))];
-      const additions = additionIds.map((wardId) => ({ id: wardId, ward: wardsById.get(wardId) }));
+      });
 
       if (
-        !existingWard ||
-        additions.length === 0 ||
-        additions.some(
-          ({ id: wardId, ward }) =>
-            !ward ||
-            location.wardIds.includes(wardId) ||
-            assignedElsewhere.has(wardId) ||
-            ward.is_obs !== existingWard.is_obs,
-        )
+        selectedWards.length !== selectedIds.length ||
+        new Set(selectedWards.map((ward) => ward.is_obs)).size > 1
       ) {
         return state;
       }
 
-      changed = true;
+      const sourceLocations = state.manualLocations.filter((location) =>
+        location.wardIds.some((id) => selectedIdSet.has(id)),
+      );
+      const target =
+        sourceLocations.find((location) => location.id === preferredId) ??
+        sourceLocations[0] ??
+        null;
+      const mergedWardIds = [...new Set([...(target?.wardIds ?? []), ...selectedIds])].sort(
+        (left, right) => left - right,
+      );
+      const mergedWards = mergedWardIds.flatMap((id) => {
+        const ward = wardsById.get(id);
+
+        return ward ? [ward] : [];
+      });
+
+      if (
+        mergedWardIds.length < 2 ||
+        mergedWards.length !== mergedWardIds.length ||
+        new Set(mergedWards.map((ward) => ward.is_obs)).size > 1
+      ) {
+        return state;
+      }
+
+      mergedId = target?.id ?? manualLocationId();
+      const mergedLocation = {
+        id: mergedId,
+        name: target?.name ?? null,
+        wardIds: mergedWardIds,
+      };
+      const remainingLocations = state.manualLocations.flatMap((location) => {
+        if (location.id === target?.id) {
+          return [];
+        }
+
+        const remainingWardIds = location.wardIds.filter((id) => !selectedIdSet.has(id));
+
+        return remainingWardIds.length >= 2 ? [{ ...location, wardIds: remainingWardIds }] : [];
+      });
 
       return {
-        manualLocations: state.manualLocations.map((candidate) =>
-          candidate.id === id
-            ? {
-                ...candidate,
-                wardIds: [...candidate.wardIds, ...additionIds].sort((left, right) => left - right),
-              }
-            : candidate,
-        ),
+        manualLocations: [...remainingLocations, mergedLocation],
         selectedWardIds: [],
       };
     });
 
-    return changed;
+    return mergedId;
   },
   removeWardsFromManualLocation: (id, wardIds) => {
     let changed = false;

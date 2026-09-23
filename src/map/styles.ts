@@ -89,6 +89,7 @@ export default function mainStyle(
     const unclustered = cluster?.unclustered === true;
     const hovered = Boolean(feature.get("hovered"));
     const selected = Boolean(feature.get("selected"));
+    const multiSelection = feature.get("multiSelection") as "full" | "partial" | null;
     const dimmed = Boolean(feature.get("dimmed"));
     const radius = unclustered ? 3.5 : sideData ? pointRadius(feature, side, markerSize) : 4;
     const color = sideData ? pointColor(feature, side) : "#808080";
@@ -104,7 +105,7 @@ export default function mainStyle(
       zIndex: selected ? 21 : hovered ? 19 : dimmed ? 5 : 10,
     });
 
-    if (!selected && !hovered) {
+    if (!selected && !hovered && !multiSelection) {
       return marker;
     }
 
@@ -112,14 +113,20 @@ export default function mainStyle(
       image: new Circle({
         radius: radius + 4,
         fill: new Fill({
-          color: selected ? "rgba(14, 165, 233, 0.12)" : "rgba(34, 211, 238, 0.1)",
+          color:
+            selected || multiSelection === "full"
+              ? "rgba(14, 165, 233, 0.12)"
+              : "rgba(34, 211, 238, 0.1)",
         }),
         stroke: new Stroke({
-          color: selected ? "rgba(224, 242, 254, 0.95)" : "rgba(103, 232, 249, 0.95)",
-          width: selected ? 2.25 : 2,
+          color:
+            selected || multiSelection === "full"
+              ? "rgba(103, 232, 249, 0.95)"
+              : "rgba(103, 232, 249, 0.55)",
+          width: selected || multiSelection === "full" ? 2.25 : 2,
         }),
       }),
-      zIndex: selected ? 20 : 18,
+      zIndex: selected || multiSelection === "full" ? 20 : 18,
     });
 
     return [halo, marker];

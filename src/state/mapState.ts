@@ -62,6 +62,7 @@ interface MapState {
   sightingPosition: MapPosition | null;
   sightingRoutes: MapPosition[][];
   sightingSelectionId: string | null;
+  hiddenLocationPreview: MapPosition | null;
   setCurrentSide: (side: Side) => void;
   setSelectedClusterId: (clusterId: number | null) => void;
   setSelectedWardId: (wardId: number | null) => void;
@@ -86,6 +87,8 @@ interface MapState {
   centerMapAt: (x: number, y: number) => void;
   showSightingAt: (selectionId: string, position: MapPosition, routes?: MapPosition[][]) => void;
   clearSighting: () => void;
+  showHiddenLocationAt: (position: MapPosition) => void;
+  clearHiddenLocationPreview: () => void;
   clearCameraRequest: () => void;
   setCamera: (camera: MapCamera) => void;
   restoreCamera: (camera: MapCamera) => void;
@@ -109,8 +112,15 @@ export const useMapStore = create<MapState>((set) => ({
   sightingPosition: null,
   sightingRoutes: [],
   sightingSelectionId: null,
+  hiddenLocationPreview: null,
   setCurrentSide: (currentSide) =>
-    set({ currentSide, expandedClusterIds: [], hoveredClusterId: null, hoveredWardId: null }),
+    set({
+      currentSide,
+      expandedClusterIds: [],
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      hiddenLocationPreview: null,
+    }),
   setSelectedClusterId: (selectedClusterId) =>
     set({
       selectedClusterId,
@@ -120,6 +130,7 @@ export const useMapStore = create<MapState>((set) => ({
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
+      hiddenLocationPreview: null,
     }),
   setSelectedWardId: (selectedWardId) =>
     set({ selectedWardId, sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
@@ -148,6 +159,7 @@ export const useMapStore = create<MapState>((set) => ({
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
+      hiddenLocationPreview: null,
     }),
   clearWardSelection: () =>
     set({
@@ -177,6 +189,7 @@ export const useMapStore = create<MapState>((set) => ({
       sightingPosition: null,
       sightingRoutes: [],
       sightingSelectionId: null,
+      hiddenLocationPreview: null,
     }),
   setElevations: (elevations) => set({ elevations }),
   setAverageValues: (averageValues) => set({ averageValues }),
@@ -191,6 +204,7 @@ export const useMapStore = create<MapState>((set) => ({
       sightingRoutes: [],
       sightingSelectionId: null,
       expandedClusterIds: [],
+      hiddenLocationPreview: null,
     }),
   clearExpandedClusters: () => set({ expandedClusterIds: [] }),
   setClusterMarkerSize: (clusterMarkerSize) => set({ clusterMarkerSize }),
@@ -220,6 +234,16 @@ export const useMapStore = create<MapState>((set) => ({
   },
   clearSighting: () =>
     set({ sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
+  showHiddenLocationAt: (hiddenLocationPreview) =>
+    set({
+      hiddenLocationPreview,
+      cameraRequest: {
+        kind: "center",
+        x: hiddenLocationPreview[0],
+        y: hiddenLocationPreview[1],
+      },
+    }),
+  clearHiddenLocationPreview: () => set({ hiddenLocationPreview: null }),
   clearCameraRequest: () => set({ cameraRequest: null }),
   setCamera: (camera) => set({ camera }),
   restoreCamera: (camera) => set({ camera, cameraRequest: { kind: "restore", ...camera } }),

@@ -65,6 +65,10 @@ export function useClusterLayer({
     const hoverState = useMapStore.getState();
     const features: ClusterFeature[] = visibleClusters.map((cluster) => {
       const coordinates: [number, number, number] = [cluster.x_pos, cluster.y_pos, cluster.z_pos];
+      const wards = locationWards(cluster, { side: currentSide, playerId, matchId });
+      const selectedWardCount = wards.filter((ward) => selectedWards.has(ward.id)).length;
+      const multiSelection =
+        selectedWardCount === 0 ? null : selectedWardCount === wards.length ? "full" : "partial";
 
       return new Feature({
         geometry: new Point(unitToPixel(coordinates)),
@@ -76,14 +80,12 @@ export function useClusterLayer({
         dimmed: selectedClusterId !== null && cluster.cluster_id !== selectedClusterId,
         hidden:
           cluster.cluster_id !== selectedClusterId &&
-          (expandedIds.has(cluster.cluster_id) ||
-            locationWards(cluster, { side: currentSide, playerId, matchId }).some((ward) =>
-              selectedWards.has(ward.id),
-            )),
+          (expandedIds.has(cluster.cluster_id) || multiSelection === "partial"),
         hovered:
           cluster.cluster_id === hoverState.hoveredClusterId ||
           (cluster.wards?.some((ward) => ward.id === hoverState.hoveredWardId) ?? false),
         selected: cluster.cluster_id === selectedClusterId,
+        multiSelection,
       });
     });
 
@@ -154,7 +156,9 @@ export function useWardDetailLayer({
         const visibleWards =
           cluster.cluster_id === selectedClusterId || expandedIds.has(cluster.cluster_id)
             ? wards
-            : wards.filter((ward) => multiSelectedWardIds.has(ward.id));
+            : wards.every((ward) => multiSelectedWardIds.has(ward.id))
+              ? []
+              : wards.filter((ward) => multiSelectedWardIds.has(ward.id));
 
         return visibleWards.map(
           (ward) =>
@@ -269,6 +273,18 @@ export function useSightingLayer(position: MapPosition | null, routes: MapPositi
       }
     }
   }, [position, routes]);
+}
+
+export function useHiddenLocationPreviewLayer(position: MapPosition | null) {
+  useEffect(() => {
+    const source = layers.hiddenLocationPreview.getSource()!;
+
+    source.clear(true);
+
+    if (position) {
+      source.addFeature(new Feature({ geometry: new Point(unitToPixel(position)) }));
+    }
+  }, [position]);
 }
 
 export function useVisionLayer({
