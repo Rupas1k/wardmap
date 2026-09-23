@@ -140,7 +140,7 @@ export default function SavedViewControls({
       {views.length > 0 ? (
         <div className="mt-3 border-t border-white/10 pt-2">
           <p className="mb-1 text-slate-600">Saved views</p>
-          <div className="max-h-40 overflow-y-auto">
+          <div className="max-h-64 overflow-y-auto">
             {views.map((view) =>
               editingKey === view.key ? (
                 <RenameViewForm

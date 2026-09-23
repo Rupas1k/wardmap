@@ -8,11 +8,13 @@ interface PopupProps {
   children: (controls: { close: () => void }) => ReactNode;
   className?: string;
   disabled?: boolean;
+  groupName?: string;
   panelClassName?: string;
   placement?: "top" | "bottom";
   trigger: ReactNode;
   triggerClassName?: string;
   triggerTitle?: string;
+  width?: "default" | "wide";
 }
 
 export default function Popup({
@@ -21,11 +23,13 @@ export default function Popup({
   children,
   className = "",
   disabled = false,
+  groupName,
   panelClassName = "",
   placement = "bottom",
   trigger,
   triggerClassName = "",
   triggerTitle,
+  width = "default",
 }: PopupProps) {
   const details = useRef<HTMLDetailsElement>(null);
   const close = () => details.current?.removeAttribute("open");
@@ -54,9 +58,11 @@ export default function Popup({
 
   const position = placement === "top" ? "bottom-full mb-2" : "top-full mt-2";
   const alignment = align === "right" ? "right-0" : "left-0";
+  const panelWidth =
+    width === "wide" ? "w-[min(21rem,calc(100vw-2rem))]" : "w-[min(16rem,calc(100vw-2rem))]";
 
   return (
-    <details ref={details} className={`group relative w-fit ${className}`}>
+    <details ref={details} className={`group relative w-fit ${className}`} name={groupName}>
       <summary
         aria-label={ariaLabel}
         aria-disabled={disabled}
@@ -66,7 +72,7 @@ export default function Popup({
         {trigger}
       </summary>
       <div
-        className={`${elevatedSurfaceClass} absolute ${position} ${alignment} z-50 w-[min(16rem,calc(100vw-2rem))] p-3 ${panelClassName}`}
+        className={`${elevatedSurfaceClass} absolute ${position} ${alignment} ${panelWidth} z-50 p-3 ${panelClassName}`}
       >
         {children({ close })}
       </div>

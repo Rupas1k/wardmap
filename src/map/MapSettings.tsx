@@ -2,8 +2,7 @@ import Feature from "ol/Feature";
 import MultiPolygon from "ol/geom/MultiPolygon";
 import Polygon from "ol/geom/Polygon";
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { BsDownload, BsFillGearFill } from "react-icons/bs";
+import { BsFillGearFill } from "react-icons/bs";
 import { assetUrl } from "../config";
 import { gridOrigin, gridSize } from "./constants";
 import layers from "./layers";
@@ -20,21 +19,15 @@ export default function MapSettings({
   setVisionTechnique,
   clusterMarkerSize,
   setClusterMarkerSize,
-  downloadMap,
-  viewActions,
 }: {
   mapVersion: number;
   visionTechnique: VisionTechnique;
   setVisionTechnique: (technique: VisionTechnique) => void;
   clusterMarkerSize: ClusterMarkerSize;
   setClusterMarkerSize: (size: ClusterMarkerSize) => void;
-  downloadMap: () => Promise<void>;
-  viewActions: ReactNode;
 }) {
   const elevations = useMapStore((state) => state.elevations);
   const [debugElevation, setDebugElevation] = useState<number | null>(null);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(false);
 
   useEffect(() => {
     layers.tiles.getSource()!.setUrl(assetUrl(`static/img/tiles/${mapVersion}/{z}/{x}/{y}.png`));
@@ -131,14 +124,15 @@ export default function MapSettings({
 
   return (
     <Popup
-      ariaLabel="Toggle map controls"
-      className="absolute top-12 left-3 z-20"
+      ariaLabel="Open map settings"
+      groupName="map-tools"
       trigger={<BsFillGearFill />}
       triggerClassName={floatingIconControlClass}
       triggerTitle="Map settings"
     >
       {() => (
         <div className="flex flex-col gap-2 text-sm">
+          <p className="text-xs font-medium text-slate-300">Map settings</p>
           <label className="text-xs text-slate-500">
             Vision model
             <select
@@ -210,50 +204,35 @@ export default function MapSettings({
               </span>
             </label>
           </div>
-          <div className="mt-1 border-t border-white/10 pt-3">
-            <label className="text-xs text-slate-500">
-              Debug elevation
-              <input
-                className={fieldControlClass}
+          <details className="mt-1 border-t border-white/10 pt-2 text-xs">
+            <summary className="cursor-pointer list-none py-1 text-slate-500 hover:text-slate-300">
+              Advanced
+            </summary>
+            <div className="pt-2">
+              <label className="text-slate-500">
+                Debug elevation
+                <input
+                  className={fieldControlClass}
+                  disabled={!elevations}
+                  placeholder="Off"
+                  step="1"
+                  type="number"
+                  value={debugElevation ?? ""}
+                  onChange={(event) =>
+                    setDebugElevation(event.target.value === "" ? null : Number(event.target.value))
+                  }
+                />
+              </label>
+              <button
+                className="mt-2 px-1 py-1 text-left text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={!elevations}
-                placeholder="Off"
-                step="1"
-                type="number"
-                value={debugElevation ?? ""}
-                onChange={(event) =>
-                  setDebugElevation(event.target.value === "" ? null : Number(event.target.value))
-                }
-              />
-            </label>
-            <button
-              className="mt-2 px-1 py-1 text-left text-xs text-slate-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!elevations}
-              onClick={toggleTrees}
-            >
-              Debug trees
-            </button>
-          </div>
-          <div className="mt-1 border-t border-white/10 pt-3">
-            <p className="text-xs text-slate-500">View</p>
-            <div className="mt-1">{viewActions}</div>
-            <button
-              className="flex w-full items-center gap-2 py-1.5 text-left text-xs text-slate-400 hover:text-white disabled:cursor-wait disabled:opacity-40"
-              disabled={downloading}
-              type="button"
-              onClick={() => {
-                setDownloadError(false);
-                setDownloading(true);
-                void downloadMap()
-                  .catch(() => setDownloadError(true))
-                  .finally(() => setDownloading(false));
-              }}
-            >
-              <BsDownload /> {downloading ? "Preparing image…" : "Download current map"}
-            </button>
-            {downloadError ? (
-              <p className="px-1 pt-1 text-xs text-rose-300">Unable to download image.</p>
-            ) : null}
-          </div>
+                type="button"
+                onClick={toggleTrees}
+              >
+                Debug trees
+              </button>
+            </div>
+          </details>
         </div>
       )}
     </Popup>

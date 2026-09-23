@@ -3,6 +3,7 @@ import { BsGithub, BsLayoutSidebarInsetReverse, BsSliders } from "react-icons/bs
 import AccessKey from "../components/AccessKey";
 import DatasetControls from "../dataset/DatasetControls";
 import MapSettings from "../map/MapSettings";
+import { DownloadMapButton, SavedViewsMenu } from "../map/MapActions";
 import MapView from "../map/MapView";
 import type { MapViewHandle } from "../map/MapView";
 import { FloatingIconButton, SwitchNav } from "../components/ui";
@@ -326,16 +327,8 @@ export default function Workspace({
         </aside>
 
         <section className="relative min-h-[60vh] overflow-hidden bg-slate-950 xl:min-h-0">
-          <MapSettings
-            clusterMarkerSize={clusterMarkerSize}
-            downloadMap={async () => {
-              await mapView.current?.downloadImage();
-            }}
-            mapVersion={mapVersion}
-            visionTechnique={visionTechnique}
-            setVisionTechnique={updateVisionTechnique}
-            setClusterMarkerSize={updateClusterMarkerSize}
-            viewActions={
+          <div className="absolute top-12 left-3 z-20 flex flex-col items-start gap-1">
+            <SavedViewsMenu>
               <SavedViewControls
                 activeView={activeView}
                 deletedView={deletedView}
@@ -351,8 +344,20 @@ export default function Workspace({
                 undoRemove={undoRemoveView}
                 views={savedViews}
               />
-            }
-          />
+            </SavedViewsMenu>
+            <MapSettings
+              clusterMarkerSize={clusterMarkerSize}
+              mapVersion={mapVersion}
+              visionTechnique={visionTechnique}
+              setVisionTechnique={updateVisionTechnique}
+              setClusterMarkerSize={updateClusterMarkerSize}
+            />
+            <DownloadMapButton
+              download={async () => {
+                await mapView.current?.downloadImage();
+              }}
+            />
+          </div>
           <FloatingIconButton
             aria-label={controlsOpen ? "Hide filters" : "Show filters"}
             className={`absolute top-3 left-3 z-30 ${controlsOpen ? "bg-slate-800 text-slate-100" : ""}`}
