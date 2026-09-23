@@ -445,7 +445,7 @@ export default function WorkspaceInspector() {
     >
       <div className="sticky top-0 z-20 border-b border-white/10 bg-slate-900/95 px-4 pt-4 backdrop-blur">
         <div className="flex min-w-0 items-center justify-between gap-3">
-          <p className="shrink-0 text-sm font-semibold text-slate-100">Inspector</p>
+          <p className="shrink-0 text-sm font-medium text-slate-100">Inspector</p>
           <div className="flex min-w-0 items-center justify-end gap-1.5 text-xs text-slate-400">
             <span className="shrink-0">Showing:</span>
             {contextLabels ? (

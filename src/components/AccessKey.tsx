@@ -80,7 +80,7 @@ export default function AccessKey() {
             )}
           </div>
           <button
-            className="mt-3 w-full rounded-sm bg-cyan-500/15 px-3 py-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/25 disabled:cursor-wait disabled:opacity-50"
+            className="mt-3 w-full rounded-sm bg-cyan-500/15 px-3 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:cursor-wait disabled:opacity-50"
             disabled={pending}
             onClick={() => void apply()}
             type="button"

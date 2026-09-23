@@ -49,7 +49,7 @@ export default function SharedViewPrompt({
         }
       }}
     >
-      <h2 className="text-sm font-semibold">Open shared view?</h2>
+      <h2 className="text-sm font-medium">Open shared view?</h2>
       <p className="mt-2 text-xs leading-5 text-slate-500">
         This will load {view.workspace.dataset.leagueIds.length.toLocaleString()} selected{" "}
         {view.workspace.dataset.leagueIds.length === 1 ? "league" : "leagues"} and apply the shared
@@ -62,7 +62,7 @@ export default function SharedViewPrompt({
       ) : null}
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
         <dt className="text-slate-600">Leagues</dt>
-        <dd className="truncate text-right font-mono text-slate-300">
+        <dd className="truncate text-right text-slate-300 tabular-nums">
           {view.workspace.dataset.leagueIds.join(", ")}
         </dd>
         <dt className="text-slate-600">Grouping</dt>
@@ -86,7 +86,7 @@ export default function SharedViewPrompt({
           Cancel
         </button>
         <button
-          className="rounded-sm bg-cyan-500/15 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/25 disabled:cursor-wait disabled:opacity-50"
+          className="rounded-sm bg-cyan-500/15 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/25 disabled:cursor-wait disabled:opacity-50"
           disabled={pending}
           type="button"
           onClick={() => {

@@ -676,7 +676,7 @@ export default function WardList() {
               <div key={matchId}>
                 <DisclosureRow
                   expanded={expanded}
-                  label={<span className="font-mono">{matchId}</span>}
+                  label={<span className="tabular-nums">{matchId}</span>}
                   meta={`${first.team_name ?? "Unknown"} vs ${first.opponent_team_name ?? "Unknown"}`}
                   trailing={
                     <span className="shrink-0 text-xs text-slate-300 tabular-nums">

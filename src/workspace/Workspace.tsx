@@ -172,7 +172,7 @@ export default function Workspace({
         >
           <div className="flex items-center justify-between px-3 pt-2">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-slate-100">Wardmap</p>
+              <p className="text-sm font-medium text-slate-100">Wardmap</p>
               <a
                 aria-label="Open Wardmap on GitHub"
                 className="p-1 text-slate-600 hover:text-slate-300"
@@ -196,7 +196,7 @@ export default function Workspace({
                     <>
                       Filters
                       {filterCount > 0 ? (
-                        <span className="ml-1.5 font-mono text-[9px] text-cyan-400">
+                        <span className="ml-1.5 text-[11px] text-cyan-400 tabular-nums">
                           {filterCount}
                         </span>
                       ) : null}
@@ -296,7 +296,7 @@ export default function Workspace({
                 Reset
               </button>
               <button
-                className="min-w-0 flex-1 rounded-sm bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-white disabled:bg-slate-700 disabled:text-slate-400"
+                className="min-w-0 flex-1 rounded-sm bg-slate-200 px-3 py-2 text-xs font-medium text-slate-950 hover:bg-white disabled:bg-slate-700 disabled:text-slate-400"
                 disabled={!loadingData && (!datasetValid || (!datasetChanged && !loadedDataset))}
                 type="button"
                 onClick={() => {
