@@ -7,19 +7,14 @@ import { FloatingIconButton, floatingIconControlClass } from "../components/ui";
 export function SavedViewsMenu({ children }: { children: ReactNode }) {
   return (
     <Popup
-      ariaLabel="Open saved views"
+      ariaLabel="Open views"
       groupName="map-tools"
       trigger={<BsBookmark />}
       triggerClassName={floatingIconControlClass}
-      triggerTitle="Saved views"
+      triggerTitle="Views"
       width="wide"
     >
-      {() => (
-        <div>
-          <p className="mb-2 text-xs font-medium text-slate-300">Saved views</p>
-          {children}
-        </div>
-      )}
+      {() => children}
     </Popup>
   );
 }

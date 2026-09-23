@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseWardRecords } from "../api/validation";
-import { isClusterSets, normalizeDataset } from "../dataset/model";
+import { defaultDataset, isClusterSets, normalizeDataset } from "../dataset/model";
 import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
 import {
   clusterDataVersion,
@@ -18,13 +18,18 @@ import type { SharedView } from "../savedViews/sharedView";
 import { autoViewSettingKey } from "../savedViews/viewState";
 import type { ViewState } from "../savedViews/viewState";
 import { locationKey } from "../locations/locationIdentity";
-import { useMapStore } from "../state/mapState";
+import {
+  defaultClusteringSettings,
+  defaultClusterMarkerSize,
+  useMapStore,
+} from "../state/mapState";
 import { useWorkspaceMapSettings } from "../state/mapSelectors";
 import { useWorkspaceActions, useWorkspaceData } from "../state/workspaceSelectors";
 import type { ClusteringSettings } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
 import type { League } from "../types";
 import type { BooleanRef } from "./useDatasetLoader";
+import { mapCenter, minZoom } from "../map/constants";
 
 interface SavedViewOptions {
   clusteringEnabled: boolean;
@@ -354,6 +359,46 @@ export default function useSavedViews({
     restoreAnalysisState(view);
   }
 
+  async function resetCurrentView() {
+    if (!defaultLeague) {
+      setError("Unable to load leagues");
+
+      return;
+    }
+
+    const dataset = { ...defaultDataset, leagueIds: [defaultLeague.id] };
+    const workspaceState = useWorkspaceStore.getState();
+    const mapState = useMapStore.getState();
+
+    pendingSelection.current = null;
+    selectActiveView(null);
+
+    workspaceState.setLocationSort("wards");
+    workspaceState.setLocationSortDirection("descending");
+    workspaceState.setLocationMinimumWards(3);
+    workspaceState.setWardOutcomeFilter("all");
+    workspaceState.setWardSort("placement");
+    workspaceState.setContextOrigin(null);
+    workspaceState.clearWardSelectionSet();
+    workspaceState.setLocationChanges([], [], {}, []);
+    workspaceState.setPendingLocationReselection(null);
+
+    setClusteringSettings(defaultClusteringSettings);
+    setClusteringEnabled(true);
+    setGroupByGridCell(false);
+    setShowUnclustered(false);
+    setVisionTechnique("gridnav");
+    setClusterMarkerSize(defaultClusterMarkerSize);
+
+    mapState.setCurrentSide("all");
+    mapState.clearSelection();
+    mapState.clearExpandedClusters();
+    mapState.clearHiddenLocationPreview();
+    mapState.restoreCamera({ center: [mapCenter[0], mapCenter[1]], zoom: minZoom });
+
+    await loadDataset(dataset, false);
+  }
+
   function restoreView(key: string) {
     if (!defaultLeague) {
       setError("Unable to load leagues");
@@ -492,6 +537,7 @@ export default function useSavedViews({
     deletedView,
     removeView,
     renameView,
+    resetCurrentView,
     restoreView,
     revertView,
     saveView,

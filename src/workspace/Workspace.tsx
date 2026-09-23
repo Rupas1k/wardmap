@@ -10,7 +10,7 @@ import { FloatingIconButton, SwitchNav } from "../components/ui";
 import { defaultDataset } from "../dataset/model";
 import useWorkspaceController from "./useWorkspaceController";
 import SavedViewControls from "../savedViews/SavedViewControls";
-import SharedViewPrompt from "../savedViews/SharedViewPrompt";
+import SharedViewLoader from "../savedViews/SharedViewLoader";
 import GroupingControls from "../clustering/GroupingControls";
 import { buildEmptyClusterSets } from "../clustering/buildClusters";
 import { defaultClusteringSettings, useMapStore } from "../state/mapState";
@@ -95,6 +95,7 @@ export default function Workspace({
       revertView,
       renameView,
       removeView,
+      resetCurrentView,
       updateView,
       undoRemoveView,
       loadDataset,
@@ -161,7 +162,7 @@ export default function Workspace({
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-950 xl:h-screen xl:min-h-0">
-      <SharedViewPrompt apply={applySharedView} />
+      {defaultLeague ? <SharedViewLoader apply={applySharedView} /> : null}
       <div className={`grid min-h-0 flex-1 grid-cols-1 ${layoutClass}`}>
         <aside
           className={`${controlsOpen ? "flex" : "hidden"} min-h-0 flex-col border-r border-white/10 bg-slate-900`}
@@ -289,7 +290,7 @@ export default function Workspace({
                   updateUnclusteredVisibility(false);
                 }}
               >
-                Reset
+                {controlTab === "filters" ? "Reset filters" : "Reset grouping"}
               </button>
               <button
                 className="min-w-0 flex-1 rounded-sm bg-slate-200 px-3 py-2 text-xs font-medium text-slate-950 hover:bg-white disabled:bg-slate-700 disabled:text-slate-400"
@@ -332,6 +333,7 @@ export default function Workspace({
                 modified={viewModified}
                 remove={removeView}
                 rename={renameView}
+                resetCurrentView={resetCurrentView}
                 restore={restoreView}
                 revert={revertView}
                 save={saveView}

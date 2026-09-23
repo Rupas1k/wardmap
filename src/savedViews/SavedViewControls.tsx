@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BsCheck2, BsLink45Deg, BsPencil, BsTrash } from "react-icons/bs";
 import { fieldControlClass } from "../components/ui";
 import type { StoredAnalysis } from "../indexedDb";
 import type { ViewState } from "./viewState";
@@ -12,6 +13,7 @@ interface SavedViewControlsProps {
   modified: boolean;
   remove: (view: SavedView) => Promise<void>;
   rename: (view: SavedView, name: string) => Promise<boolean>;
+  resetCurrentView: () => Promise<void>;
   restore: (key: string) => void;
   revert: () => void;
   save: (name: string) => Promise<boolean>;
@@ -28,6 +30,7 @@ export default function SavedViewControls({
   modified,
   remove,
   rename,
+  resetCurrentView,
   restore,
   revert,
   save,
@@ -39,6 +42,8 @@ export default function SavedViewControls({
   const [creating, setCreating] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   function openView(view: SavedView) {
     restore(view.key);
@@ -50,51 +55,17 @@ export default function SavedViewControls({
 
   return (
     <div className="text-xs">
-      {activeView ? (
-        <>
-          <div className="flex min-w-0 items-baseline justify-between gap-3">
-            <p className="truncate text-slate-300">{activeView.name}</p>
-            {modified ? <span className="shrink-0 text-slate-500">Snapshot differs</span> : null}
-          </div>
-          <div className="mt-1 flex items-center gap-3">
-            <button
-              className="py-1 text-cyan-300 hover:text-cyan-200 disabled:cursor-default disabled:text-slate-600"
-              disabled={disabled || pending || !modified}
-              type="button"
-              onClick={() => {
-                setPending(true);
-                void update().finally(() => setPending(false));
-              }}
-            >
-              {pending ? "Updating…" : "Update snapshot"}
-            </button>
-            <button
-              className="py-1 text-slate-500 hover:text-slate-300 disabled:cursor-default disabled:text-slate-700"
-              disabled={pending || !modified}
-              type="button"
-              onClick={revert}
-            >
-              Restore snapshot
-            </button>
-            <button
-              className="py-1 text-slate-500 hover:text-slate-300"
-              type="button"
-              onClick={() => setCreating(true)}
-            >
-              Save as
-            </button>
-          </div>
-        </>
-      ) : (
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-medium text-slate-300">Saved views</p>
         <button
           className="py-1 text-cyan-300 hover:text-cyan-200 disabled:cursor-not-allowed disabled:text-slate-600"
           disabled={disabled}
           type="button"
           onClick={() => setCreating(true)}
         >
-          Save current view
+          Save new
         </button>
-      )}
+      </div>
 
       {creating ? (
         <SaveViewForm
@@ -105,9 +76,8 @@ export default function SavedViewControls({
       ) : null}
 
       {views.length > 0 ? (
-        <div className="mt-3 border-t border-white/10 pt-2">
-          <p className="mb-1 text-slate-600">Saved views</p>
-          <div className="max-h-64 overflow-y-auto">
+        <div className="mt-2 border-t border-white/10">
+          <div className="max-h-72 overflow-y-auto">
             {views.map((view) =>
               editingKey === view.key ? (
                 <RenameViewForm
@@ -124,34 +94,68 @@ export default function SavedViewControls({
                   key={view.key}
                 >
                   <button
-                    className="truncate py-2 text-left text-slate-300 hover:text-white"
+                    className="flex min-w-0 items-center gap-2 py-2 text-left text-slate-300 hover:text-white"
                     type="button"
                     onClick={() => openView(view)}
                   >
-                    {view.name}
+                    <span className="w-3 shrink-0 text-cyan-400">
+                      {view.key === activeView?.key ? <BsCheck2 /> : null}
+                    </span>
+                    <span className="truncate">{view.name}</span>
                   </button>
                   <ShareViewButton share={() => share(view)} />
                   <button
-                    className="px-2 text-slate-500 hover:text-white"
+                    aria-label={`Rename ${view.name}`}
+                    className="p-2 text-sm text-slate-600 hover:text-white"
+                    title="Rename"
                     type="button"
                     onClick={() => setEditingKey(view.key)}
                   >
-                    Rename
+                    <BsPencil />
                   </button>
                   <button
                     aria-label={`Delete ${view.name}`}
-                    className="pl-2 text-sm text-slate-600 hover:text-rose-300"
+                    className="p-2 pr-0 text-sm text-slate-600 hover:text-rose-300"
+                    title="Delete"
                     type="button"
                     onClick={() => deleteView(view)}
                   >
-                    ×
+                    <BsTrash />
                   </button>
+                  {view.key === activeView?.key && modified ? (
+                    <div className="col-span-full flex items-center gap-3 pb-2 pl-5 text-slate-500">
+                      <span className="min-w-0 flex-1">Changed since saved</span>
+                      <button
+                        className="shrink-0 text-cyan-300 hover:text-cyan-200 disabled:text-slate-600"
+                        disabled={disabled || pending}
+                        type="button"
+                        onClick={() => {
+                          setPending(true);
+                          void update().finally(() => setPending(false));
+                        }}
+                      >
+                        {pending ? "Saving…" : "Update"}
+                      </button>
+                      <button
+                        className="shrink-0 text-slate-400 hover:text-slate-200 disabled:text-slate-700"
+                        disabled={pending}
+                        type="button"
+                        onClick={revert}
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               ),
             )}
           </div>
         </div>
-      ) : null}
+      ) : creating ? null : (
+        <p className="border-t border-white/10 py-5 text-center text-slate-600">
+          No saved views yet
+        </p>
+      )}
 
       {deletedView ? (
         <div className="mt-2 flex min-w-0 items-center justify-between gap-3 border-t border-white/10 pt-2">
@@ -165,6 +169,49 @@ export default function SavedViewControls({
           </button>
         </div>
       ) : null}
+
+      <div className="mt-2 border-t border-white/10 pt-2">
+        {confirmingReset ? (
+          <div>
+            <p className="leading-5 text-slate-500">
+              Reset filters, grouping, map state, and location changes? Saved views will remain
+              available.
+            </p>
+            <div className="mt-1 flex justify-end gap-3">
+              <button
+                className="py-1 text-slate-500 hover:text-white disabled:text-slate-700"
+                disabled={resetting}
+                type="button"
+                onClick={() => setConfirmingReset(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="py-1 text-rose-300 hover:text-rose-200 disabled:cursor-wait disabled:text-slate-600"
+                disabled={resetting}
+                type="button"
+                onClick={() => {
+                  setResetting(true);
+                  void resetCurrentView().finally(() => {
+                    setResetting(false);
+                    setConfirmingReset(false);
+                  });
+                }}
+              >
+                {resetting ? "Resetting…" : "Reset"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            className="py-1 text-slate-500 hover:text-rose-300"
+            type="button"
+            onClick={() => setConfirmingReset(true)}
+          >
+            Reset current view
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -240,7 +287,9 @@ function ShareViewButton({ share }: { share: () => Promise<void> }) {
 
   return (
     <button
-      className="px-2 text-slate-500 hover:text-white"
+      aria-label="Copy share link"
+      className={`p-2 text-sm ${copied ? "text-cyan-300" : "text-slate-600 hover:text-white"}`}
+      title={copied ? "Link copied" : "Copy share link"}
       type="button"
       onClick={() => {
         void share().then(() => {
@@ -249,7 +298,7 @@ function ShareViewButton({ share }: { share: () => Promise<void> }) {
         });
       }}
     >
-      {copied ? "Copied" : "Share"}
+      {copied ? <BsCheck2 /> : <BsLink45Deg />}
     </button>
   );
 }
