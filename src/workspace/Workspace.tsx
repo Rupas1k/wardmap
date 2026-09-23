@@ -328,7 +328,7 @@ export default function Workspace({
 
         <section className="relative min-h-[60vh] overflow-hidden bg-slate-950 xl:min-h-0">
           <div className="absolute top-12 left-3 z-20 flex flex-col items-start gap-1">
-            <SavedViewsMenu>
+            <SavedViewsMenu disabled={!clusterSets} modified={viewModified} save={updateView}>
               <SavedViewControls
                 activeView={activeView}
                 deletedView={deletedView}

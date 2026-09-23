@@ -87,7 +87,7 @@ export default function SavedViewControls({
         <>
           <div className="flex min-w-0 items-baseline justify-between gap-3">
             <p className="truncate text-slate-300">{activeView.name}</p>
-            {modified ? <span className="shrink-0 text-amber-300">Modified</span> : null}
+            {modified ? <span className="shrink-0 text-amber-300">Unsaved changes</span> : null}
           </div>
           <div className="mt-1 flex items-center gap-3">
             <button
