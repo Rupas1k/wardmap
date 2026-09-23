@@ -74,6 +74,7 @@ export default function Workspace({
       error,
       datasetFreshness,
       activeView,
+      deletedView,
       viewModified,
     },
     actions: {
@@ -94,6 +95,7 @@ export default function Workspace({
       renameView,
       removeView,
       updateView,
+      undoRemoveView,
       loadDataset,
       cancelDatasetLoad,
     },
@@ -158,7 +160,11 @@ export default function Workspace({
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-950 xl:h-screen xl:min-h-0">
-      <SharedViewPrompt apply={applySharedView} />
+      <SharedViewPrompt
+        activeViewName={activeView?.name ?? null}
+        apply={applySharedView}
+        modified={viewModified}
+      />
       <div className={`grid min-h-0 flex-1 grid-cols-1 ${layoutClass}`}>
         <aside
           className={`${controlsOpen ? "flex" : "hidden"} min-h-0 flex-col border-r border-white/10 bg-slate-900`}
@@ -332,6 +338,7 @@ export default function Workspace({
             viewActions={
               <SavedViewControls
                 activeView={activeView}
+                deletedView={deletedView}
                 disabled={!clusterSets}
                 modified={viewModified}
                 remove={removeView}
@@ -341,6 +348,7 @@ export default function Workspace({
                 save={saveView}
                 share={shareView}
                 update={updateView}
+                undoRemove={undoRemoveView}
                 views={savedViews}
               />
             }

@@ -7,11 +7,13 @@ import {
   deleteWorkspaceView,
   persistSavedView,
   renameWorkspaceView,
+  restoreWorkspaceView,
   savedWorkspaceViews,
   wardDataVersion,
   withStorageVersion,
 } from "../dataset/storage";
 import type { StoredAnalysis } from "../indexedDb";
+import { getSetting, setSetting } from "../indexedDb";
 import type { SharedView } from "../savedViews/sharedView";
 import type { ViewState } from "../savedViews/viewState";
 import { locationKey } from "../locations/locationIdentity";
@@ -49,6 +51,8 @@ export default function useSavedViews({
   visionTechnique,
 }: SavedViewOptions) {
   const [activeViewKey, setActiveViewKey] = useState<string | null>(null);
+  const [deletedView, setDeletedView] = useState<StoredAnalysis<ViewState> | null>(null);
+  const deletedViewWasActive = useRef(false);
   const pendingSelection = useRef<ViewState | null>(null);
   const {
     clusterSets,
@@ -174,6 +178,45 @@ export default function useSavedViews({
   );
 
   useEffect(() => {
+    void getSetting("active-saved-view")
+      .then((key) => {
+        if (typeof key === "string") {
+          setActiveViewKey(key);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!viewModified) {
+      return;
+    }
+
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+
+    window.addEventListener("beforeunload", warnBeforeUnload);
+
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [viewModified]);
+
+  useEffect(() => {
+    if (!deletedView) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setDeletedView(null), 6000);
+
+    return () => window.clearTimeout(timeout);
+  }, [deletedView]);
+
+  function selectActiveView(key: string | null) {
+    setActiveViewKey(key);
+    void setSetting("active-saved-view", key).catch((reason: unknown) => {
+      setError(reason instanceof Error ? reason.message : "Unable to remember active view");
+    });
+  }
+
+  useEffect(() => {
     const state = pendingSelection.current;
 
     if (!state || !displayClusterSets || (state.context.origin && context.status !== "ready")) {
@@ -248,7 +291,7 @@ export default function useSavedViews({
         loadedLeagueFreshness ?? undefined,
       );
       setSavedViews(await savedWorkspaceViews());
-      setActiveViewKey(key);
+      selectActiveView(key);
 
       return true;
     } catch (reason) {
@@ -304,7 +347,7 @@ export default function useSavedViews({
       settings.manualLocations ?? [],
     );
     setClusterMarkerSize(view.map.markerSize);
-    setActiveViewKey(null);
+    selectActiveView(null);
 
     await loadDataset(dataset, false);
     restoreAnalysisState(view);
@@ -367,7 +410,7 @@ export default function useSavedViews({
       settings.manualLocations ?? [],
     );
     setClusterMarkerSize(state.map.markerSize);
-    setActiveViewKey(key);
+    selectActiveView(key);
 
     if (removedIncompatibleLeagues || settings.wardDataVersion !== wardDataVersion) {
       setWards([]);
@@ -383,34 +426,56 @@ export default function useSavedViews({
     restoreAnalysisState(state);
   }
 
-  async function renameView(view: StoredAnalysis<ViewState>) {
-    const name = window.prompt("Saved view name", view.name)?.trim();
+  async function renameView(view: StoredAnalysis<ViewState>, name: string): Promise<boolean> {
+    const nextName = name.trim();
 
-    if (!name || name === view.name) {
-      return;
+    if (!nextName || nextName === view.name) {
+      return true;
     }
 
     try {
-      setSavedViews(await renameWorkspaceView(view, name));
+      setSavedViews(await renameWorkspaceView(view, nextName));
+
+      return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to rename view");
+
+      return false;
     }
   }
 
   async function removeView(view: StoredAnalysis<ViewState>) {
-    if (!window.confirm(`Delete saved view “${view.name}”?`)) {
+    try {
+      await deleteWorkspaceView(view.key);
+      setSavedViews((current) => current.filter((candidate) => candidate.key !== view.key));
+      setDeletedView(view);
+      deletedViewWasActive.current = view.key === activeViewKey;
+
+      if (deletedViewWasActive.current) {
+        selectActiveView(null);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to delete view");
+    }
+  }
+
+  async function undoRemoveView() {
+    if (!deletedView) {
       return;
     }
 
     try {
-      await deleteWorkspaceView(view.key);
-      setSavedViews((current) => current.filter((candidate) => candidate.key !== view.key));
+      await restoreWorkspaceView(deletedView);
+      setSavedViews(await savedWorkspaceViews());
 
-      if (view.key === activeViewKey) {
-        setActiveViewKey(null);
+      if (deletedViewWasActive.current) {
+        selectActiveView(deletedView.key);
       }
+
+      setDeletedView(null);
+      deletedViewWasActive.current = false;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unable to delete view");
+      setError(reason instanceof Error ? reason.message : "Unable to restore view");
     }
   }
 
@@ -423,12 +488,14 @@ export default function useSavedViews({
   return {
     activeView,
     applySharedView,
+    deletedView,
     removeView,
     renameView,
     restoreView,
     revertView,
     saveView,
     updateView,
+    undoRemoveView,
     viewModified,
   };
 }

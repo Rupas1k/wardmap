@@ -223,6 +223,10 @@ export async function renameWorkspaceView(
   return savedWorkspaceViews();
 }
 
+export async function restoreWorkspaceView(view: StoredAnalysis<ViewState>): Promise<void> {
+  await saveAnalysis(view);
+}
+
 export async function persistSavedView(
   key: string,
   name: string,

@@ -114,12 +114,14 @@ export default function useWorkspaceController() {
   const {
     activeView,
     applySharedView,
+    deletedView,
     removeView,
     renameView,
     restoreView,
     revertView,
     saveView,
     updateView,
+    undoRemoveView,
     viewModified,
   } = useSavedViews({
     clusteringEnabled,
@@ -165,6 +167,7 @@ export default function useWorkspaceController() {
       error,
       datasetFreshness,
       activeView,
+      deletedView,
       viewModified,
     },
     actions: {
@@ -185,6 +188,7 @@ export default function useWorkspaceController() {
       renameView,
       removeView,
       updateView,
+      undoRemoveView,
       loadDataset,
       cancelDatasetLoad,
     },
