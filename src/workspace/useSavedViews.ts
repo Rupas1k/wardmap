@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { parseWardRecords } from "../api/validation";
 import { isClusterSets, normalizeDataset } from "../dataset/model";
 import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
@@ -14,6 +14,7 @@ import {
 import type { StoredAnalysis } from "../indexedDb";
 import type { SharedView } from "../savedViews/sharedView";
 import type { ViewState } from "../savedViews/viewState";
+import { locationKey } from "../locations/locationIdentity";
 import { useMapStore } from "../state/mapState";
 import { useWorkspaceMapSettings } from "../state/mapSelectors";
 import { useWorkspaceActions, useWorkspaceData } from "../state/workspaceSelectors";
@@ -48,8 +49,15 @@ export default function useSavedViews({
   visionTechnique,
 }: SavedViewOptions) {
   const [activeViewKey, setActiveViewKey] = useState<string | null>(null);
-  const { clusterSets, loadedDataset, loadedLeagueFreshness, savedViews, wards } =
-    useWorkspaceData();
+  const pendingSelection = useRef<ViewState | null>(null);
+  const {
+    clusterSets,
+    displayClusterSets,
+    loadedDataset,
+    loadedLeagueFreshness,
+    savedViews,
+    wards,
+  } = useWorkspaceData();
   const {
     setClusterSets,
     setClusteringEnabled,
@@ -70,15 +78,29 @@ export default function useSavedViews({
     setVisionTechnique,
   } = useWorkspaceMapSettings();
   const currentSide = useMapStore((state) => state.currentSide);
+  const camera = useMapStore((state) => state.camera);
+  const selectedClusterId = useMapStore((state) => state.selectedClusterId);
+  const selectedWardId = useMapStore((state) => state.selectedWardId);
+  const expandedClusterIds = useMapStore((state) => state.expandedClusterIds);
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
-  const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
-  const inspectorTab = useWorkspaceStore((state) => state.inspectorTab);
-  const contextOrigin = useWorkspaceStore((state) => state.analysisContext.origin);
+  const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
+  const context = useWorkspaceStore((state) => state.analysisContext);
+  const locationSort = useWorkspaceStore((state) => state.locationSort);
+  const locationSortDirection = useWorkspaceStore((state) => state.locationSortDirection);
+  const locationMinimumWards = useWorkspaceStore((state) => state.locationMinimumWards);
+  const wardOutcomeFilter = useWorkspaceStore((state) => state.wardOutcomeFilter);
+  const wardSort = useWorkspaceStore((state) => state.wardSort);
   const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const setLocationChanges = useWorkspaceStore((state) => state.setLocationChanges);
+  const visibleLocations = displayClusterSets?.[currentSide] ?? [];
+  const selectedLocation =
+    visibleLocations.find((cluster) => cluster.cluster_id === selectedClusterId) ?? null;
+  const expandedLocationKeys = visibleLocations
+    .filter((cluster) => expandedClusterIds.includes(cluster.cluster_id))
+    .map((cluster) => locationKey(cluster, currentSide));
   const currentViewState = useMemo<ViewState | null>(() => {
     if (!loadedDataset) {
       return null;
@@ -97,30 +119,52 @@ export default function useSavedViews({
         manualLocations,
         visionTechnique,
       }),
+      browse: {
+        locationSort,
+        locationSortDirection,
+        locationMinimumWards,
+        wardOutcomeFilter,
+        wardSort,
+      },
+      context: {
+        origin: context.origin,
+        refinement: context.refinement,
+      },
+      selection: {
+        locationKey: selectedLocation ? locationKey(selectedLocation, currentSide) : null,
+        wardId: selectedWardId,
+        expandedLocationKeys,
+      },
       map: {
         side: currentSide,
         markerSize: clusterMarkerSize,
-      },
-      inspector: {
-        tab: inspectorTab === "details" ? "overview" : inspectorTab,
-        context: contextOrigin,
+        camera,
       },
     };
   }, [
+    camera,
     clusterMarkerSize,
     clusteringEnabled,
     clusteringSettings,
-    contextOrigin,
+    context.origin,
+    context.refinement,
     currentSide,
     excludedWardIds,
     groupByGridCell,
     hiddenLocationFingerprints,
-    inspectorTab,
+    expandedLocationKeys,
+    locationMinimumWards,
+    locationSort,
+    locationSortDirection,
     loadedDataset,
     locationNames,
     manualLocations,
+    selectedLocation,
+    selectedWardId,
     showUnclustered,
     visionTechnique,
+    wardOutcomeFilter,
+    wardSort,
   ]);
   const activeView = savedViews.find((view) => view.key === activeViewKey) ?? null;
   const viewModified = Boolean(
@@ -128,6 +172,63 @@ export default function useSavedViews({
     currentViewState &&
     JSON.stringify(activeView.settings) !== JSON.stringify(currentViewState),
   );
+
+  useEffect(() => {
+    const state = pendingSelection.current;
+
+    if (!state || !displayClusterSets || (state.context.origin && context.status !== "ready")) {
+      return;
+    }
+
+    const clusters = displayClusterSets[state.map.side];
+    const clustersByKey = new Map(
+      clusters.map((cluster) => [locationKey(cluster, state.map.side), cluster]),
+    );
+    const selected = state.selection.locationKey
+      ? clustersByKey.get(state.selection.locationKey)
+      : null;
+    const mapState = useMapStore.getState();
+
+    mapState.clearExpandedClusters();
+    for (const key of state.selection.expandedLocationKeys) {
+      const cluster = clustersByKey.get(key);
+
+      if (cluster) {
+        mapState.setClusterExpanded(cluster.cluster_id, true);
+      }
+    }
+
+    if (selected) {
+      const wardId = selected.wards?.some((ward) => ward.id === state.selection.wardId)
+        ? state.selection.wardId
+        : null;
+      mapState.selectMapLocation(selected.cluster_id, wardId);
+    } else {
+      mapState.clearMapLocationSelection();
+    }
+
+    pendingSelection.current = null;
+  }, [context.status, displayClusterSets]);
+
+  function restoreAnalysisState(state: ViewState) {
+    const workspaceState = useWorkspaceStore.getState();
+    const mapState = useMapStore.getState();
+
+    workspaceState.setLocationSort(state.browse.locationSort);
+    workspaceState.setLocationSortDirection(state.browse.locationSortDirection);
+    workspaceState.setLocationMinimumWards(state.browse.locationMinimumWards);
+    workspaceState.setWardOutcomeFilter(state.browse.wardOutcomeFilter);
+    workspaceState.setWardSort(state.browse.wardSort);
+    setCurrentSide(state.map.side);
+    setContextOrigin(state.context.origin);
+    setContextRefinement(state.context.refinement);
+
+    if (state.map.camera) {
+      mapState.restoreCamera(state.map.camera);
+    }
+
+    pendingSelection.current = state;
+  }
 
   async function saveView(name: string): Promise<boolean> {
     if (!currentViewState || !clusterSets) {
@@ -203,12 +304,10 @@ export default function useSavedViews({
       settings.manualLocations ?? [],
     );
     setClusterMarkerSize(view.map.markerSize);
-    setInspectorTab(view.inspector.tab === "details" ? "overview" : view.inspector.tab);
     setActiveViewKey(null);
 
     await loadDataset(dataset, false);
-    setCurrentSide(view.map.side);
-    setContextOrigin(view.inspector.context);
+    restoreAnalysisState(view);
   }
 
   function restoreView(key: string) {
@@ -268,15 +367,12 @@ export default function useSavedViews({
       settings.manualLocations ?? [],
     );
     setClusterMarkerSize(state.map.markerSize);
-    setCurrentSide(state.map.side);
-    setInspectorTab(state.inspector.tab);
-    setContextOrigin(state.inspector.context);
     setActiveViewKey(key);
 
     if (removedIncompatibleLeagues || settings.wardDataVersion !== wardDataVersion) {
       setWards([]);
       setClusterSets(null);
-      void loadDataset(dataset, false);
+      void loadDataset(dataset, false).then(() => restoreAnalysisState(state));
 
       return;
     }
@@ -284,6 +380,7 @@ export default function useSavedViews({
     setWards(restoredWards);
     setClusterSets(clustersMatchCurrentModel ? view.clusterSets : null);
     setLoadedLeagueFreshness(view.leagueFreshness ?? null);
+    restoreAnalysisState(state);
   }
 
   async function renameView(view: StoredAnalysis<ViewState>) {

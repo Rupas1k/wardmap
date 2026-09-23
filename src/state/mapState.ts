@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Cluster, Side } from "../types";
+import { mapCenter, minZoom } from "../map/constants";
 
 export interface ClusteringSettings {
   algorithm: "auto" | "dbscan" | "hdbscan" | "st_dbscan" | "time_weighted_hdbscan";
@@ -19,7 +20,13 @@ export type MapFocusRequest = {
 };
 export type MapPosition = [number, number, number];
 export type MapCameraRequest =
-  { kind: "center"; x: number; y: number } | { kind: "fit"; positions: MapPosition[] };
+  | { kind: "center"; x: number; y: number }
+  | { kind: "fit"; positions: MapPosition[] }
+  | { kind: "restore"; center: [number, number]; zoom: number };
+export interface MapCamera {
+  center: [number, number];
+  zoom: number;
+}
 export interface ClusterMarkerSize {
   minimum: number;
   maximum: number;
@@ -51,6 +58,7 @@ interface MapState {
   visionTechnique: VisionTechnique;
   focusRequest: MapFocusRequest | null;
   cameraRequest: MapCameraRequest | null;
+  camera: MapCamera;
   sightingPosition: MapPosition | null;
   sightingRoutes: MapPosition[][];
   sightingSelectionId: string | null;
@@ -79,6 +87,8 @@ interface MapState {
   showSightingAt: (selectionId: string, position: MapPosition, routes?: MapPosition[][]) => void;
   clearSighting: () => void;
   clearCameraRequest: () => void;
+  setCamera: (camera: MapCamera) => void;
+  restoreCamera: (camera: MapCamera) => void;
 }
 
 export const useMapStore = create<MapState>((set) => ({
@@ -95,6 +105,7 @@ export const useMapStore = create<MapState>((set) => ({
   visionTechnique: "gridnav",
   focusRequest: null,
   cameraRequest: null,
+  camera: { center: [mapCenter[0], mapCenter[1]], zoom: minZoom },
   sightingPosition: null,
   sightingRoutes: [],
   sightingSelectionId: null,
@@ -210,4 +221,6 @@ export const useMapStore = create<MapState>((set) => ({
   clearSighting: () =>
     set({ sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
   clearCameraRequest: () => set({ cameraRequest: null }),
+  setCamera: (camera) => set({ camera }),
+  restoreCamera: (camera) => set({ camera, cameraRequest: { kind: "restore", ...camera } }),
 }));

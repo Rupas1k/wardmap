@@ -51,11 +51,14 @@ export function useMapCamera(map: RefObject<Map | null>) {
         maxZoom: 4,
         padding: [72, 72, 72, 72],
       });
-    } else {
+    } else if (request.kind === "center") {
       map.current.getView().animate({
         center: unitToPixel([request.x, request.y]),
         duration: 250,
       });
+    } else {
+      map.current.getView().setCenter(request.center);
+      map.current.getView().setZoom(request.zoom);
     }
     clearRequest();
   }, [clearRequest, map, request]);

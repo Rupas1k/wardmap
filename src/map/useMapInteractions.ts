@@ -351,8 +351,21 @@ export default function useMapInteractions({
       }
     }
 
+    function handleMoveEnd() {
+      const view = map.getView();
+      const center = view.getCenter();
+      const zoom = view.getZoom();
+
+      if (!center || zoom === undefined) {
+        return;
+      }
+
+      useMapStore.getState().setCamera({ center: [center[0]!, center[1]!], zoom });
+    }
+
     map.on("click", handleClick);
     map.on("pointermove", handlePointerMove);
+    map.on("moveend", handleMoveEnd);
     targetElement.addEventListener("pointerleave", handlePointerLeave);
     window.addEventListener("keydown", handleKeyDown);
 
@@ -361,6 +374,7 @@ export default function useMapInteractions({
       resizeObserver.disconnect();
       map.un("click", handleClick);
       map.un("pointermove", handlePointerMove);
+      map.un("moveend", handleMoveEnd);
       targetElement.removeEventListener("pointerleave", handlePointerLeave);
       window.removeEventListener("keydown", handleKeyDown);
       mapInstance.current = null;
