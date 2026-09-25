@@ -98,7 +98,7 @@ export default function SavedViewControls({
 
       {creating ? (
         <SaveViewForm
-          initialName={activeView ? `${activeView.name} copy` : "Ward analysis"}
+          initialName={activeView ? `${activeView.name} copy` : "Untitled view"}
           save={save}
           close={() => setCreating(false)}
         />
