@@ -17,6 +17,8 @@ import {
 import useMapInteractions from "./useMapInteractions";
 import { useElevationGrid, useMapCamera } from "./useMapRuntime";
 import { locationWards, withVisibleClusters } from "../locations/locationIdentity";
+import { buildMapColorScale } from "./colorScale";
+import MapColorLegend from "./MapColorLegend";
 
 interface MapViewProps {
   clusterSets: ClusterSets;
@@ -45,6 +47,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     elevations,
     currentSide,
     visionTechnique,
+    colorMode,
+    colorStatistic,
     selectMapLocation,
     clearWardSelection,
     clearMapLocationSelection,
@@ -91,6 +95,28 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       null,
     [currentSide, selectedClusterId, visibleClusterSets],
   );
+  const colorScale = useMemo(() => {
+    const wardGroups = visibleClusterSets[currentSide]
+      .filter((cluster) => showUnclustered || !cluster.unclustered)
+      .map((cluster) =>
+        locationWards(cluster, {
+          side: currentSide,
+          playerId: selectedPlayerId,
+          matchId: selectedMatchId,
+        }),
+      )
+      .filter((wards) => wards.length > 0);
+
+    return buildMapColorScale(wardGroups, colorMode, colorStatistic);
+  }, [
+    colorMode,
+    colorStatistic,
+    currentSide,
+    selectedMatchId,
+    selectedPlayerId,
+    showUnclustered,
+    visibleClusterSets,
+  ]);
   const detailedClusters = useMemo(() => {
     const ids = new Set(expandedClusterIds);
     const selectedWards = new Set(selectedWardIds);
@@ -142,6 +168,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     setAverageValues,
     showUnclustered,
     locationFilter,
+    colorScale,
   });
   useWardDetailLayer({
     clusters: detailedClusters,
@@ -151,6 +178,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     selectedMatchId,
     selectedPlayerId,
     selectedWardId,
+    colorScale,
   });
   useMapHoverState(hoveredClusterId, hoveredWardId);
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
@@ -181,6 +209,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         />
       ) : null}
       {wardHover ? <WardTooltip ward={wardHover.ward} x={wardHover.x} y={wardHover.y} /> : null}
+      <MapColorLegend scale={colorScale} />
     </div>
   );
 });

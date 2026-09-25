@@ -15,7 +15,7 @@ export function formatWardOutcome(outcome: WardMeasurement["outcome"]): string {
   return outcomeLabels[outcome];
 }
 
-export function mean(values: number[]): number | null {
+export function mean(values: readonly number[]): number | null {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
@@ -27,7 +27,7 @@ export function roundedMean(values: number[]): number {
   return Math.round(mean(values) ?? 0);
 }
 
-export function percentile(values: number[], fraction: number): number | null {
+export function percentile(values: readonly number[], fraction: number): number | null {
   if (values.length === 0) {
     return null;
   }

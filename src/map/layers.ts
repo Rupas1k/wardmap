@@ -1,7 +1,6 @@
 import { Tile as TileLayer, Vector as VectorLayer } from "ol/layer";
 import { Vector as VectorSource, XYZ } from "ol/source";
 import { Circle, Fill, Stroke, Style } from "ol/style";
-import type { WardFeatureData } from "./features";
 import { pixelProjection } from "./projections";
 import mainStyle from "./styles";
 import { useMapStore } from "../state/mapState";
@@ -81,20 +80,22 @@ const hiddenLocationStyle = [
     zIndex: 33,
   }),
 ];
-const wardDetailStyles = {
-  dewarded: wardPointStyle("#fb7185", false),
-  hoveredDewarded: [hoveredWardHalo, wardPointStyle("#fb7185", true)],
-  hoveredSentry: [hoveredWardHalo, wardPointStyle("#38bdf8", true)],
-  hoveredSurvived: [hoveredWardHalo, wardPointStyle("#34d399", true)],
-  multiSelectedDewarded: [multiSelectedWardHalo, wardPointStyle("#fb7185", true)],
-  multiSelectedSentry: [multiSelectedWardHalo, wardPointStyle("#38bdf8", true)],
-  multiSelectedSurvived: [multiSelectedWardHalo, wardPointStyle("#34d399", true)],
-  sentry: wardPointStyle("#38bdf8", false),
-  selectedDewarded: [selectedWardHalo, wardPointStyle("#fb7185", true)],
-  selectedSentry: [selectedWardHalo, wardPointStyle("#38bdf8", true)],
-  selectedSurvived: [selectedWardHalo, wardPointStyle("#34d399", true)],
-  survived: wardPointStyle("#34d399", false),
-};
+const wardStyleCache = new Map<string, Style>();
+
+function coloredWardStyle(color: string, emphasized: boolean): Style {
+  const key = `${color}:${emphasized}`;
+  const cached = wardStyleCache.get(key);
+
+  if (cached) {
+    return cached;
+  }
+
+  const style = wardPointStyle(color, emphasized);
+
+  wardStyleCache.set(key, style);
+
+  return style;
+}
 
 const layers = {
   tiles: new TileLayer({
@@ -117,33 +118,21 @@ const layers = {
       const selected = Boolean(feature.get("selected"));
       const hovered = Boolean(feature.get("hovered"));
       const multiSelected = Boolean(feature.get("multiSelected"));
-      const wardData = feature.get("wardData") as WardFeatureData | undefined;
-      const destroyed = Boolean(wardData?.ward.is_destroyed);
-      const sentry = wardData?.ward.is_obs === false;
+      const color = (feature.get("color") as string | undefined) ?? "#64748b";
+      const emphasized = selected || hovered || multiSelected;
+      const marker = coloredWardStyle(color, emphasized);
 
-      return sentry
-        ? selected
-          ? wardDetailStyles.selectedSentry
-          : multiSelected
-            ? wardDetailStyles.multiSelectedSentry
-            : hovered
-              ? wardDetailStyles.hoveredSentry
-              : wardDetailStyles.sentry
-        : selected
-          ? destroyed
-            ? wardDetailStyles.selectedDewarded
-            : wardDetailStyles.selectedSurvived
-          : multiSelected
-            ? destroyed
-              ? wardDetailStyles.multiSelectedDewarded
-              : wardDetailStyles.multiSelectedSurvived
-            : hovered
-              ? destroyed
-                ? wardDetailStyles.hoveredDewarded
-                : wardDetailStyles.hoveredSurvived
-              : destroyed
-                ? wardDetailStyles.dewarded
-                : wardDetailStyles.survived;
+      if (selected) {
+        return [selectedWardHalo, marker];
+      }
+      if (multiSelected) {
+        return [multiSelectedWardHalo, marker];
+      }
+      if (hovered) {
+        return [hoveredWardHalo, marker];
+      }
+
+      return marker;
     },
   }),
   sightings: new VectorLayer({

@@ -12,6 +12,7 @@ import { calculateGridNavVision } from "./calculateGridNavVision";
 import calculateVision from "./calculateVision";
 import { mapSize, sentryDetectionRadius } from "./constants";
 import type { ClusterFeature, WardFeature } from "./features";
+import type { MapColorScale } from "./colorScale";
 import { getClusterFeatureData, getWardFeatureData } from "./features";
 import layers from "./layers";
 import { unitToPixel } from "./projections";
@@ -25,6 +26,7 @@ export function useClusterLayer({
   setAverageValues,
   showUnclustered,
   locationFilter,
+  colorScale,
 }: {
   clearMapLocationSelection: () => void;
   clusterSets: ClusterSets;
@@ -34,6 +36,7 @@ export function useClusterLayer({
   setAverageValues: (average: Cluster | null) => void;
   showUnclustered: boolean;
   locationFilter: { playerId: number } | { matchId: number } | null;
+  colorScale: MapColorScale;
 }) {
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
 
@@ -86,6 +89,7 @@ export function useClusterLayer({
           (cluster.wards?.some((ward) => ward.id === hoverState.hoveredWardId) ?? false),
         selected: cluster.cluster_id === selectedClusterId,
         multiSelection,
+        color: colorScale.colorForWards(wards),
       });
     });
 
@@ -111,6 +115,7 @@ export function useClusterLayer({
     setAverageValues,
     showUnclustered,
     locationFilter,
+    colorScale,
   ]);
 }
 
@@ -122,6 +127,7 @@ export function useWardDetailLayer({
   selectedMatchId,
   selectedPlayerId,
   selectedWardId,
+  colorScale,
 }: {
   clusters: Cluster[];
   currentSide: Side;
@@ -130,6 +136,7 @@ export function useWardDetailLayer({
   selectedMatchId: number | null;
   selectedPlayerId: number | null;
   selectedWardId: number | null;
+  colorScale: MapColorScale;
 }) {
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
 
@@ -172,6 +179,7 @@ export function useWardDetailLayer({
               hovered: ward.id === hoveredWardId,
               multiSelected: multiSelectedWardIds.has(ward.id),
               selected: cluster.cluster_id === selectedClusterId && ward.id === selectedWardId,
+              color: colorScale.colorForWard(ward),
             }),
         );
       }),
@@ -185,6 +193,7 @@ export function useWardDetailLayer({
     selectedPlayerId,
     selectedWardId,
     selectedWardIds,
+    colorScale,
   ]);
 }
 

@@ -11,8 +11,14 @@ export default function useViewRestoration() {
   const pendingView = useRef<ViewState | null>(null);
   const displayClusterSets = useWorkspaceStore(selectDisplayedClusterSets);
   const contextStatus = useWorkspaceStore((state) => state.analysisContext.status);
-  const { setClusteringSettings, setClusterMarkerSize, setCurrentSide, setVisionTechnique } =
-    useWorkspaceMapSettings();
+  const {
+    setClusteringSettings,
+    setClusterMarkerSize,
+    setColorMode,
+    setColorStatistic,
+    setCurrentSide,
+    setVisionTechnique,
+  } = useWorkspaceMapSettings();
   const { setClusteringEnabled, setGroupByGridCell, setShowUnclustered } = useWorkspaceActions();
 
   useEffect(() => {
@@ -63,6 +69,8 @@ export default function useViewRestoration() {
     setShowUnclustered(settings.showUnclustered ?? false);
     setVisionTechnique(settings.visionTechnique);
     setClusterMarkerSize(state.map.markerSize);
+    setColorMode(state.map.colorMode);
+    setColorStatistic(state.map.colorStatistic);
     workspace.setLocationChanges(
       settings.excludedWardIds ?? [],
       settings.hiddenLocationFingerprints ?? [],

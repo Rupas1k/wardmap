@@ -1,8 +1,14 @@
 import { isWorkspaceSettings } from "../dataset/model";
 import type { WorkspaceSettings } from "../dataset/model";
 import type { AnalysisScope } from "../state/analysisContext";
-import { defaultClusterMarkerSize } from "../state/mapState";
-import type { ClusterMarkerSize } from "../state/mapState";
+import {
+  defaultClusterMarkerSize,
+  defaultMapColorMode,
+  defaultMapColorStatistic,
+  isMapColorMode,
+  isMapColorStatistic,
+} from "../state/mapState";
+import type { ClusterMarkerSize, MapColorMode, MapColorStatistic } from "../state/mapState";
 import type {
   LocationSort,
   SortDirection,
@@ -34,6 +40,8 @@ export interface ViewState {
   map: {
     side: Side;
     markerSize: ClusterMarkerSize;
+    colorMode: MapColorMode;
+    colorStatistic: MapColorStatistic;
   };
 }
 
@@ -100,6 +108,10 @@ export function normalizeViewState(value: unknown): ViewState | null {
     map: {
       side: map.side,
       markerSize,
+      colorMode: isMapColorMode(map.colorMode) ? map.colorMode : defaultMapColorMode,
+      colorStatistic: isMapColorStatistic(map.colorStatistic)
+        ? map.colorStatistic
+        : defaultMapColorStatistic,
     },
   };
 }
@@ -122,6 +134,8 @@ export function normalizeSavedViewState(value: unknown): ViewState | null {
     map: {
       side: value.dataset.side,
       markerSize: defaultClusterMarkerSize,
+      colorMode: defaultMapColorMode,
+      colorStatistic: defaultMapColorStatistic,
     },
   };
 }

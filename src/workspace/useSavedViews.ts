@@ -22,6 +22,8 @@ import { locationKey } from "../locations/locationIdentity";
 import {
   defaultClusteringSettings,
   defaultClusterMarkerSize,
+  defaultMapColorMode,
+  defaultMapColorStatistic,
   useMapStore,
 } from "../state/mapState";
 import { useWorkspaceMapSettings } from "../state/mapSelectors";
@@ -85,8 +87,16 @@ export default function useSavedViews({
     setShowUnclustered,
     setWards,
   } = useWorkspaceActions();
-  const { clusterMarkerSize, setClusteringSettings, setClusterMarkerSize, setVisionTechnique } =
-    useWorkspaceMapSettings();
+  const {
+    clusterMarkerSize,
+    colorMode,
+    colorStatistic,
+    setClusteringSettings,
+    setClusterMarkerSize,
+    setColorMode,
+    setColorStatistic,
+    setVisionTechnique,
+  } = useWorkspaceMapSettings();
   const currentSide = useMapStore((state) => state.currentSide);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const selectedWardId = useMapStore((state) => state.selectedWardId);
@@ -144,10 +154,14 @@ export default function useSavedViews({
       map: {
         side: currentSide,
         markerSize: clusterMarkerSize,
+        colorMode,
+        colorStatistic,
       },
     };
   }, [
     clusterMarkerSize,
+    colorMode,
+    colorStatistic,
     clusteringEnabled,
     clusteringSettings,
     context.origin,
@@ -347,6 +361,8 @@ export default function useSavedViews({
     setShowUnclustered(false);
     setVisionTechnique("gridnav");
     setClusterMarkerSize(defaultClusterMarkerSize);
+    setColorMode(defaultMapColorMode);
+    setColorStatistic(defaultMapColorStatistic);
 
     mapState.setCurrentSide("all");
     mapState.clearSelection();

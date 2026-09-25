@@ -14,6 +14,33 @@ export interface ClusteringSettings {
 }
 
 export type VisionTechnique = "polygon" | "gridnav";
+export type MapColorMode =
+  | "deward-rate"
+  | "added-vision"
+  | "enemy-sightings"
+  | "lifetime"
+  | "placement"
+  | "ward-type"
+  | "single";
+export type MapColorStatistic = "mean" | "median";
+export const defaultMapColorMode: MapColorMode = "deward-rate";
+export const defaultMapColorStatistic: MapColorStatistic = "median";
+
+export function isMapColorMode(value: unknown): value is MapColorMode {
+  return [
+    "deward-rate",
+    "added-vision",
+    "enemy-sightings",
+    "lifetime",
+    "placement",
+    "ward-type",
+    "single",
+  ].includes(String(value));
+}
+
+export function isMapColorStatistic(value: unknown): value is MapColorStatistic {
+  return value === "mean" || value === "median";
+}
 export type MapFocusRequest = {
   kind: "ward" | "cluster";
   id: number;
@@ -54,6 +81,8 @@ interface MapState {
   averageValues: Cluster | null;
   clusteringSettings: ClusteringSettings;
   clusterMarkerSize: ClusterMarkerSize;
+  colorMode: MapColorMode;
+  colorStatistic: MapColorStatistic;
   expandedClusterIds: number[];
   visionTechnique: VisionTechnique;
   focusRequest: MapFocusRequest | null;
@@ -79,6 +108,8 @@ interface MapState {
   setAverageValues: (values: Cluster | null) => void;
   setClusteringSettings: (settings: ClusteringSettings) => void;
   setClusterMarkerSize: (size: ClusterMarkerSize) => void;
+  setColorMode: (mode: MapColorMode) => void;
+  setColorStatistic: (statistic: MapColorStatistic) => void;
   setClusterExpanded: (clusterId: number, expanded: boolean) => void;
   setVisionTechnique: (technique: VisionTechnique) => void;
   focusWard: (wardId: number) => void;
@@ -104,6 +135,8 @@ export const useMapStore = create<MapState>((set) => ({
   averageValues: null,
   clusteringSettings: defaultClusteringSettings,
   clusterMarkerSize: defaultClusterMarkerSize,
+  colorMode: defaultMapColorMode,
+  colorStatistic: defaultMapColorStatistic,
   expandedClusterIds: [],
   visionTechnique: "gridnav",
   focusRequest: null,
@@ -208,6 +241,8 @@ export const useMapStore = create<MapState>((set) => ({
     }),
   clearExpandedClusters: () => set({ expandedClusterIds: [] }),
   setClusterMarkerSize: (clusterMarkerSize) => set({ clusterMarkerSize }),
+  setColorMode: (colorMode) => set({ colorMode }),
+  setColorStatistic: (colorStatistic) => set({ colorStatistic }),
   setClusterExpanded: (clusterId, expanded) =>
     set((state) => ({
       expandedClusterIds: expanded

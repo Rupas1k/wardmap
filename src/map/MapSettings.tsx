@@ -9,7 +9,12 @@ import layers from "./layers";
 import { pixelProjection, unitProjection } from "./projections";
 import { useMapStore } from "../state/mapState";
 import { defaultClusterMarkerSize } from "../state/mapState";
-import type { ClusterMarkerSize, VisionTechnique } from "../state/mapState";
+import type {
+  ClusterMarkerSize,
+  MapColorMode,
+  MapColorStatistic,
+  VisionTechnique,
+} from "../state/mapState";
 import Popup from "../components/Popup";
 import { fieldControlClass, floatingIconControlClass } from "../components/ui";
 
@@ -19,12 +24,20 @@ export default function MapSettings({
   setVisionTechnique,
   clusterMarkerSize,
   setClusterMarkerSize,
+  colorMode,
+  colorStatistic,
+  setColorMode,
+  setColorStatistic,
 }: {
   mapVersion: number;
   visionTechnique: VisionTechnique;
   setVisionTechnique: (technique: VisionTechnique) => void;
   clusterMarkerSize: ClusterMarkerSize;
   setClusterMarkerSize: (size: ClusterMarkerSize) => void;
+  colorMode: MapColorMode;
+  colorStatistic: MapColorStatistic;
+  setColorMode: (mode: MapColorMode) => void;
+  setColorStatistic: (statistic: MapColorStatistic) => void;
 }) {
   const elevations = useMapStore((state) => state.elevations);
   const [debugElevation, setDebugElevation] = useState<number | null>(null);
@@ -145,8 +158,39 @@ export default function MapSettings({
             </select>
           </label>
           <div className="mt-1 border-t border-white/10 pt-3">
+            <label className="text-xs text-slate-500">
+              Color by
+              <select
+                className={fieldControlClass}
+                value={colorMode}
+                onChange={(event) => setColorMode(event.target.value as MapColorMode)}
+              >
+                <option value="deward-rate">Deward rate</option>
+                <option value="added-vision">Added vision</option>
+                <option value="enemy-sightings">New enemy sightings</option>
+                <option value="lifetime">Ward lifetime</option>
+                <option value="placement">Placement time</option>
+                <option value="ward-type">Ward type</option>
+                <option value="single">Single color</option>
+              </select>
+            </label>
+            {["added-vision", "enemy-sightings", "lifetime", "placement"].includes(colorMode) ? (
+              <label className="mt-2 block text-xs text-slate-500">
+                Calculate using
+                <select
+                  className={fieldControlClass}
+                  value={colorStatistic}
+                  onChange={(event) => setColorStatistic(event.target.value as MapColorStatistic)}
+                >
+                  <option value="median">Median</option>
+                  <option value="mean">Mean</option>
+                </select>
+              </label>
+            ) : null}
+          </div>
+          <div className="mt-1 border-t border-white/10 pt-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-500">Cluster marker size</p>
+              <p className="text-xs text-slate-500">Marker size</p>
               <button
                 className="text-xs text-slate-500 hover:text-slate-300 disabled:cursor-default disabled:opacity-40"
                 disabled={

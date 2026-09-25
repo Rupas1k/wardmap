@@ -61,6 +61,8 @@ export default function Workspace({
       showUnclustered,
       visionTechnique,
       clusterMarkerSize,
+      colorMode,
+      colorStatistic,
     },
     status: {
       ready,
@@ -82,6 +84,8 @@ export default function Workspace({
       updateUnclusteredVisibility,
       updateVisionTechnique,
       updateClusterMarkerSize,
+      updateColorMode,
+      updateColorStatistic,
       updateClustering,
       replaceClustering,
       saveView,
@@ -365,6 +369,10 @@ export default function Workspace({
               visionTechnique={visionTechnique}
               setVisionTechnique={updateVisionTechnique}
               setClusterMarkerSize={updateClusterMarkerSize}
+              colorMode={colorMode}
+              colorStatistic={colorStatistic}
+              setColorMode={updateColorMode}
+              setColorStatistic={updateColorStatistic}
             />
             <DownloadMapButton
               download={async () => {

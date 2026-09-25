@@ -4,7 +4,6 @@ import type { ClusterFeatureData } from "./features";
 import type { Side } from "../types";
 import { defaultClusterMarkerSize } from "../state/mapState";
 import type { ClusterMarkerSize } from "../state/mapState";
-import { survivalColor } from "../colors";
 
 const defaultFill = new Fill({ color: "rgba(255,255,255, 0.5)" });
 const defaultStroke = new Stroke({ color: "#3399CC", width: 1.25 });
@@ -18,18 +17,8 @@ function featureData(feature: FeatureLike): ClusterFeatureData | null {
   return (feature.get("data") as ClusterFeatureData | undefined) ?? null;
 }
 
-function pointColor(feature: FeatureLike, side: Side): string {
-  const cluster = featureData(feature)?.cluster;
-  const sideData = cluster?.[side];
-
-  if (!sideData || sideData.amount === 0) {
-    return "#64748b";
-  }
-  if (cluster.wards?.length && cluster.wards.every((ward) => !ward.is_obs)) {
-    return "#38bdf8";
-  }
-
-  return survivalColor(sideData.destroyed, sideData.amount);
+function pointColor(feature: FeatureLike): string {
+  return (feature.get("color") as string | undefined) ?? "#64748b";
 }
 
 function pointRadius(feature: FeatureLike, side: Side, markerSize: ClusterMarkerSize): number {
@@ -92,7 +81,7 @@ export default function mainStyle(
     const multiSelection = feature.get("multiSelection") as "full" | "partial" | null;
     const dimmed = Boolean(feature.get("dimmed"));
     const radius = unclustered ? 3.5 : sideData ? pointRadius(feature, side, markerSize) : 4;
-    const color = sideData ? pointColor(feature, side) : "#808080";
+    const color = pointColor(feature);
     const marker = new Style({
       image: new Circle({
         radius,
