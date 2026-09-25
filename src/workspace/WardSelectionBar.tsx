@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { BsChevronDown, BsLink45Deg, BsSlashCircle, BsX } from "react-icons/bs";
-import { locationKey } from "../locations/locationIdentity";
+import { contextIds } from "../state/analysisContext";
+import { locationKey, locationName, locationWards } from "../locations/locationIdentity";
 import { formatGameTime } from "../metrics/wardMetrics";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useMapStore } from "../state/mapState";
+import { selectDisplayedClusterSets } from "../state/workspaceSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
 
 export default function WardSelectionBar({
@@ -12,9 +14,12 @@ export default function WardSelectionBar({
   onManualLocationChanged: (id: string | null) => void;
 }) {
   const [reviewing, setReviewing] = useState(false);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const currentSide = useMapStore((state) => state.currentSide);
   const clearSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
+  const setHoveredMapItem = useMapStore((state) => state.setHoveredMapItem);
+  const clearHover = useMapStore((state) => state.clearHover);
   const selectedCluster = useSelectedCluster();
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
   const clearWardSelection = useWorkspaceStore((state) => state.clearWardSelectionSet);
@@ -23,6 +28,9 @@ export default function WardSelectionBar({
     (state) => state.setPendingLocationReselection,
   );
   const wards = useWorkspaceStore((state) => state.wards);
+  const displayedClusterSets = useWorkspaceStore(selectDisplayedClusterSets);
+  const context = useWorkspaceStore((state) => state.analysisContext);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const mergeWardsIntoManualLocation = useWorkspaceStore(
     (state) => state.mergeWardsIntoManualLocation,
@@ -35,6 +43,55 @@ export default function WardSelectionBar({
 
     return wards.filter((ward) => selected.has(ward.id));
   }, [selectedWardIds, wards]);
+  const selectionGroups = useMemo(() => {
+    const selectedById = new Map(selectedWards.map((ward) => [ward.id, ward]));
+    const { playerId, matchId } = contextIds(context);
+    const clusters = displayedClusterSets?.[currentSide] ?? [];
+    const groups = clusters.flatMap((cluster, index) => {
+      const locationMembers = locationWards(cluster, { side: currentSide, playerId, matchId });
+      const groupWards = locationMembers.flatMap((ward) => {
+        const selected = selectedById.get(ward.id);
+
+        if (!selected) {
+          return [];
+        }
+
+        selectedById.delete(ward.id);
+
+        return [selected];
+      });
+
+      if (groupWards.length === 0) {
+        return [];
+      }
+
+      return [
+        {
+          clusterId: cluster.cluster_id,
+          key: locationKey(cluster, currentSide),
+          label:
+            locationName(cluster, currentSide, locationNames, manualLocations) ??
+            `Location ${index + 1}`,
+          totalWards: locationMembers.length,
+          wards: groupWards,
+        },
+      ];
+    });
+    const unmatched = [...selectedById.values()];
+
+    return unmatched.length > 0
+      ? [
+          ...groups,
+          {
+            clusterId: null,
+            key: "other",
+            label: "Other wards",
+            totalWards: unmatched.length,
+            wards: unmatched,
+          },
+        ]
+      : groups;
+  }, [context, currentSide, displayedClusterSets, locationNames, manualLocations, selectedWards]);
   const selectedManualLocation = selectedCluster?.manual_location_id
     ? (manualLocations.find((location) => location.id === selectedCluster.manual_location_id) ??
       null)
@@ -61,6 +118,7 @@ export default function WardSelectionBar({
   useEffect(() => {
     if (selectedWardIds.length === 0) {
       setReviewing(false);
+      setExpandedGroup(null);
     }
   }, [selectedWardIds.length]);
 
@@ -189,26 +247,77 @@ export default function WardSelectionBar({
         </div>
         {reviewing ? (
           <div className="mt-2 max-h-40 overflow-y-auto border-t border-cyan-300/10 pt-1">
-            {selectedWards.map((ward) => (
-              <div className="flex items-center gap-2 py-1.5" key={ward.id}>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-slate-300">
-                    {ward.player_name ?? "Unknown player"}
-                  </span>
-                  <span className="block truncate text-slate-500 tabular-nums">
-                    Match {ward.match_id} at {formatGameTime(ward.time_placed, true)}
-                  </span>
-                </span>
-                <button
-                  aria-label={`Deselect ward by ${ward.player_name ?? "unknown player"}`}
-                  className="shrink-0 px-1 text-sm text-slate-600 hover:text-slate-200"
-                  type="button"
-                  onClick={() => useWorkspaceStore.getState().toggleWardSelection(ward.id)}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+            {selectionGroups.map((group) => {
+              const expanded = expandedGroup === group.key;
+              const wardIds = group.wards.map((ward) => ward.id);
+
+              return (
+                <div className="border-b border-white/6 last:border-0" key={group.key}>
+                  <div
+                    className="flex items-center gap-2 py-1.5"
+                    onMouseEnter={() => setHoveredMapItem(group.clusterId, null)}
+                    onMouseLeave={clearHover}
+                  >
+                    <button
+                      aria-expanded={expanded}
+                      className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-slate-300 hover:text-white"
+                      type="button"
+                      onClick={() => setExpandedGroup(expanded ? null : group.key)}
+                    >
+                      <BsChevronDown
+                        className={`shrink-0 text-[10px] text-slate-600 transition-transform ${expanded ? "rotate-180" : ""}`}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{group.label}</span>
+                      <span className="shrink-0 text-slate-500 tabular-nums">
+                        {group.wards.length === group.totalWards
+                          ? group.wards.length.toLocaleString()
+                          : `${group.wards.length.toLocaleString()} of ${group.totalWards.toLocaleString()}`}
+                      </span>
+                    </button>
+                    <button
+                      aria-label={`Deselect selected wards from ${group.label}`}
+                      className="shrink-0 rounded-sm p-1 text-sm text-slate-600 hover:bg-white/5 hover:text-slate-200"
+                      title="Deselect these wards"
+                      type="button"
+                      onClick={() => useWorkspaceStore.getState().removeWardsFromSelection(wardIds)}
+                    >
+                      <BsX />
+                    </button>
+                  </div>
+                  {expanded ? (
+                    <div className="ml-3 border-l border-white/8 pl-3">
+                      {group.wards.map((ward) => (
+                        <div
+                          className="flex items-center gap-2 py-1.5"
+                          key={ward.id}
+                          onMouseEnter={() => setHoveredMapItem(group.clusterId, ward.id)}
+                          onMouseLeave={clearHover}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-slate-400">
+                              {ward.player_name ?? "Unknown player"}
+                            </span>
+                            <span className="block truncate text-slate-600 tabular-nums">
+                              Match {ward.match_id} at {formatGameTime(ward.time_placed, true)}
+                            </span>
+                          </span>
+                          <button
+                            aria-label={`Deselect ward by ${ward.player_name ?? "unknown player"}`}
+                            className="shrink-0 rounded-sm p-1 text-sm text-slate-600 hover:bg-white/5 hover:text-slate-200"
+                            type="button"
+                            onClick={() =>
+                              useWorkspaceStore.getState().removeWardsFromSelection([ward.id])
+                            }
+                          >
+                            <BsX />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         ) : null}
       </div>
