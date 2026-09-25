@@ -96,9 +96,10 @@ export async function readViewFile(file: File): Promise<ImportedView> {
     throw new Error("This is not a valid Wardmap view file");
   }
 
+  const fallbackName = file.name.replace(/\.wardmap\.json$|\.json$/i, "").trim();
+
   return {
-    name:
-      name.slice(0, 80) || file.name.replace(/\.wardmap\.json$|\.json$/i, "") || "Imported view",
+    name: (name || fallbackName || "Imported view").slice(0, 80),
     view,
   };
 }

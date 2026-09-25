@@ -45,6 +45,14 @@ function validWardId(id: number): boolean {
   return Number.isSafeInteger(id) && id > 0;
 }
 
+function locationUndoSnapshot(state: WorkspaceState): LocationChangeUndo {
+  return {
+    excludedWardIds: state.excludedWardIds,
+    hiddenLocationFingerprints: state.hiddenLocationFingerprints,
+    manualLocations: state.manualLocations,
+  };
+}
+
 export interface WorkspaceState {
   leagues: League[];
   draftDataset: DatasetSettings;
@@ -323,11 +331,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       excludedWardIds: [...new Set([...state.excludedWardIds, wardId])],
       locationChangeUndo: state.excludedWardIds.includes(wardId)
         ? state.locationChangeUndo
-        : {
-            excludedWardIds: state.excludedWardIds,
-            hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-            manualLocations: state.manualLocations,
-          },
+        : locationUndoSnapshot(state),
       selectedWardIds: state.selectedWardIds.filter((id) => id !== wardId),
     })),
   excludeWards: (wardIds) =>
@@ -343,13 +347,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       return {
         excludedWardIds: [...new Set([...state.excludedWardIds, ...excluded])],
         locationChangeUndo:
-          excluded.length > 0
-            ? {
-                excludedWardIds: state.excludedWardIds,
-                hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-                manualLocations: state.manualLocations,
-              }
-            : state.locationChangeUndo,
+          excluded.length > 0 ? locationUndoSnapshot(state) : state.locationChangeUndo,
         selectedWardIds: [],
       };
     }),
@@ -369,11 +367,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
     set((state) => ({
       excludedWardIds: state.excludedWardIds.filter((id) => id !== wardId),
       locationChangeUndo: state.excludedWardIds.includes(wardId)
-        ? {
-            excludedWardIds: state.excludedWardIds,
-            hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-            manualLocations: state.manualLocations,
-          }
+        ? locationUndoSnapshot(state)
         : state.locationChangeUndo,
     })),
   restoreWards: (wardIds) =>
@@ -386,11 +380,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
 
       return {
         excludedWardIds: state.excludedWardIds.filter((id) => !restored.has(id)),
-        locationChangeUndo: {
-          excludedWardIds: state.excludedWardIds,
-          hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-          manualLocations: state.manualLocations,
-        },
+        locationChangeUndo: locationUndoSnapshot(state),
       };
     }),
   hideLocation: (fingerprint) =>
@@ -398,11 +388,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       hiddenLocationFingerprints: [...new Set([...state.hiddenLocationFingerprints, fingerprint])],
       locationChangeUndo: state.hiddenLocationFingerprints.includes(fingerprint)
         ? state.locationChangeUndo
-        : {
-            excludedWardIds: state.excludedWardIds,
-            hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-            manualLocations: state.manualLocations,
-          },
+        : locationUndoSnapshot(state),
     })),
   restoreLocation: (fingerprint) =>
     set((state) => ({
@@ -410,11 +396,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         (candidate) => candidate !== fingerprint,
       ),
       locationChangeUndo: state.hiddenLocationFingerprints.includes(fingerprint)
-        ? {
-            excludedWardIds: state.excludedWardIds,
-            hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-            manualLocations: state.manualLocations,
-          }
+        ? locationUndoSnapshot(state)
         : state.locationChangeUndo,
     })),
   restoreLocations: (fingerprints) =>
@@ -433,11 +415,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         hiddenLocationFingerprints: state.hiddenLocationFingerprints.filter(
           (fingerprint) => !restored.has(fingerprint),
         ),
-        locationChangeUndo: {
-          excludedWardIds: state.excludedWardIds,
-          hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-          manualLocations: state.manualLocations,
-        },
+        locationChangeUndo: locationUndoSnapshot(state),
       };
     }),
   setLocationName: (fingerprint, name) =>
@@ -516,11 +494,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
 
       return {
         manualLocations: [...remainingLocations, mergedLocation],
-        locationChangeUndo: {
-          excludedWardIds: state.excludedWardIds,
-          hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-          manualLocations: state.manualLocations,
-        },
+        locationChangeUndo: locationUndoSnapshot(state),
         selectedWardIds: [],
       };
     });
@@ -556,11 +530,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
             : state.manualLocations.map((candidate) =>
                 candidate.id === id ? { ...candidate, wardIds: remainingIds } : candidate,
               ),
-        locationChangeUndo: {
-          excludedWardIds: state.excludedWardIds,
-          hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-          manualLocations: state.manualLocations,
-        },
+        locationChangeUndo: locationUndoSnapshot(state),
         selectedWardIds: [],
       };
     });
@@ -575,11 +545,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
         ? state
         : {
             manualLocations,
-            locationChangeUndo: {
-              excludedWardIds: state.excludedWardIds,
-              hiddenLocationFingerprints: state.hiddenLocationFingerprints,
-              manualLocations: state.manualLocations,
-            },
+            locationChangeUndo: locationUndoSnapshot(state),
           };
     }),
   setManualLocationName: (id, name) =>
