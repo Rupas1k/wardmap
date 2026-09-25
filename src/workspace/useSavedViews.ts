@@ -88,7 +88,6 @@ export default function useSavedViews({
   const { clusterMarkerSize, setClusteringSettings, setClusterMarkerSize, setVisionTechnique } =
     useWorkspaceMapSettings();
   const currentSide = useMapStore((state) => state.currentSide);
-  const camera = useMapStore((state) => state.camera);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const selectedWardId = useMapStore((state) => state.selectedWardId);
   const expandedClusterIds = useMapStore((state) => state.expandedClusterIds);
@@ -145,11 +144,9 @@ export default function useSavedViews({
       map: {
         side: currentSide,
         markerSize: clusterMarkerSize,
-        camera,
       },
     };
   }, [
-    camera,
     clusterMarkerSize,
     clusteringEnabled,
     clusteringSettings,

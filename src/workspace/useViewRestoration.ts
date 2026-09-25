@@ -73,7 +73,6 @@ export default function useViewRestoration() {
 
   function restorePresentation(state: ViewState) {
     const workspace = useWorkspaceStore.getState();
-    const map = useMapStore.getState();
 
     workspace.setLocationSort(state.browse.locationSort);
     workspace.setLocationSortDirection(state.browse.locationSortDirection);
@@ -83,10 +82,6 @@ export default function useViewRestoration() {
     workspace.setContextOrigin(state.context.origin);
     workspace.setContextRefinement(state.context.refinement);
     setCurrentSide(state.map.side);
-
-    if (state.map.camera) {
-      map.restoreCamera(state.map.camera);
-    }
 
     pendingView.current = state;
   }

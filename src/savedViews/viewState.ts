@@ -34,10 +34,6 @@ export interface ViewState {
   map: {
     side: Side;
     markerSize: ClusterMarkerSize;
-    camera: {
-      center: [number, number];
-      zoom: number;
-    } | null;
   };
 }
 
@@ -95,7 +91,6 @@ export function normalizeViewState(value: unknown): ViewState | null {
   const context = normalizeContext(candidate.context, legacyContext);
   const browse = normalizeBrowse(candidate.browse);
   const selection = normalizeSelection(candidate.selection);
-  const camera = normalizeCamera(map.camera);
 
   return {
     workspace: normalizedWorkspace(workspace),
@@ -105,7 +100,6 @@ export function normalizeViewState(value: unknown): ViewState | null {
     map: {
       side: map.side,
       markerSize,
-      camera,
     },
   };
 }
@@ -128,7 +122,6 @@ export function normalizeSavedViewState(value: unknown): ViewState | null {
     map: {
       side: value.dataset.side,
       markerSize: defaultClusterMarkerSize,
-      camera: null,
     },
   };
 }
@@ -223,18 +216,4 @@ function normalizeSelection(
       ? [...new Set(value.expandedLocationKeys.filter((key) => typeof key === "string"))]
       : [],
   };
-}
-
-function normalizeCamera(value: ViewState["map"]["camera"] | undefined) {
-  if (
-    !value ||
-    !Array.isArray(value.center) ||
-    value.center.length !== 2 ||
-    !value.center.every(Number.isFinite) ||
-    !Number.isFinite(value.zoom)
-  ) {
-    return null;
-  }
-
-  return { center: [value.center[0], value.center[1]] as [number, number], zoom: value.zoom };
 }
