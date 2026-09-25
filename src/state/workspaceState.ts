@@ -124,6 +124,8 @@ export interface WorkspaceState {
   setWardSort: (sort: WardSort) => void;
   toggleWardSelection: (wardId: number) => void;
   toggleWardSelectionGroup: (wardIds: number[]) => void;
+  addWardsToSelection: (wardIds: number[]) => void;
+  removeWardsFromSelection: (wardIds: number[]) => void;
   clearWardSelectionSet: () => void;
   excludeWard: (wardId: number) => void;
   excludeWards: (wardIds: number[]) => void;
@@ -324,6 +326,26 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
       }
 
       return { selectedWardIds: [...new Set([...state.selectedWardIds, ...group])] };
+    }),
+  addWardsToSelection: (wardIds) =>
+    set((state) => {
+      const available = new Set(state.wards.map((ward) => ward.id));
+      const excluded = new Set(state.excludedWardIds);
+      const additions = wardIds.filter(
+        (id) => validWardId(id) && available.has(id) && !excluded.has(id),
+      );
+
+      return additions.length > 0
+        ? { selectedWardIds: [...new Set([...state.selectedWardIds, ...additions])] }
+        : state;
+    }),
+  removeWardsFromSelection: (wardIds) =>
+    set((state) => {
+      const removed = new Set(wardIds.filter(validWardId));
+
+      return removed.size > 0
+        ? { selectedWardIds: state.selectedWardIds.filter((id) => !removed.has(id)) }
+        : state;
     }),
   clearWardSelectionSet: () => set({ selectedWardIds: [] }),
   excludeWard: (wardId) =>

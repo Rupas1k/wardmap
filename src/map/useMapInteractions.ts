@@ -1,4 +1,5 @@
 import type MapBrowserEvent from "ol/MapBrowserEvent";
+import DragBox from "ol/interaction/DragBox";
 import { useEffect, useRef, useState } from "react";
 import { contextIds } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
@@ -52,8 +53,17 @@ export default function useMapInteractions({
 
     const targetElement = mapElement.current;
     const map = createMap(targetElement);
+    const wardSelectionBox = new DragBox({
+      className: "ward-selection-box",
+      condition: (event) => {
+        const originalEvent = event.originalEvent;
+
+        return "shiftKey" in originalEvent && Boolean(originalEvent.shiftKey);
+      },
+    });
 
     mapInstance.current = map;
+    map.addInteraction(wardSelectionBox);
 
     const resizeObserver = new ResizeObserver(() => map.updateSize());
     resizeObserver.observe(targetElement);
@@ -372,6 +382,35 @@ export default function useMapInteractions({
       useMapStore.getState().setCamera({ center: [center[0]!, center[1]!], zoom });
     }
 
+    function selectWardsInBox(event: { mapBrowserEvent: MapBrowserEvent }) {
+      const extent = wardSelectionBox.getGeometry().getExtent();
+      const mapState = useMapStore.getState();
+      const workspaceState = useWorkspaceStore.getState();
+      const { playerId, matchId } = contextIds(workspaceState.analysisContext);
+      const wardIds = new Set<number>();
+
+      layers.wards.getSource()!.forEachFeatureInExtent(extent, (feature) => {
+        const cluster = getClusterFeatureData(feature as ClusterFeature).cluster;
+
+        locationWards(cluster, { side: mapState.currentSide, playerId, matchId }).forEach((ward) =>
+          wardIds.add(ward.id),
+        );
+      });
+      layers.wardDetails.getSource()!.forEachFeatureInExtent(extent, (feature) => {
+        wardIds.add(getWardFeatureData(feature as WardFeature).ward.id);
+      });
+
+      const originalEvent = event.mapBrowserEvent.originalEvent;
+      const removing = "altKey" in originalEvent && Boolean(originalEvent.altKey);
+
+      if (removing) {
+        workspaceState.removeWardsFromSelection([...wardIds]);
+      } else {
+        workspaceState.addWardsToSelection([...wardIds]);
+      }
+    }
+
+    wardSelectionBox.on("boxend", selectWardsInBox);
     map.on("click", handleClick);
     map.on("pointermove", handlePointerMove);
     map.on("moveend", handleMoveEnd);
@@ -381,6 +420,8 @@ export default function useMapInteractions({
     return () => {
       window.cancelAnimationFrame(updateSizeFrame);
       resizeObserver.disconnect();
+      wardSelectionBox.un("boxend", selectWardsInBox);
+      map.removeInteraction(wardSelectionBox);
       map.un("click", handleClick);
       map.un("pointermove", handlePointerMove);
       map.un("moveend", handleMoveEnd);

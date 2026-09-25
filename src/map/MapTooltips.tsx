@@ -132,7 +132,7 @@ export function ClusterTooltip({ cluster, locationNumber, side, x, y }: ClusterT
         <p className="text-slate-500">No data for this side</p>
       )}
       <p className="mt-3 border-t border-white/10 pt-2 text-xs text-slate-500">
-        Shift-click to select wards
+        Shift-click to select. Shift-drag adds an area. Shift+Alt-drag removes it.
       </p>
     </div>
   );
