@@ -325,7 +325,7 @@ export default function Workspace({
                   updateUnclusteredVisibility(false);
                 }}
               >
-                {controlTab === "filters" ? "Reset filters" : "Reset grouping"}
+                Reset
               </button>
               <button
                 className="min-w-0 flex-1 rounded-sm bg-slate-200 px-3 py-2 text-xs font-medium text-slate-950 hover:bg-white disabled:bg-slate-700 disabled:text-slate-400"
