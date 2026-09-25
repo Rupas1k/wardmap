@@ -251,6 +251,25 @@ export async function persistSavedView(
   });
 }
 
+export async function persistImportedView(
+  key: string,
+  name: string,
+  settings: ViewState,
+): Promise<void> {
+  await saveAnalysis({
+    key,
+    kind: "saved",
+    name,
+    savedAt: Date.now(),
+    leagueId:
+      settings.workspace.dataset.leagueIds.length === 1
+        ? settings.workspace.dataset.leagueIds[0]!
+        : null,
+    settings,
+    wards: [],
+  });
+}
+
 export async function deleteWorkspaceView(key: string): Promise<void> {
   await deleteAnalysis(key);
 }

@@ -10,15 +10,11 @@ import { FloatingIconButton, SwitchNav } from "../components/ui";
 import { defaultDataset } from "../dataset/model";
 import useWorkspaceController from "./useWorkspaceController";
 import SavedViewControls from "../savedViews/SavedViewControls";
-import SharedViewLoader from "../savedViews/SharedViewLoader";
 import GroupingControls from "../clustering/GroupingControls";
 import { buildEmptyClusterSets } from "../clustering/buildClusters";
 import { defaultClusteringSettings, useMapStore } from "../state/mapState";
-import { sharedViewUrl } from "../savedViews/sharedView";
-import type { StoredAnalysis } from "../indexedDb";
 import { useWorkspaceStore } from "../state/workspaceState";
 import { fallbackMapVersion } from "../map/constants";
-import type { ViewState } from "../savedViews/viewState";
 
 const WorkspaceInspector = lazy(() => import("./WorkspaceInspector"));
 const emptyClusterSets = buildEmptyClusterSets();
@@ -43,7 +39,6 @@ export default function Workspace({
   const mapView = useRef<MapViewHandle>(null);
   const [controlTab, setControlTab] = useState<ControlTab>("filters");
   const currentSide = useMapStore((state) => state.currentSide);
-  const setWorkspaceError = useWorkspaceStore((state) => state.setError);
   const {
     data: {
       leagues,
@@ -90,7 +85,8 @@ export default function Workspace({
       updateClustering,
       replaceClustering,
       saveView,
-      applySharedView,
+      exportView,
+      importView,
       restoreView,
       revertView,
       renameView,
@@ -135,21 +131,6 @@ export default function Workspace({
       .sort((left, right) => right.version - left.version)[0] ?? defaultLeague;
   const mapVersion = mapLeague?.version ?? fallbackMapVersion;
   const displayedError = leagueError ?? error;
-
-  async function shareView(savedView: StoredAnalysis<ViewState>) {
-    const url = sharedViewUrl(savedView.settings);
-
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-      } else {
-        window.prompt("Copy this link", url);
-      }
-    } catch {
-      window.prompt("Unable to access the clipboard. Copy this link manually:", url);
-      setWorkspaceError("The share link could not be copied automatically");
-    }
-  }
 
   useEffect(() => {
     const undoLocationChange = (event: KeyboardEvent) => {
@@ -197,7 +178,6 @@ export default function Workspace({
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-950 xl:h-screen xl:min-h-0">
-      {defaultLeague ? <SharedViewLoader apply={applySharedView} /> : null}
       <div className={`grid min-h-0 flex-1 grid-cols-1 ${layoutClass}`}>
         <aside
           className={`${controlsOpen ? "flex" : "hidden"} min-h-0 flex-col border-r border-white/10 bg-slate-900`}
@@ -365,6 +345,8 @@ export default function Workspace({
                 activeView={activeView}
                 deletedView={deletedView}
                 disabled={!clusterSets}
+                exportView={exportView}
+                importView={importView}
                 modified={viewModified}
                 remove={removeView}
                 rename={renameView}
@@ -372,7 +354,6 @@ export default function Workspace({
                 restore={restoreView}
                 revert={revertView}
                 save={saveView}
-                share={shareView}
                 update={updateView}
                 undoRemove={undoRemoveView}
                 views={savedViews}

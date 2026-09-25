@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BsCheck2, BsLink45Deg, BsPencil, BsTrash } from "react-icons/bs";
+import { useRef, useState } from "react";
+import { BsCheck2, BsDownload, BsPencil, BsTrash, BsUpload } from "react-icons/bs";
 import { fieldControlClass } from "../components/ui";
 import type { StoredAnalysis } from "../indexedDb";
 import type { ViewState } from "./viewState";
@@ -10,6 +10,8 @@ interface SavedViewControlsProps {
   activeView: SavedView | null;
   deletedView: SavedView | null;
   disabled: boolean;
+  exportView: (view: SavedView) => void;
+  importView: (file: File) => Promise<boolean>;
   modified: boolean;
   remove: (view: SavedView) => Promise<void>;
   rename: (view: SavedView, name: string) => Promise<boolean>;
@@ -17,7 +19,6 @@ interface SavedViewControlsProps {
   restore: (key: string) => void;
   revert: () => void;
   save: (name: string) => Promise<boolean>;
-  share: (view: SavedView) => Promise<void>;
   undoRemove: () => Promise<void>;
   update: () => Promise<boolean>;
   views: SavedView[];
@@ -27,6 +28,8 @@ export default function SavedViewControls({
   activeView,
   deletedView,
   disabled,
+  exportView,
+  importView,
   modified,
   remove,
   rename,
@@ -34,7 +37,6 @@ export default function SavedViewControls({
   restore,
   revert,
   save,
-  share,
   undoRemove,
   update,
   views,
@@ -44,6 +46,7 @@ export default function SavedViewControls({
   const [pending, setPending] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const importInput = useRef<HTMLInputElement>(null);
 
   function openView(view: SavedView) {
     restore(view.key);
@@ -57,14 +60,40 @@ export default function SavedViewControls({
     <div className="text-xs">
       <div className="flex items-center justify-between gap-3">
         <p className="font-medium text-slate-300">Saved views</p>
-        <button
-          className="py-1 text-cyan-300 hover:text-cyan-200 disabled:cursor-not-allowed disabled:text-slate-600"
-          disabled={disabled}
-          type="button"
-          onClick={() => setCreating(true)}
-        >
-          Save new
-        </button>
+        <div className="flex items-center gap-1">
+          <input
+            ref={importInput}
+            accept="application/json,.json"
+            className="hidden"
+            type="file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+
+              if (file) {
+                void importView(file).finally(() => {
+                  event.target.value = "";
+                });
+              }
+            }}
+          />
+          <button
+            aria-label="Import view"
+            className="p-1.5 text-sm text-slate-500 hover:text-white"
+            title="Import view"
+            type="button"
+            onClick={() => importInput.current?.click()}
+          >
+            <BsUpload />
+          </button>
+          <button
+            className="py-1 pl-1 text-cyan-300 hover:text-cyan-200 disabled:cursor-not-allowed disabled:text-slate-600"
+            disabled={disabled}
+            type="button"
+            onClick={() => setCreating(true)}
+          >
+            Save new
+          </button>
+        </div>
       </div>
 
       {creating ? (
@@ -103,7 +132,15 @@ export default function SavedViewControls({
                     </span>
                     <span className="truncate">{view.name}</span>
                   </button>
-                  <ShareViewButton share={() => share(view)} />
+                  <button
+                    aria-label={`Export ${view.name}`}
+                    className="p-2 text-sm text-slate-600 hover:text-white"
+                    title="Export"
+                    type="button"
+                    onClick={() => exportView(view)}
+                  >
+                    <BsDownload />
+                  </button>
                   <button
                     aria-label={`Rename ${view.name}`}
                     className="p-2 text-sm text-slate-600 hover:text-white"
@@ -279,27 +316,6 @@ function RenameViewForm({
         </button>
       </div>
     </form>
-  );
-}
-
-function ShareViewButton({ share }: { share: () => Promise<void> }) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <button
-      aria-label="Copy share link"
-      className={`p-2 text-sm ${copied ? "text-cyan-300" : "text-slate-600 hover:text-white"}`}
-      title={copied ? "Link copied" : "Copy share link"}
-      type="button"
-      onClick={() => {
-        void share().then(() => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1600);
-        });
-      }}
-    >
-      {copied ? <BsCheck2 /> : <BsLink45Deg />}
-    </button>
   );
 }
 

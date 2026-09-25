@@ -5,6 +5,7 @@ import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
 import {
   clusterDataVersion,
   deleteWorkspaceView,
+  persistImportedView,
   persistSavedView,
   renameWorkspaceView,
   restoreWorkspaceView,
@@ -14,9 +15,9 @@ import {
 } from "../dataset/storage";
 import type { StoredAnalysis } from "../indexedDb";
 import { getSetting, setSetting } from "../indexedDb";
-import type { SharedView } from "../savedViews/sharedView";
 import { autoViewSettingKey } from "../savedViews/viewState";
 import type { ViewState } from "../savedViews/viewState";
+import { downloadViewFile, readViewFile } from "../savedViews/viewFile";
 import { locationKey } from "../locations/locationIdentity";
 import {
   defaultClusteringSettings,
@@ -331,7 +332,7 @@ export default function useSavedViews({
     }
   }
 
-  async function applySharedView(view: SharedView) {
+  async function applyViewState(view: ViewState, activeKey: string | null) {
     if (!defaultLeague) {
       setError("Unable to load leagues");
 
@@ -353,10 +354,37 @@ export default function useSavedViews({
       settings.manualLocations ?? [],
     );
     setClusterMarkerSize(view.map.markerSize);
-    selectActiveView(null);
+    selectActiveView(activeKey);
 
     await loadDataset(dataset, false);
     restoreAnalysisState(view);
+  }
+
+  function exportView(view: StoredAnalysis<ViewState>) {
+    downloadViewFile(
+      view.name,
+      view.settings,
+      view.wards,
+      view.clusterSets,
+      view.leagueFreshness ?? null,
+    );
+  }
+
+  async function importView(file: File): Promise<boolean> {
+    try {
+      const imported = await readViewFile(file);
+      const key = `workspace:saved:${Date.now()}`;
+
+      await persistImportedView(key, imported.name, imported.view);
+      setSavedViews(await savedWorkspaceViews());
+      await applyViewState(imported.view, key);
+
+      return true;
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to import view");
+
+      return false;
+    }
   }
 
   async function resetCurrentView() {
@@ -408,7 +436,13 @@ export default function useSavedViews({
 
     const view = savedViews.find((candidate) => candidate.key === key);
 
-    if (!view?.clusterSets || !isClusterSets(view.clusterSets)) {
+    if (!view) {
+      return;
+    }
+
+    if (!view.clusterSets || !isClusterSets(view.clusterSets)) {
+      void applyViewState(view.settings, view.key);
+
       return;
     }
 
@@ -533,8 +567,9 @@ export default function useSavedViews({
 
   return {
     activeView,
-    applySharedView,
     deletedView,
+    exportView,
+    importView,
     removeView,
     renameView,
     resetCurrentView,

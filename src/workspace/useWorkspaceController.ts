@@ -113,8 +113,9 @@ export default function useWorkspaceController() {
 
   const {
     activeView,
-    applySharedView,
     deletedView,
+    exportView,
+    importView,
     removeView,
     renameView,
     resetCurrentView,
@@ -184,7 +185,8 @@ export default function useWorkspaceController() {
       updateClustering,
       replaceClustering,
       saveView,
-      applySharedView,
+      exportView,
+      importView,
       restoreView,
       revertView,
       renameView,
