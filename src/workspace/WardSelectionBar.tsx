@@ -19,10 +19,6 @@ export default function WardSelectionBar({
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
   const clearWardSelection = useWorkspaceStore((state) => state.clearWardSelectionSet);
   const excludeWards = useWorkspaceStore((state) => state.excludeWards);
-  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
-  const locationChangeUndo = useWorkspaceStore((state) => state.locationChangeUndo);
-  const undoLocationChange = useWorkspaceStore((state) => state.undoLocationChange);
-  const dismissLocationChange = useWorkspaceStore((state) => state.dismissLocationChange);
   const setPendingLocationReselection = useWorkspaceStore(
     (state) => state.setPendingLocationReselection,
   );
@@ -67,16 +63,6 @@ export default function WardSelectionBar({
       setReviewing(false);
     }
   }, [selectedWardIds.length]);
-
-  useEffect(() => {
-    if (!locationChangeUndo) {
-      return;
-    }
-
-    const timeout = window.setTimeout(dismissLocationChange, 6000);
-
-    return () => window.clearTimeout(timeout);
-  }, [dismissLocationChange, locationChangeUndo]);
 
   useEffect(() => {
     if (selectedWardIds.length === 0) {
@@ -143,33 +129,6 @@ export default function WardSelectionBar({
 
     clearExpandedClusters();
     excludeWards(selectedWardIds);
-  }
-
-  function undoChange() {
-    if (!locationChangeUndo) {
-      return;
-    }
-
-    const previous = new Set(locationChangeUndo.excludedWardIds);
-    const current = new Set(excludedWardIds);
-    const changedWardIds = [...new Set([...previous, ...current])].filter(
-      (id) => previous.has(id) !== current.has(id),
-    );
-    const currentWardIds = selectedCluster?.wards?.map((ward) => ward.id) ?? [];
-    const restoresWards = changedWardIds.some((id) => current.has(id) && !previous.has(id));
-
-    if (changedWardIds.length > 0) {
-      setPendingLocationReselection({
-        changedWardIds,
-        kind: restoresWards ? "restore" : "exclude",
-        sourceFingerprint: selectedCluster ? locationKey(selectedCluster, currentSide) : null,
-        wardIds: restoresWards
-          ? [...new Set([...currentWardIds, ...changedWardIds])]
-          : currentWardIds.filter((id) => !changedWardIds.includes(id)),
-      });
-    }
-
-    undoLocationChange();
   }
 
   if (selectedWardIds.length > 0) {
@@ -256,24 +215,5 @@ export default function WardSelectionBar({
     );
   }
 
-  if (!locationChangeUndo) {
-    return null;
-  }
-
-  return (
-    <div className="-mx-4 mt-2 flex items-center gap-3 border-t border-white/8 bg-white/[0.02] px-4 py-2 text-xs">
-      <span className="min-w-0 flex-1 truncate text-slate-400">{locationChangeUndo.message}</span>
-      <button className="text-cyan-400 hover:text-cyan-200" type="button" onClick={undoChange}>
-        Undo
-      </button>
-      <button
-        aria-label="Dismiss undo"
-        className="px-1 text-sm leading-none text-slate-600 hover:text-slate-300"
-        type="button"
-        onClick={dismissLocationChange}
-      >
-        ×
-      </button>
-    </div>
-  );
+  return null;
 }

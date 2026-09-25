@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { BsGithub, BsLayoutSidebarInsetReverse, BsSliders } from "react-icons/bs";
 import AccessKey from "../components/AccessKey";
 import DatasetControls from "../dataset/DatasetControls";
@@ -150,6 +150,41 @@ export default function Workspace({
       setWorkspaceError("The share link could not be copied automatically");
     }
   }
+
+  useEffect(() => {
+    const undoLocationChange = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== "z" ||
+        (!event.ctrlKey && !event.metaKey) ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+
+      if (
+        target instanceof Element &&
+        target.closest("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+
+      const workspace = useWorkspaceStore.getState();
+
+      if (!workspace.locationChangeUndo) {
+        return;
+      }
+
+      event.preventDefault();
+      workspace.undoLocationChange();
+    };
+
+    window.addEventListener("keydown", undoLocationChange);
+
+    return () => window.removeEventListener("keydown", undoLocationChange);
+  }, []);
 
   const layoutClass =
     controlsOpen && inspectorOpen
