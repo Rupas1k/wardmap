@@ -5,6 +5,8 @@ import type { ClusterSets, Ward } from "../types";
 import clusterWards from "./clusterWards";
 import type { DatasetSettings, WorkspaceSettings } from "../dataset/model";
 import { persistWorkspace, withStorageVersion } from "../dataset/storage";
+import { useWorkspaceStore } from "../state/workspaceState";
+import { manualLocationMembershipKey } from "../locations/manualLocations";
 
 interface BooleanRef {
   current: boolean;
@@ -12,6 +14,7 @@ interface BooleanRef {
 
 export default function useClusteringLifecycle({
   clusterSets,
+  clusteringWards,
   clustering,
   clusteringEnabled,
   clusteringSettings,
@@ -28,6 +31,7 @@ export default function useClusteringLifecycle({
   wards,
 }: {
   clusterSets: ClusterSets | null;
+  clusteringWards: Ward[];
   clustering: boolean;
   clusteringEnabled: boolean;
   clusteringSettings: ClusteringSettings;
@@ -43,6 +47,13 @@ export default function useClusteringLifecycle({
   visionTechnique: WorkspaceSettings["visionTechnique"];
   wards: Ward[];
 }) {
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
+  const manualMembershipKey = useWorkspaceStore((state) =>
+    manualLocationMembershipKey(state.manualLocations),
+  );
   const run = useRef(0);
   const request = useRef<AbortController | null>(null);
   const persistedSession = useRef<{
@@ -75,10 +86,11 @@ export default function useClusteringLifecycle({
     setError(null);
 
     void clusterWards(
-      wards,
+      clusteringWards,
       clusteringSettings,
       clusteringEnabled,
       groupByGridCell,
+      useWorkspaceStore.getState().manualLocations,
       controller.signal,
     )
       .then((nextClusterSets) => {
@@ -105,9 +117,11 @@ export default function useClusteringLifecycle({
   }, [
     clusteringEnabled,
     clusteringSettings,
+    clusteringWards,
     clustersMatchSettings,
     groupByGridCell,
     loadedDataset,
+    manualMembershipKey,
     restoredClusters,
     setClustering,
     setClusterSets,
@@ -126,6 +140,10 @@ export default function useClusteringLifecycle({
       clusteringEnabled,
       groupByGridCell,
       showUnclustered,
+      excludedWardIds,
+      hiddenLocationFingerprints,
+      locationNames,
+      manualLocations,
       visionTechnique,
     });
     const signature = JSON.stringify(settings);
@@ -167,9 +185,13 @@ export default function useClusteringLifecycle({
     clusteringEnabled,
     clusteringSettings,
     clustersMatchSettings,
+    excludedWardIds,
     groupByGridCell,
+    hiddenLocationFingerprints,
     loadedDataset,
     loadedLeagueFreshness,
+    locationNames,
+    manualLocations,
     setError,
     showUnclustered,
     visionTechnique,

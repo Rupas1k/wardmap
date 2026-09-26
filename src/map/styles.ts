@@ -4,7 +4,6 @@ import type { ClusterFeatureData } from "./features";
 import type { Side } from "../types";
 import { defaultClusterMarkerSize } from "../state/mapState";
 import type { ClusterMarkerSize } from "../state/mapState";
-import { survivalColor } from "../colors";
 
 const defaultFill = new Fill({ color: "rgba(255,255,255, 0.5)" });
 const defaultStroke = new Stroke({ color: "#3399CC", width: 1.25 });
@@ -18,18 +17,8 @@ function featureData(feature: FeatureLike): ClusterFeatureData | null {
   return (feature.get("data") as ClusterFeatureData | undefined) ?? null;
 }
 
-function pointColor(feature: FeatureLike, side: Side): string {
-  const cluster = featureData(feature)?.cluster;
-  const sideData = cluster?.[side];
-
-  if (!sideData || sideData.amount === 0) {
-    return "#64748b";
-  }
-  if (cluster.wards?.length && cluster.wards.every((ward) => !ward.is_obs)) {
-    return "#38bdf8";
-  }
-
-  return survivalColor(sideData.destroyed, sideData.amount);
+function pointColor(feature: FeatureLike): string {
+  return (feature.get("color") as string | undefined) ?? "#64748b";
 }
 
 function pointRadius(feature: FeatureLike, side: Side, markerSize: ClusterMarkerSize): number {
@@ -87,33 +76,46 @@ export default function mainStyle(
     const cluster = featureData(feature)?.cluster;
     const sideData = cluster?.[side];
     const unclustered = cluster?.unclustered === true;
+    const hovered = Boolean(feature.get("hovered"));
     const selected = Boolean(feature.get("selected"));
+    const multiSelection = feature.get("multiSelection") as "full" | "partial" | null;
     const dimmed = Boolean(feature.get("dimmed"));
     const radius = unclustered ? 3.5 : sideData ? pointRadius(feature, side, markerSize) : 4;
-    const color = sideData ? pointColor(feature, side) : "#808080";
+    const color = pointColor(feature);
     const marker = new Style({
       image: new Circle({
         radius,
-        fill: new Fill({ color: dimmed ? colorWithAlpha(color, 0.24) : color }),
+        fill: new Fill({ color: dimmed && !hovered ? colorWithAlpha(color, 0.24) : color }),
         stroke: new Stroke({
           width: selected ? 2 : unclustered ? 1 : 1.5,
-          color: dimmed ? "rgba(2, 6, 23, 0.45)" : "#020617",
+          color: dimmed && !hovered ? "rgba(2, 6, 23, 0.45)" : "#020617",
         }),
       }),
-      zIndex: selected ? 21 : dimmed ? 5 : 10,
+      zIndex: selected ? 21 : hovered ? 19 : dimmed ? 5 : 10,
     });
 
-    if (!selected) {
+    if (!selected && !hovered && !multiSelection) {
       return marker;
     }
 
     const halo = new Style({
       image: new Circle({
         radius: radius + 4,
-        fill: new Fill({ color: "rgba(14, 165, 233, 0.12)" }),
-        stroke: new Stroke({ color: "rgba(224, 242, 254, 0.95)", width: 2.25 }),
+        fill: new Fill({
+          color:
+            selected || multiSelection === "full"
+              ? "rgba(14, 165, 233, 0.12)"
+              : "rgba(34, 211, 238, 0.1)",
+        }),
+        stroke: new Stroke({
+          color:
+            selected || multiSelection === "full"
+              ? "rgba(103, 232, 249, 0.95)"
+              : "rgba(103, 232, 249, 0.55)",
+          width: selected || multiSelection === "full" ? 2.25 : 2,
+        }),
       }),
-      zIndex: 20,
+      zIndex: selected || multiSelection === "full" ? 20 : 18,
     });
 
     return [halo, marker];

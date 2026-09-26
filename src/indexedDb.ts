@@ -1,4 +1,4 @@
-import type { ClusterSets, Ward } from "./types";
+import type { ClusterSets, Ward, WardPopulation } from "./types";
 
 const databaseName = "dota2wardmap";
 const databaseVersion = 3;
@@ -15,6 +15,7 @@ export interface StoredAnalysis<TSettings = unknown> {
   wards: Ward[];
   clusterSets?: ClusterSets;
   leagueFreshness?: LeagueFreshness;
+  population?: WardPopulation;
 }
 
 export interface LeagueFreshnessEntry {

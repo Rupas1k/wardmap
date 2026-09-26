@@ -5,6 +5,7 @@ import type { Cluster, ClusterWard } from "../types";
 export interface ClusterFeatureData {
   cluster: Cluster;
   coordinates: [number, number, number];
+  locationNumber: number;
 }
 
 export interface WardFeatureData {

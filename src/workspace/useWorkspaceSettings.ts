@@ -1,14 +1,16 @@
 import { useEffect } from "react";
-import { getSetting, listAnalyses, setSetting } from "../indexedDb";
-import type { StoredAnalysis } from "../indexedDb";
+import { getSetting, setSetting } from "../indexedDb";
+import { savedWorkspaceViews } from "../dataset/storage";
 import { useWorkspaceMapSettings } from "../state/mapSelectors";
-import type { ClusteringSettings, ClusterMarkerSize } from "../state/mapState";
+import type {
+  ClusteringSettings,
+  ClusterMarkerSize,
+  MapColorMode,
+  MapColorStatistic,
+} from "../state/mapState";
+import { isMapColorMode, isMapColorStatistic } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
-import {
-  isVisionTechnique,
-  isWorkspaceSettings,
-  normalizeClusteringSettings,
-} from "../dataset/model";
+import { isVisionTechnique, normalizeClusteringSettings } from "../dataset/model";
 import type { WorkspaceSettings } from "../dataset/model";
 
 const settingsKeys = {
@@ -18,6 +20,8 @@ const settingsKeys = {
   groupByGridCell: "main-group-by-grid-cell",
   showUnclustered: "main-show-unclustered",
   clusterMarkerSize: "map-cluster-marker-size",
+  colorMode: "map-color-mode",
+  colorStatistic: "map-color-statistic",
   controlsOpen: "workspace-controls-open",
   inspectorOpen: "workspace-inspector-open",
 } as const;
@@ -54,8 +58,12 @@ export default function useWorkspaceSettings() {
     clusteringSettings,
     clusterMarkerSize,
     visionTechnique,
+    colorMode,
+    colorStatistic,
     setClusteringSettings,
     setClusterMarkerSize,
+    setColorMode,
+    setColorStatistic,
     setVisionTechnique,
   } = useWorkspaceMapSettings();
 
@@ -69,9 +77,11 @@ export default function useWorkspaceSettings() {
       getSetting(settingsKeys.groupByGridCell),
       getSetting(settingsKeys.showUnclustered),
       getSetting(settingsKeys.clusterMarkerSize),
+      getSetting(settingsKeys.colorMode),
+      getSetting(settingsKeys.colorStatistic),
       getSetting(settingsKeys.controlsOpen),
       getSetting(settingsKeys.inspectorOpen),
-      listAnalyses("saved"),
+      savedWorkspaceViews(),
     ])
       .then(
         ([
@@ -81,6 +91,8 @@ export default function useWorkspaceSettings() {
           gridCells,
           unclustered,
           markerSize,
+          storedColorMode,
+          storedColorStatistic,
           controls,
           inspector,
           views,
@@ -109,6 +121,12 @@ export default function useWorkspaceSettings() {
           if (isClusterMarkerSize(markerSize)) {
             setClusterMarkerSize(markerSize);
           }
+          if (isMapColorMode(storedColorMode)) {
+            setColorMode(storedColorMode);
+          }
+          if (isMapColorStatistic(storedColorStatistic)) {
+            setColorStatistic(storedColorStatistic);
+          }
           if (typeof controls === "boolean") {
             setControlsOpen(controls);
           }
@@ -116,11 +134,7 @@ export default function useWorkspaceSettings() {
             setInspectorOpen(inspector);
           }
 
-          setSavedViews(
-            views.filter((view): view is StoredAnalysis<WorkspaceSettings> =>
-              isWorkspaceSettings(view.settings),
-            ),
-          );
+          setSavedViews(views);
           setReady(true);
         },
       )
@@ -136,6 +150,8 @@ export default function useWorkspaceSettings() {
     };
   }, [
     setClusterMarkerSize,
+    setColorMode,
+    setColorStatistic,
     setClusteringEnabled,
     setClusteringSettings,
     setError,
@@ -193,6 +209,16 @@ export default function useWorkspaceSettings() {
     persist(settingsKeys.vision, technique);
   }
 
+  function updateColorMode(mode: MapColorMode) {
+    setColorMode(mode);
+    persist(settingsKeys.colorMode, mode);
+  }
+
+  function updateColorStatistic(statistic: MapColorStatistic) {
+    setColorStatistic(statistic);
+    persist(settingsKeys.colorStatistic, statistic);
+  }
+
   function updateClusterMarkerSize(size: ClusterMarkerSize) {
     setClusterMarkerSize(size);
     persist(settingsKeys.clusterMarkerSize, size);
@@ -212,6 +238,8 @@ export default function useWorkspaceSettings() {
     clusteringEnabled,
     clusteringSettings,
     clusterMarkerSize,
+    colorMode,
+    colorStatistic,
     groupByGridCell,
     showUnclustered,
     visionTechnique,
@@ -219,6 +247,8 @@ export default function useWorkspaceSettings() {
     replaceClustering,
     updateClusteringEnabled,
     updateClusterMarkerSize,
+    updateColorMode,
+    updateColorStatistic,
     updateGridCellGrouping,
     updateControlsOpen,
     updateInspectorOpen,

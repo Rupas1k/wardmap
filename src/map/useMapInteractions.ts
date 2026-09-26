@@ -1,4 +1,5 @@
 import type MapBrowserEvent from "ol/MapBrowserEvent";
+import DragBox from "ol/interaction/DragBox";
 import { useEffect, useRef, useState } from "react";
 import { contextIds } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
@@ -10,7 +11,7 @@ import { getClusterFeatureData, getWardFeatureData } from "./features";
 import type { ClusterFeature, WardFeature } from "./features";
 import { createMap } from "./OLMap";
 import layers from "./layers";
-import { visibleWards } from "./useMapLayers";
+import { locationWards } from "../locations/locationIdentity";
 
 interface MapInteractionOptions {
   clearMapLocationSelection: () => void;
@@ -33,7 +34,12 @@ export default function useMapInteractions({
 }: MapInteractionOptions) {
   const mapElement = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<ReturnType<typeof createMap> | null>(null);
-  const [hover, setHover] = useState<{ cluster: Cluster; x: number; y: number } | null>(null);
+  const [hover, setHover] = useState<{
+    cluster: Cluster;
+    locationNumber: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [wardHover, setWardHover] = useState<{
     ward: ClusterWard;
     x: number;
@@ -47,8 +53,17 @@ export default function useMapInteractions({
 
     const targetElement = mapElement.current;
     const map = createMap(targetElement);
+    const wardSelectionBox = new DragBox({
+      className: "ward-selection-box",
+      condition: (event) => {
+        const originalEvent = event.originalEvent;
+
+        return "shiftKey" in originalEvent && Boolean(originalEvent.shiftKey);
+      },
+    });
 
     mapInstance.current = map;
+    map.addInteraction(wardSelectionBox);
 
     const resizeObserver = new ResizeObserver(() => map.updateSize());
     resizeObserver.observe(targetElement);
@@ -70,7 +85,11 @@ export default function useMapInteractions({
           : null;
         const { playerId, matchId } = contextIds(currentContext);
         const singleWardLocation =
-          visibleWards(selectedCluster, mapState.currentSide, playerId, matchId).length <= 1;
+          locationWards(selectedCluster, {
+            side: mapState.currentSide,
+            playerId,
+            matchId,
+          }).length <= 1;
 
         if (singleWardLocation) {
           clearMapLocationSelection();
@@ -146,7 +165,19 @@ export default function useMapInteractions({
       const overlappingSelectedCluster =
         overlappingCluster?.cluster_id === mapState.selectedClusterId;
       const multiWardCluster =
-        visibleWards(overlappingCluster, mapState.currentSide, playerId, matchId).length > 1;
+        locationWards(overlappingCluster, {
+          side: mapState.currentSide,
+          playerId,
+          matchId,
+        }).length > 1;
+      const originalEvent = event.originalEvent;
+      const shiftPressed = "shiftKey" in originalEvent && Boolean(originalEvent.shiftKey);
+
+      if (shiftPressed) {
+        useWorkspaceStore.getState().toggleWardSelection(wardData.ward.id);
+
+        return true;
+      }
 
       if (
         wardData.clusterId === mapState.selectedClusterId &&
@@ -173,13 +204,25 @@ export default function useMapInteractions({
       return true;
     }
 
-    function selectCluster(feature: ClusterFeature): boolean {
+    function selectCluster(feature: ClusterFeature, event: MapBrowserEvent): boolean {
       const cluster = getClusterFeatureData(feature).cluster;
       const selection = useMapStore.getState();
       const currentContext = useWorkspaceStore.getState().analysisContext;
       const origin = currentContext.origin;
       const { playerId, matchId } = contextIds(currentContext);
-      const wards = visibleWards(cluster, selection.currentSide, playerId, matchId);
+      const wards = locationWards(cluster, {
+        side: selection.currentSide,
+        playerId,
+        matchId,
+      });
+      const originalEvent = event.originalEvent;
+      const shiftPressed = "shiftKey" in originalEvent && Boolean(originalEvent.shiftKey);
+
+      if (shiftPressed) {
+        useWorkspaceStore.getState().toggleWardSelectionGroup(wards.map((ward) => ward.id));
+
+        return true;
+      }
 
       if (cluster.cluster_id === selection.selectedClusterId) {
         if (selection.selectedWardId !== null && wards.length > 1) {
@@ -205,6 +248,7 @@ export default function useMapInteractions({
     }
 
     function handleClick(event: MapBrowserEvent) {
+      useMapStore.getState().clearHiddenLocationPreview();
       const wardFeature = wardAt(event);
 
       if (wardFeature && selectWard(wardFeature, event)) {
@@ -213,7 +257,7 @@ export default function useMapInteractions({
 
       const clusterFeature = clusterAt(event);
 
-      if (clusterFeature && selectCluster(clusterFeature)) {
+      if (clusterFeature && selectCluster(clusterFeature, event)) {
         return;
       }
 
@@ -224,6 +268,7 @@ export default function useMapInteractions({
       if (event.dragging) {
         setHover(null);
         setWardHover(null);
+        useMapStore.getState().clearHover();
         targetElement.style.cursor = "";
 
         return;
@@ -250,12 +295,13 @@ export default function useMapInteractions({
       if (!hoveredFeature) {
         setHover(null);
         setWardHover(null);
+        useMapStore.getState().clearHover();
 
         return;
       }
 
-      const tooltipWidth = 224;
-      const tooltipHeight = 190;
+      const tooltipWidth = 256;
+      const tooltipHeight = 260;
       const [pointerX = 0, pointerY = 0] = event.pixel;
       const x = Math.min(pointerX + 14, Math.max(8, targetElement.clientWidth - tooltipWidth - 8));
       const y =
@@ -264,22 +310,35 @@ export default function useMapInteractions({
           : pointerY + 14;
 
       if (hoveredFeature.get("wardData")) {
+        const wardData = getWardFeatureData(hoveredFeature);
+
+        useMapStore.getState().setHoveredMapItem(wardData.clusterId, wardData.ward.id);
         setHover(null);
-        setWardHover({ ward: getWardFeatureData(hoveredFeature).ward, x, y });
+        setWardHover({ ward: wardData.ward, x, y });
 
         return;
       }
 
       if (hoveredFeature.get("data")) {
-        const cluster = getClusterFeatureData(hoveredFeature).cluster;
-        const wards = cluster.wards ?? [];
+        const featureData = getClusterFeatureData(hoveredFeature);
+        const cluster = featureData.cluster;
+        const mapState = useMapStore.getState();
+        const currentContext = useWorkspaceStore.getState().analysisContext;
+        const { playerId, matchId } = contextIds(currentContext);
+        const wards = locationWards(cluster, {
+          side: mapState.currentSide,
+          playerId,
+          matchId,
+        });
 
         if (wards.length === 1) {
+          mapState.setHoveredMapItem(cluster.cluster_id, wards[0]!.id);
           setHover(null);
           setWardHover({ ward: wards[0]!, x, y });
         } else {
+          mapState.setHoveredMapItem(cluster.cluster_id, null);
           setWardHover(null);
-          setHover({ cluster, x, y });
+          setHover({ cluster, locationNumber: featureData.locationNumber, x, y });
         }
 
         return;
@@ -287,30 +346,85 @@ export default function useMapInteractions({
 
       setHover(null);
       setWardHover(null);
+      useMapStore.getState().clearHover();
     }
 
     function handlePointerLeave() {
       setHover(null);
       setWardHover(null);
+      useMapStore.getState().clearHover();
       targetElement.style.cursor = "";
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        const workspaceState = useWorkspaceStore.getState();
+
+        if (workspaceState.selectedWardIds.length > 0) {
+          workspaceState.clearWardSelectionSet();
+
+          return;
+        }
+
         dismissSelectionLevel();
       }
     }
 
+    function handleMoveEnd() {
+      const view = map.getView();
+      const center = view.getCenter();
+      const zoom = view.getZoom();
+
+      if (!center || zoom === undefined) {
+        return;
+      }
+
+      useMapStore.getState().setCamera({ center: [center[0]!, center[1]!], zoom });
+    }
+
+    function selectWardsInBox(event: { mapBrowserEvent: MapBrowserEvent }) {
+      const extent = wardSelectionBox.getGeometry().getExtent();
+      const mapState = useMapStore.getState();
+      const workspaceState = useWorkspaceStore.getState();
+      const { playerId, matchId } = contextIds(workspaceState.analysisContext);
+      const wardIds = new Set<number>();
+
+      layers.wards.getSource()!.forEachFeatureInExtent(extent, (feature) => {
+        const cluster = getClusterFeatureData(feature as ClusterFeature).cluster;
+
+        locationWards(cluster, { side: mapState.currentSide, playerId, matchId }).forEach((ward) =>
+          wardIds.add(ward.id),
+        );
+      });
+      layers.wardDetails.getSource()!.forEachFeatureInExtent(extent, (feature) => {
+        wardIds.add(getWardFeatureData(feature as WardFeature).ward.id);
+      });
+
+      const originalEvent = event.mapBrowserEvent.originalEvent;
+      const removing = "altKey" in originalEvent && Boolean(originalEvent.altKey);
+
+      if (removing) {
+        workspaceState.removeWardsFromSelection([...wardIds]);
+      } else {
+        workspaceState.addWardsToSelection([...wardIds]);
+      }
+    }
+
+    wardSelectionBox.on("boxend", selectWardsInBox);
     map.on("click", handleClick);
     map.on("pointermove", handlePointerMove);
+    map.on("moveend", handleMoveEnd);
     targetElement.addEventListener("pointerleave", handlePointerLeave);
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.cancelAnimationFrame(updateSizeFrame);
       resizeObserver.disconnect();
+      wardSelectionBox.un("boxend", selectWardsInBox);
+      map.removeInteraction(wardSelectionBox);
       map.un("click", handleClick);
       map.un("pointermove", handlePointerMove);
+      map.un("moveend", handleMoveEnd);
       targetElement.removeEventListener("pointerleave", handlePointerLeave);
       window.removeEventListener("keydown", handleKeyDown);
       mapInstance.current = null;
@@ -319,6 +433,7 @@ export default function useMapInteractions({
       layers.vision.getSource()!.clear(true);
       layers.wards.getSource()!.clear(true);
       layers.wardDetails.getSource()!.clear(true);
+      useMapStore.getState().clearHover();
       clearSelection();
     };
   }, [

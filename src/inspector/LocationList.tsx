@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { formatGameTime } from "../metrics/wardMetrics";
+import { useMemo, useState } from "react";
+import { BsArrowCounterclockwise, BsDashCircle, BsEyeSlash, BsGeoAlt } from "react-icons/bs";
 import {
   compareLocationGroups,
   compareLocations,
@@ -7,16 +7,355 @@ import {
   groupLocationsByPlayer,
   locationSurvival,
 } from "../metrics/groupLocations";
-import type { LocationEntry, LocationInGroup } from "../metrics/groupLocations";
+import type { LocationEntry, LocationGroup, LocationInGroup } from "../metrics/groupLocations";
+import { formatGameTime } from "../metrics/wardMetrics";
 import { useMapStore } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
-import type { LocationSort } from "../state/workspaceState";
+import type { LocationSort, SortDirection } from "../state/workspaceState";
 import type { Cluster, Side } from "../types";
-import { EmptyState, formControlClass, selectableRowClass } from "../components/ui";
+import { EmptyState, formControlClass } from "../components/ui";
+import Popup from "../components/Popup";
 import { BrowseTabs, DisclosureRow } from "./InspectorBrowse";
+import LocationRow from "./LocationRow";
 import WardRow from "./WardRow";
 import { contextIds, sameScope } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
+import {
+  locationKey,
+  locationName,
+  locationWards,
+  visibleClusters as filterVisibleClusters,
+} from "../locations/locationIdentity";
+
+type LocationSortOption = `${LocationSort}:${SortDirection}`;
+
+function measurementMean(
+  wards: LocationEntry["cluster"]["wards"],
+  sort: "added-vision" | "fresh-sightings",
+): number | null {
+  const values = (wards ?? []).flatMap((ward) => {
+    const value =
+      sort === "added-vision"
+        ? ward.measurement?.added_vision_seconds
+        : ward.measurement?.fresh_sightings;
+
+    return value === null || value === undefined ? [] : [value];
+  });
+
+  return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
+}
+
+function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side: Side }) {
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
+  const wards = useWorkspaceStore((state) => state.wards);
+  const restoreWard = useWorkspaceStore((state) => state.restoreWard);
+  const restoreWards = useWorkspaceStore((state) => state.restoreWards);
+  const restoreLocation = useWorkspaceStore((state) => state.restoreLocation);
+  const restoreLocations = useWorkspaceStore((state) => state.restoreLocations);
+  const setPendingLocationReselection = useWorkspaceStore(
+    (state) => state.setPendingLocationReselection,
+  );
+  const clearSelection = useMapStore((state) => state.clearSelection);
+  const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
+  const hiddenLocationPreview = useMapStore((state) => state.hiddenLocationPreview);
+  const showHiddenLocationAt = useMapStore((state) => state.showHiddenLocationAt);
+  const clearHiddenLocationPreview = useMapStore((state) => state.clearHiddenLocationPreview);
+  const excluded = useMemo(() => {
+    const wardsById = new Map(wards.map((ward) => [ward.id, ward]));
+
+    return excludedWardIds.map((id) => ({ id, ward: wardsById.get(id) }));
+  }, [excludedWardIds, wards]);
+  const hidden = useMemo(() => {
+    const clustersByFingerprint = new Map(
+      baseClusters.map((cluster) => [locationKey(cluster, side), cluster]),
+    );
+
+    return hiddenLocationFingerprints.map((fingerprint) => ({
+      fingerprint,
+      cluster: clustersByFingerprint.get(fingerprint),
+    }));
+  }, [baseClusters, hiddenLocationFingerprints, side]);
+
+  if (excluded.length === 0 && hidden.length === 0) {
+    return null;
+  }
+
+  const count = excluded.length + hidden.length;
+  const previewing = (position: [number, number, number]) =>
+    hiddenLocationPreview?.every((coordinate, index) => coordinate === position[index]) ?? false;
+
+  function togglePreview(position: [number, number, number]) {
+    if (previewing(position)) {
+      clearHiddenLocationPreview();
+
+      return;
+    }
+
+    showHiddenLocationAt(position);
+  }
+
+  return (
+    <Popup
+      align="right"
+      ariaLabel={`Open ${count.toLocaleString()} hidden entries`}
+      trigger={
+        <span className="flex items-center gap-1.5">
+          <BsEyeSlash className="shrink-0" />
+          <span className="tabular-nums">Hidden {count.toLocaleString()}</span>
+        </span>
+      }
+      triggerClassName="text-slate-500 hover:text-slate-200"
+      triggerTitle="Hidden entries"
+      width="wide"
+    >
+      {() => (
+        <div className="text-xs">
+          {excluded.length > 0 ? (
+            <section>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <p className="text-slate-300">Excluded wards</p>
+                <button
+                  className="text-slate-500 hover:text-slate-200"
+                  type="button"
+                  onClick={() => {
+                    clearSelection();
+                    clearExpandedClusters();
+                    clearHiddenLocationPreview();
+                    setPendingLocationReselection({
+                      changedWardIds: excludedWardIds,
+                      kind: "restore",
+                      sourceFingerprint: null,
+                      wardIds: excludedWardIds,
+                    });
+
+                    restoreWards(excludedWardIds);
+                  }}
+                >
+                  Restore all
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {excluded.map(({ id, ward }) => (
+                  <div
+                    className="flex items-center gap-2 border-b border-white/6 py-2 last:border-0"
+                    key={id}
+                  >
+                    <BsDashCircle className="shrink-0 text-slate-600" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-slate-300">
+                        {ward?.player_name ?? "Unknown player"}
+                      </span>
+                      <span className="mt-0.5 block truncate text-slate-500 tabular-nums">
+                        Match {ward?.match_id ?? id}
+                        {ward ? ` at ${formatGameTime(ward.time_placed, true)}` : ""}
+                      </span>
+                    </span>
+                    {ward ? (
+                      <button
+                        aria-label={`Show ward by ${ward.player_name ?? "unknown player"} on map`}
+                        className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
+                          previewing([ward.x_pos, ward.y_pos, ward.z_pos])
+                            ? "text-cyan-300"
+                            : "text-slate-600"
+                        }`}
+                        title="Show on map"
+                        type="button"
+                        onClick={() => togglePreview([ward.x_pos, ward.y_pos, ward.z_pos])}
+                      >
+                        <BsGeoAlt />
+                      </button>
+                    ) : null}
+                    <button
+                      aria-label={`Restore ward by ${ward?.player_name ?? "unknown player"}`}
+                      className="shrink-0 rounded-sm p-1.5 text-sm text-slate-500 hover:bg-white/5 hover:text-white"
+                      title="Restore"
+                      type="button"
+                      onClick={() => {
+                        clearSelection();
+                        clearExpandedClusters();
+                        setPendingLocationReselection({
+                          changedWardIds: [id],
+                          kind: "restore",
+                          sourceFingerprint: null,
+                          wardIds: [id],
+                        });
+                        clearHiddenLocationPreview();
+                        restoreWard(id);
+                      }}
+                    >
+                      <BsArrowCounterclockwise />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {hidden.length > 0 ? (
+            <section className={excluded.length > 0 ? "mt-3 border-t border-white/8 pt-3" : ""}>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <p className="text-slate-300">Hidden locations</p>
+                <button
+                  className="text-slate-500 hover:text-slate-200"
+                  type="button"
+                  onClick={() => {
+                    clearHiddenLocationPreview();
+                    restoreLocations(hidden.map(({ fingerprint }) => fingerprint));
+                  }}
+                >
+                  Restore all
+                </button>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {hidden.map(({ fingerprint, cluster }) => (
+                  <div
+                    className="flex items-center gap-2 border-b border-white/6 py-2 last:border-0"
+                    key={fingerprint}
+                  >
+                    <BsEyeSlash className="shrink-0 text-slate-600" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-slate-300">
+                        {cluster
+                          ? (locationName(cluster, side, locationNames, manualLocations) ??
+                            "Unnamed location")
+                          : "Unnamed location"}
+                      </span>
+                      <span className="mt-0.5 block truncate text-slate-500">
+                        {cluster?.[side]?.amount.toLocaleString() ?? "Unknown"} wards
+                      </span>
+                    </span>
+                    {cluster ? (
+                      <button
+                        aria-label="Show hidden location on map"
+                        className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
+                          previewing([cluster.x_pos, cluster.y_pos, cluster.z_pos])
+                            ? "text-cyan-300"
+                            : "text-slate-600"
+                        }`}
+                        title="Show on map"
+                        type="button"
+                        onClick={() => togglePreview([cluster.x_pos, cluster.y_pos, cluster.z_pos])}
+                      >
+                        <BsGeoAlt />
+                      </button>
+                    ) : null}
+                    <button
+                      aria-label="Restore hidden location"
+                      className="shrink-0 rounded-sm p-1.5 text-sm text-slate-500 hover:bg-white/5 hover:text-white"
+                      title="Restore"
+                      type="button"
+                      onClick={() => {
+                        clearHiddenLocationPreview();
+                        restoreLocation(fingerprint);
+                      }}
+                    >
+                      <BsArrowCounterclockwise />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      )}
+    </Popup>
+  );
+}
+
+const sortOptions: { value: LocationSortOption; label: string }[] = [
+  { value: "wards:descending", label: "Most wards" },
+  { value: "wards:ascending", label: "Fewest wards" },
+  { value: "matches:descending", label: "Most matches" },
+  { value: "matches:ascending", label: "Fewest matches" },
+  { value: "removals:descending", label: "Highest removal rate" },
+  { value: "removals:ascending", label: "Lowest removal rate" },
+  { value: "placement:ascending", label: "Earliest placement" },
+  { value: "placement:descending", label: "Latest placement" },
+  { value: "lifetime:descending", label: "Longest lifetime" },
+  { value: "lifetime:ascending", label: "Shortest lifetime" },
+  { value: "added-vision:descending", label: "Most added vision on average" },
+  { value: "added-vision:ascending", label: "Least added vision on average" },
+  { value: "fresh-sightings:descending", label: "Most new enemy sightings on average" },
+  { value: "fresh-sightings:ascending", label: "Fewest new enemy sightings on average" },
+];
+
+function formatDecimal(value: number): string {
+  return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
+}
+
+function locationSortSummary(entry: LocationEntry, sort: LocationSort, wardCount: string): string {
+  if (sort === "wards") {
+    return wardCount;
+  }
+  if (sort === "matches") {
+    return `${entry.data.match_count.toLocaleString()} ${entry.data.match_count === 1 ? "match" : "matches"}`;
+  }
+  if (sort === "placement") {
+    return `${formatGameTime(entry.data.time_placed)} placed`;
+  }
+  if (sort === "lifetime") {
+    return `${formatGameTime(entry.data.duration)} lifetime`;
+  }
+
+  if (sort === "added-vision") {
+    const value = measurementMean(entry.cluster.wards, sort);
+
+    return value === null ? "No vision data" : `${formatGameTime(value)} vision`;
+  }
+
+  if (sort === "fresh-sightings") {
+    const value = measurementMean(entry.cluster.wards, sort);
+
+    return value === null ? "No sightings" : `${formatDecimal(value)} enemy sightings`;
+  }
+
+  const removalRate = (1 - locationSurvival(entry)) * 100;
+
+  return `${removalRate.toFixed(0)}% removed`;
+}
+
+function locationContext(entry: LocationEntry, wardCount: string): string {
+  const matchCount = `${entry.data.match_count.toLocaleString()} ${
+    entry.data.match_count === 1 ? "match" : "matches"
+  }`;
+
+  return `${wardCount}, ${matchCount}`;
+}
+
+function groupSortSummary(
+  group: LocationGroup,
+  sort: LocationSort,
+  view: "matches" | "players",
+): string {
+  if (sort === "matches" && view === "players") {
+    return `${group.matchIds.size.toLocaleString()} ${group.matchIds.size === 1 ? "match" : "matches"}`;
+  }
+  if (sort === "removals") {
+    return `${((group.destroyed / group.wardCount) * 100).toFixed(0)}% removed`;
+  }
+  if (sort === "placement") {
+    return `${formatGameTime(group.placementTotal / group.wardCount)} placed`;
+  }
+  if (sort === "lifetime") {
+    return `${formatGameTime(group.lifetimeTotal / group.wardCount)} lifetime`;
+  }
+  if (sort === "added-vision" || sort === "fresh-sightings") {
+    const value = measurementMean(group.wards, sort);
+
+    if (value === null) {
+      return sort === "added-vision" ? "No vision data" : "No sightings";
+    }
+
+    return sort === "added-vision"
+      ? `${formatGameTime(value)} vision`
+      : `${formatDecimal(value)} enemy sightings`;
+  }
+
+  return `${group.wardCount.toLocaleString()} ${group.wardCount === 1 ? "ward" : "wards"}`;
+}
 
 export default function LocationList({
   baseClusters,
@@ -37,6 +376,15 @@ export default function LocationList({
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const sort = useWorkspaceStore((state) => state.locationSort);
   const setSort = useWorkspaceStore((state) => state.setLocationSort);
+  const sortDirection = useWorkspaceStore((state) => state.locationSortDirection);
+  const setSortDirection = useWorkspaceStore((state) => state.setLocationSortDirection);
+  const minimumWards = useWorkspaceStore((state) => state.locationMinimumWards);
+  const setMinimumWards = useWorkspaceStore((state) => state.setLocationMinimumWards);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
+  const toggleWardSelectionGroup = useWorkspaceStore((state) => state.toggleWardSelectionGroup);
   const selectedClusterId = useMapStore((state) => state.selectedClusterId);
   const clearMapSelection = useMapStore((state) => state.clearSelection);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
@@ -44,6 +392,11 @@ export default function LocationList({
   const focusWard = useMapStore((state) => state.focusWard);
   const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
   const setWardView = useWorkspaceStore((state) => state.setWardView);
+  const [query, setQuery] = useState("");
+  const visibleBaseClusters = useMemo(
+    () => filterVisibleClusters(baseClusters, side, hiddenLocationFingerprints),
+    [baseClusters, hiddenLocationFingerprints, side],
+  );
   const locations = useMemo(
     () =>
       clusters
@@ -52,30 +405,34 @@ export default function LocationList({
 
           return data && (!cluster.unclustered || showUnclustered) ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [clusters, showUnclustered, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [clusters, showUnclustered, side, sort, sortDirection],
   );
   const baseLocations = useMemo(
     () =>
-      baseClusters
+      visibleBaseClusters
         .flatMap((cluster): LocationEntry[] => {
           const data = cluster[side];
 
           return data && (!cluster.unclustered || showUnclustered) ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [baseClusters, showUnclustered, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [showUnclustered, side, sort, sortDirection, visibleBaseClusters],
+  );
+  const visibleLocations = useMemo(
+    () => locations.filter((entry) => entry.data.amount >= minimumWards),
+    [locations, minimumWards],
   );
   const groupBaseLocations = useMemo(
     () =>
-      baseClusters
+      visibleBaseClusters
         .flatMap((cluster): LocationEntry[] => {
           const data = cluster[side];
 
           return data ? [{ cluster, data }] : [];
         })
-        .sort((left, right) => compareLocations(sort, left, right)),
-    [baseClusters, side, sort],
+        .sort((left, right) => compareLocations(sort, sortDirection, left, right)),
+    [side, sort, sortDirection, visibleBaseClusters],
   );
   const groups = useMemo(() => {
     if (view === "locations") {
@@ -87,8 +444,23 @@ export default function LocationList({
         ? groupLocationsByPlayer(groupBaseLocations, side)
         : groupLocationsByMatch(groupBaseLocations, side);
 
-    return next.sort((left, right) => compareLocationGroups(sort, view, left, right));
-  }, [groupBaseLocations, side, sort, view]);
+    return next
+      .filter((group) => group.wardCount >= minimumWards)
+      .sort((left, right) => compareLocationGroups(sort, sortDirection, view, left, right));
+  }, [groupBaseLocations, minimumWards, side, sort, sortDirection, view]);
+  const visibleGroups = useMemo(() => {
+    const normalized = query.trim().toLocaleLowerCase();
+
+    if (!normalized) {
+      return groups;
+    }
+
+    return groups.filter(
+      (group) =>
+        group.label.toLocaleLowerCase().includes(normalized) ||
+        group.meta?.toLocaleLowerCase().includes(normalized),
+    );
+  }, [groups, query]);
   const contextGroups = useMemo(() => {
     if (view === "locations" || clusters === baseClusters) {
       return new Map<string, (typeof groups)[number]>();
@@ -101,10 +473,13 @@ export default function LocationList({
 
     return new Map(next.map((group) => [group.id, group]));
   }, [baseClusters, clusters, groups, locations, side, view]);
-  const locationNumbers = useMemo(
-    () => new Map(locations.map((entry, index) => [entry.cluster.cluster_id, index + 1])),
-    [locations],
-  );
+  const locationNumbers = useMemo(() => {
+    const stableLocations = [...locations].sort(
+      (left, right) => left.cluster.cluster_id - right.cluster.cluster_id,
+    );
+
+    return new Map(stableLocations.map((entry, index) => [entry.cluster.cluster_id, index + 1]));
+  }, [locations]);
 
   function changeContextOrigin(scope: AnalysisScope | null) {
     clearMapSelection();
@@ -154,137 +529,219 @@ export default function LocationList({
   function renderLocation({ entry, wardCount }: LocationInGroup) {
     const { cluster, data } = entry;
     const selected = cluster.cluster_id === selectedClusterId;
-    const survivalRate = locationSurvival(entry) * 100;
     const ward = singleWard(entry);
     const locationNumber = locationNumbers.get(cluster.cluster_id) ?? 0;
+    const { playerId, matchId } = contextIds(context);
+    const wardIds = locationWards(cluster, { side, playerId, matchId }).map((ward) => ward.id);
+    const selectedWardCount = wardIds.filter((id) => selectedWardIds.includes(id)).length;
+    const selectionState =
+      selectedWardCount === 0 ? null : selectedWardCount === wardIds.length ? "full" : "partial";
+    const wardCountLabel =
+      wardCount === data.amount
+        ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
+        : `${wardCount.toLocaleString()} of ${data.amount.toLocaleString()} wards`;
 
     if (ward) {
       return (
         <WardRow
           key={cluster.cluster_id}
           ward={ward}
-          onSelect={() => selectLocation(entry, false)}
+          onSelect={() => selectLocation(entry, true)}
           onSelected={() => selectLocation(entry, true)}
         />
       );
     }
 
     return (
-      <button
-        className={`w-full py-2 text-left ${selectableRowClass(selected)}`}
+      <LocationRow
+        clusterId={cluster.cluster_id}
         key={cluster.cluster_id}
-        type="button"
-        onClick={() => selectLocation(entry, selected)}
-      >
-        <span className="block min-w-0">
-          <span className="flex items-baseline justify-between gap-3">
-            <span className={selected ? "text-xs text-white" : "text-xs text-slate-300"}>
-              {`Location ${locationNumber}`}
-            </span>
-            <span className="font-mono text-[11px] text-slate-400">
-              {wardCount === data.amount
-                ? `${data.amount.toLocaleString()} ${data.amount === 1 ? "ward" : "wards"}`
-                : `${wardCount.toLocaleString()} of ${data.amount.toLocaleString()} wards`}
-            </span>
-          </span>
-          <span className="mt-1 grid grid-cols-3 gap-2 text-[10px] text-slate-600">
-            <span>
-              {data.match_count.toLocaleString()} {data.match_count === 1 ? "match" : "matches"}
-            </span>
-            <span className="text-center">{survivalRate.toFixed(0)}% not dewarded</span>
-            <span className="text-right">{formatGameTime(data.time_placed)}</span>
-          </span>
-        </span>
-      </button>
+        label={
+          locationName(cluster, side, locationNames, manualLocations) ??
+          `Location ${locationNumber}`
+        }
+        primaryValue={locationSortSummary(entry, sort, wardCountLabel)}
+        secondary={locationContext(entry, wardCountLabel)}
+        selected={selected}
+        selectionState={selectionState}
+        onSelect={() => selectLocation(entry, true)}
+        onToggleSelection={() => toggleWardSelectionGroup(wardIds)}
+      />
     );
   }
 
   if ((view === "locations" ? baseLocations : groupBaseLocations).length === 0) {
     return (
-      <EmptyState className="py-10">
-        {clusteringEnabled && !showUnclustered
-          ? "No grouped locations. Enable unclustered wards to see individual entries."
-          : "No ward locations."}
-      </EmptyState>
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-slate-300">Locations</p>
+          <LocationChanges baseClusters={baseClusters} side={side} />
+        </div>
+        <EmptyState className="py-10">
+          {clusteringEnabled && !showUnclustered
+            ? "No grouped locations. Enable unclustered wards to see individual entries."
+            : "No ward locations."}
+        </EmptyState>
+      </div>
     );
   }
 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-500">Browse by</p>
+        <p className="text-sm font-medium text-slate-300">Locations</p>
+        <LocationChanges baseClusters={baseClusters} side={side} />
+      </div>
+
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="shrink-0 text-xs text-slate-500">Browse by</p>
         <BrowseTabs
           active={view}
           options={["locations", "players", "matches"]}
           onChange={(option) => {
+            setQuery("");
             setView(option);
             changeContextOrigin(null);
           }}
         />
       </div>
 
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <label className="contents text-[11px] text-slate-500">
+      <div className="mb-3 space-y-2">
+        <label className="flex items-center justify-between gap-3 text-xs text-slate-500">
           <span className="shrink-0">Sort by</span>
-          <span className="block w-[13.5rem] shrink-0">
+          <span className="w-[13.5rem] shrink-0">
             <select
               className={formControlClass}
-              value={sort}
-              onChange={(event) => setSort(event.target.value as LocationSort)}
+              value={`${sort}:${sortDirection}`}
+              onChange={(event) => {
+                const [nextSort, nextDirection] = event.target.value.split(":") as [
+                  LocationSort,
+                  SortDirection,
+                ];
+
+                setSort(nextSort);
+                setSortDirection(nextDirection);
+              }}
             >
-              <option value="wards">Most wards</option>
-              <option value="matches">
-                {view === "matches" ? "Newest match" : "Most matches"}
-              </option>
-              <option value="survival-high">Highest not dewarded rate</option>
-              <option value="survival-low">Lowest not dewarded rate</option>
-              <option value="placement-early">Earliest placement</option>
-              <option value="placement-late">Latest placement</option>
-              <option value="lifetime-high">Longest lifetime</option>
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {view === "matches" && option.value === "matches:descending"
+                    ? "Newest match"
+                    : view === "matches" && option.value === "matches:ascending"
+                      ? "Oldest match"
+                      : option.label}
+                </option>
+              ))}
             </select>
           </span>
         </label>
+        <label className="flex items-center justify-between gap-3 text-xs text-slate-500">
+          <span className="shrink-0">Min wards</span>
+          <span className="w-[13.5rem] shrink-0">
+            <input
+              aria-label="Minimum wards"
+              className={`${formControlClass} text-right`}
+              min={1}
+              step={1}
+              type="number"
+              value={minimumWards}
+              onChange={(event) => {
+                const value = Number.parseInt(event.target.value, 10);
+
+                setMinimumWards(Number.isFinite(value) ? Math.max(1, value) : 1);
+              }}
+            />
+          </span>
+        </label>
+        {view !== "locations" ? (
+          <label className="flex items-center justify-between gap-3 text-xs text-slate-500">
+            <span className="shrink-0">Search</span>
+            <span className="w-[13.5rem] shrink-0">
+              <input
+                aria-label={`Search ${view}`}
+                className={formControlClass}
+                placeholder={view === "players" ? "Player name" : "Match or team"}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </span>
+          </label>
+        ) : null}
       </div>
 
-      {view === "locations" ? (
+      <div className="mb-2 border-t border-white/8 pt-3 text-xs text-slate-500">
+        <p className="tabular-nums">
+          {view === "locations"
+            ? `${visibleLocations.length.toLocaleString()} locations`
+            : query.trim()
+              ? `${visibleGroups.length.toLocaleString()} of ${groups.length.toLocaleString()} ${view}`
+              : `${visibleGroups.length.toLocaleString()} ${view}`}
+        </p>
+      </div>
+
+      {view === "locations" && visibleLocations.length === 0 ? (
+        <EmptyState className="py-10">No results with at least {minimumWards} wards.</EmptyState>
+      ) : view === "locations" ? (
         <div className="space-y-1">
-          {locations.map((entry) => renderLocation({ entry, wardCount: entry.data.amount }))}
+          {visibleLocations.map((entry) => renderLocation({ entry, wardCount: entry.data.amount }))}
         </div>
+      ) : visibleGroups.length === 0 ? (
+        <EmptyState className="py-10">
+          {query.trim()
+            ? `No ${view} match this search.`
+            : `No results with ${minimumWards} wards.`}
+        </EmptyState>
       ) : (
         <div className="space-y-1">
-          {groups.map((group) => {
+          {visibleGroups.map((group) => {
             const scope: AnalysisScope = {
               kind: view === "players" ? "player" : "match",
               id: group.sortId,
             };
             const expanded = sameScope(context.origin, scope);
-            const useContextResult = expanded && context.status !== "idle";
+            const useContextResult = expanded && context.status === "ready";
             const contextualGroup = contextGroups.get(group.id);
             const displayedGroup = useContextResult ? contextualGroup : group;
             const displayedLocations = displayedGroup?.locations ?? [];
+            const sortSummary = groupSortSummary(group, sort, view);
+            const groupMeta =
+              group.meta ??
+              `${group.wardCount.toLocaleString()} wards in ${group.matchIds.size.toLocaleString()} ${group.matchIds.size === 1 ? "match" : "matches"}`;
 
             return (
               <div key={group.id}>
                 <DisclosureRow
                   expanded={expanded}
                   label={group.label}
-                  meta={group.meta}
+                  meta={groupMeta}
                   trailing={
-                    <span className="text-right text-[10px] text-slate-500">
-                      <span className="block">{group.wardCount} wards</span>
-                      {expanded && context.status === "ready" ? (
-                        <span className="block">
-                          {displayedLocations.length} contextual locations
-                        </span>
-                      ) : null}
+                    <span className="shrink-0 text-right text-xs text-slate-300 tabular-nums">
+                      {sortSummary}
                     </span>
                   }
                   onClick={() => changeContextOrigin(expanded ? null : scope)}
                 />
                 {expanded ? (
-                  <div className="mt-1 space-y-1 pl-3">
+                  <div className="mt-1 ml-2 space-y-1 border-l border-white/10 pl-3">
+                    <div className="flex items-center justify-between py-1 text-xs text-slate-500">
+                      <span>
+                        {context.status === "clustering"
+                          ? "Updating locations…"
+                          : `${displayedLocations.length.toLocaleString()} locations`}
+                      </span>
+                      <button
+                        className="rounded-sm px-1 py-0.5 text-slate-400 transition hover:bg-white/4 hover:text-slate-200"
+                        type="button"
+                        onClick={() => setInspectorTab("overview")}
+                      >
+                        View overview
+                      </button>
+                    </div>
                     {displayedLocations.length > 0 ? (
-                      displayedLocations.map((location) => renderLocation(location))
+                      <div className="space-y-1">
+                        {displayedLocations.map((location) => renderLocation(location))}
+                      </div>
                     ) : (
                       <p className="py-3 text-xs text-slate-600">
                         {context.status === "clustering"

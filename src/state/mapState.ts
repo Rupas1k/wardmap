@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Cluster, Side } from "../types";
+import { mapCenter, minZoom } from "../map/constants";
 
 export interface ClusteringSettings {
   algorithm: "auto" | "dbscan" | "hdbscan" | "st_dbscan" | "time_weighted_hdbscan";
@@ -13,11 +14,46 @@ export interface ClusteringSettings {
 }
 
 export type VisionTechnique = "polygon" | "gridnav";
+export type MapColorMode =
+  | "deward-rate"
+  | "added-vision"
+  | "enemy-sightings"
+  | "lifetime"
+  | "placement"
+  | "ward-type"
+  | "single";
+export type MapColorStatistic = "mean" | "median";
+export const defaultMapColorMode: MapColorMode = "deward-rate";
+export const defaultMapColorStatistic: MapColorStatistic = "median";
+
+export function isMapColorMode(value: unknown): value is MapColorMode {
+  return [
+    "deward-rate",
+    "added-vision",
+    "enemy-sightings",
+    "lifetime",
+    "placement",
+    "ward-type",
+    "single",
+  ].includes(String(value));
+}
+
+export function isMapColorStatistic(value: unknown): value is MapColorStatistic {
+  return value === "mean" || value === "median";
+}
 export type MapFocusRequest = {
   kind: "ward" | "cluster";
   id: number;
 };
-export type MapCameraRequest = { x: number; y: number };
+export type MapPosition = [number, number, number];
+export type MapCameraRequest =
+  | { kind: "center"; x: number; y: number }
+  | { kind: "fit"; positions: MapPosition[] }
+  | { kind: "restore"; center: [number, number]; zoom: number };
+export interface MapCamera {
+  center: [number, number];
+  zoom: number;
+}
 export interface ClusterMarkerSize {
   minimum: number;
   maximum: number;
@@ -39,17 +75,30 @@ interface MapState {
   currentSide: Side;
   selectedClusterId: number | null;
   selectedWardId: number | null;
+  hoveredClusterId: number | null;
+  hoveredWardId: number | null;
   elevations: number[][] | null;
   averageValues: Cluster | null;
   clusteringSettings: ClusteringSettings;
   clusterMarkerSize: ClusterMarkerSize;
+  colorMode: MapColorMode;
+  colorStatistic: MapColorStatistic;
   expandedClusterIds: number[];
   visionTechnique: VisionTechnique;
   focusRequest: MapFocusRequest | null;
   cameraRequest: MapCameraRequest | null;
+  camera: MapCamera;
+  sightingPosition: MapPosition | null;
+  sightingRoutes: MapPosition[][];
+  sightingSelectionId: string | null;
+  hiddenLocationPreview: MapPosition | null;
   setCurrentSide: (side: Side) => void;
   setSelectedClusterId: (clusterId: number | null) => void;
   setSelectedWardId: (wardId: number | null) => void;
+  setHoveredClusterId: (clusterId: number | null) => void;
+  setHoveredWardId: (wardId: number | null) => void;
+  setHoveredMapItem: (clusterId: number | null, wardId: number | null) => void;
+  clearHover: () => void;
   selectMapLocation: (clusterId: number, wardId?: number | null) => void;
   clearWardSelection: () => void;
   clearMapLocationSelection: () => void;
@@ -59,38 +108,121 @@ interface MapState {
   setAverageValues: (values: Cluster | null) => void;
   setClusteringSettings: (settings: ClusteringSettings) => void;
   setClusterMarkerSize: (size: ClusterMarkerSize) => void;
+  setColorMode: (mode: MapColorMode) => void;
+  setColorStatistic: (statistic: MapColorStatistic) => void;
   setClusterExpanded: (clusterId: number, expanded: boolean) => void;
   setVisionTechnique: (technique: VisionTechnique) => void;
   focusWard: (wardId: number) => void;
   focusCluster: (clusterId: number) => void;
   clearFocusRequest: () => void;
   centerMapAt: (x: number, y: number) => void;
+  showSightingAt: (selectionId: string, position: MapPosition, routes?: MapPosition[][]) => void;
+  clearSighting: () => void;
+  showHiddenLocationAt: (position: MapPosition) => void;
+  clearHiddenLocationPreview: () => void;
   clearCameraRequest: () => void;
+  setCamera: (camera: MapCamera) => void;
+  restoreCamera: (camera: MapCamera) => void;
 }
 
 export const useMapStore = create<MapState>((set) => ({
   currentSide: "all",
   selectedClusterId: null,
   selectedWardId: null,
+  hoveredClusterId: null,
+  hoveredWardId: null,
   elevations: null,
   averageValues: null,
   clusteringSettings: defaultClusteringSettings,
   clusterMarkerSize: defaultClusterMarkerSize,
+  colorMode: defaultMapColorMode,
+  colorStatistic: defaultMapColorStatistic,
   expandedClusterIds: [],
   visionTechnique: "gridnav",
   focusRequest: null,
   cameraRequest: null,
-  setCurrentSide: (currentSide) => set({ currentSide, expandedClusterIds: [] }),
-  setSelectedClusterId: (selectedClusterId) => set({ selectedClusterId, selectedWardId: null }),
-  setSelectedWardId: (selectedWardId) => set({ selectedWardId }),
+  camera: { center: [mapCenter[0], mapCenter[1]], zoom: minZoom },
+  sightingPosition: null,
+  sightingRoutes: [],
+  sightingSelectionId: null,
+  hiddenLocationPreview: null,
+  setCurrentSide: (currentSide) =>
+    set({
+      currentSide,
+      expandedClusterIds: [],
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      hiddenLocationPreview: null,
+    }),
+  setSelectedClusterId: (selectedClusterId) =>
+    set({
+      selectedClusterId,
+      selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+      hiddenLocationPreview: null,
+    }),
+  setSelectedWardId: (selectedWardId) =>
+    set({ selectedWardId, sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
+  setHoveredClusterId: (hoveredClusterId) =>
+    set((state) => (state.hoveredClusterId === hoveredClusterId ? state : { hoveredClusterId })),
+  setHoveredWardId: (hoveredWardId) =>
+    set((state) => (state.hoveredWardId === hoveredWardId ? state : { hoveredWardId })),
+  setHoveredMapItem: (hoveredClusterId, hoveredWardId) =>
+    set((state) =>
+      state.hoveredClusterId === hoveredClusterId && state.hoveredWardId === hoveredWardId
+        ? state
+        : { hoveredClusterId, hoveredWardId },
+    ),
+  clearHover: () =>
+    set((state) =>
+      state.hoveredClusterId === null && state.hoveredWardId === null
+        ? state
+        : { hoveredClusterId: null, hoveredWardId: null },
+    ),
   selectMapLocation: (selectedClusterId, selectedWardId = null) =>
-    set({ selectedClusterId, selectedWardId }),
-  clearWardSelection: () => set({ selectedWardId: null }),
-  clearMapLocationSelection: () => set({ selectedClusterId: null, selectedWardId: null }),
+    set({
+      selectedClusterId,
+      selectedWardId,
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+      hiddenLocationPreview: null,
+    }),
+  clearWardSelection: () =>
+    set({
+      selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+    }),
+  clearMapLocationSelection: () =>
+    set({
+      selectedClusterId: null,
+      selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+    }),
   clearSelection: () =>
     set({
       selectedClusterId: null,
       selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
+      hiddenLocationPreview: null,
     }),
   setElevations: (elevations) => set({ elevations }),
   setAverageValues: (averageValues) => set({ averageValues }),
@@ -99,10 +231,18 @@ export const useMapStore = create<MapState>((set) => ({
       clusteringSettings,
       selectedClusterId: null,
       selectedWardId: null,
+      hoveredClusterId: null,
+      hoveredWardId: null,
+      sightingPosition: null,
+      sightingRoutes: [],
+      sightingSelectionId: null,
       expandedClusterIds: [],
+      hiddenLocationPreview: null,
     }),
   clearExpandedClusters: () => set({ expandedClusterIds: [] }),
   setClusterMarkerSize: (clusterMarkerSize) => set({ clusterMarkerSize }),
+  setColorMode: (colorMode) => set({ colorMode }),
+  setColorStatistic: (colorStatistic) => set({ colorStatistic }),
   setClusterExpanded: (clusterId, expanded) =>
     set((state) => ({
       expandedClusterIds: expanded
@@ -113,6 +253,33 @@ export const useMapStore = create<MapState>((set) => ({
   focusWard: (id) => set({ focusRequest: { kind: "ward", id } }),
   focusCluster: (id) => set({ focusRequest: { kind: "cluster", id } }),
   clearFocusRequest: () => set({ focusRequest: null }),
-  centerMapAt: (x, y) => set({ cameraRequest: { x, y } }),
+  centerMapAt: (x, y) => set({ cameraRequest: { kind: "center", x, y } }),
+  showSightingAt: (sightingSelectionId, sightingPosition, sightingRoutes = []) => {
+    const routePositions = sightingRoutes.flat();
+
+    set({
+      sightingSelectionId,
+      sightingPosition,
+      sightingRoutes,
+      cameraRequest:
+        routePositions.length > 1
+          ? { kind: "fit", positions: routePositions }
+          : { kind: "center", x: sightingPosition[0], y: sightingPosition[1] },
+    });
+  },
+  clearSighting: () =>
+    set({ sightingPosition: null, sightingRoutes: [], sightingSelectionId: null }),
+  showHiddenLocationAt: (hiddenLocationPreview) =>
+    set({
+      hiddenLocationPreview,
+      cameraRequest: {
+        kind: "center",
+        x: hiddenLocationPreview[0],
+        y: hiddenLocationPreview[1],
+      },
+    }),
+  clearHiddenLocationPreview: () => set({ hiddenLocationPreview: null }),
   clearCameraRequest: () => set({ cameraRequest: null }),
+  setCamera: (camera) => set({ camera }),
+  restoreCamera: (camera) => set({ camera, cameraRequest: { kind: "restore", ...camera } }),
 }));

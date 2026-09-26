@@ -48,6 +48,10 @@ export function useWorkspaceStatus() {
   );
 }
 
+export function useWardSelected(wardId: number): boolean {
+  return useWorkspaceStore((state) => state.selectedWardIds.includes(wardId));
+}
+
 export function useWorkspaceActions() {
   return useWorkspaceStore(
     useShallow((state) => ({

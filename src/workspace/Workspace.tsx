@@ -1,22 +1,18 @@
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { BsGithub, BsLayoutSidebarInsetReverse, BsSliders } from "react-icons/bs";
 import AccessKey from "../components/AccessKey";
 import DatasetControls from "../dataset/DatasetControls";
 import MapSettings from "../map/MapSettings";
+import { DownloadMapButton, SavedViewsMenu } from "../map/MapActions";
 import MapView from "../map/MapView";
 import type { MapViewHandle } from "../map/MapView";
 import { FloatingIconButton, SwitchNav } from "../components/ui";
 import { defaultDataset } from "../dataset/model";
 import useWorkspaceController from "./useWorkspaceController";
 import SavedViewControls from "../savedViews/SavedViewControls";
-import SharedViewPrompt from "../savedViews/SharedViewPrompt";
 import GroupingControls from "../clustering/GroupingControls";
 import { buildEmptyClusterSets } from "../clustering/buildClusters";
 import { defaultClusteringSettings, useMapStore } from "../state/mapState";
-import { sharedViewUrl } from "../savedViews/sharedView";
-import type { SharedView } from "../savedViews/sharedView";
-import type { StoredAnalysis } from "../indexedDb";
-import type { WorkspaceSettings } from "../dataset/model";
 import { useWorkspaceStore } from "../state/workspaceState";
 import { fallbackMapVersion } from "../map/constants";
 
@@ -43,7 +39,6 @@ export default function Workspace({
   const mapView = useRef<MapViewHandle>(null);
   const [controlTab, setControlTab] = useState<ControlTab>("filters");
   const currentSide = useMapStore((state) => state.currentSide);
-  const setWorkspaceError = useWorkspaceStore((state) => state.setError);
   const {
     data: {
       leagues,
@@ -68,8 +63,20 @@ export default function Workspace({
       showUnclustered,
       visionTechnique,
       clusterMarkerSize,
+      colorMode,
+      colorStatistic,
     },
-    status: { ready, loadingData, dataLoadProgress, clustering, error, datasetFreshness },
+    status: {
+      ready,
+      loadingData,
+      dataLoadProgress,
+      clustering,
+      error,
+      datasetFreshness,
+      activeView,
+      deletedView,
+      viewModified,
+    },
     actions: {
       setDraftDataset,
       setControlsOpen,
@@ -79,13 +86,20 @@ export default function Workspace({
       updateUnclusteredVisibility,
       updateVisionTechnique,
       updateClusterMarkerSize,
+      updateColorMode,
+      updateColorStatistic,
       updateClustering,
       replaceClustering,
       saveView,
-      applySharedView,
+      exportView,
+      importView,
       restoreView,
+      revertView,
       renameView,
       removeView,
+      resetCurrentView,
+      updateView,
+      undoRemoveView,
       loadDataset,
       cancelDatasetLoad,
     },
@@ -115,13 +129,21 @@ export default function Workspace({
       match.mapVersion === defaultMapVersion &&
       (draftDataset.collectionIds.length === 0 || selectedImportedMatchIds.has(match.matchId)),
   );
+  const visionRanges: [number | null, number | null][] = [
+    [draftDataset.minimumScoutingTracking, draftDataset.maximumScoutingTracking],
+    [draftDataset.minimumScoutingDiscovery, draftDataset.maximumScoutingDiscovery],
+  ];
+  const visionRangesValid = visionRanges.every(
+    ([minimum, maximum]) => minimum === null || maximum === null || minimum <= maximum,
+  );
   const datasetValid =
     (draftDataset.source === "competitive"
       ? draftDataset.leagueIds.length > 0
       : importedLibraryReady && importedMatchesAvailable) &&
     draftDataset.minimumGameMinute <= draftDataset.maximumGameMinute &&
     draftDataset.minimumMatchDuration <= draftDataset.maximumMatchDuration &&
-    draftDataset.minimumWardLifetime <= draftDataset.maximumWardLifetime;
+    draftDataset.minimumWardLifetime <= draftDataset.maximumWardLifetime &&
+    visionRangesValid;
 
   const mapLeague =
     leagues
@@ -130,53 +152,59 @@ export default function Workspace({
   const mapVersion = mapLeague?.version ?? fallbackMapVersion;
   const displayedError = leagueError ?? error;
 
-  async function shareView(savedView: StoredAnalysis<WorkspaceSettings>) {
-    const sharedView: SharedView = {
-      version: 1,
-      settings: savedView.settings,
-      map: {
-        side: savedView.settings.dataset.side,
-        markerSize: clusterMarkerSize,
-      },
-      inspector: {
-        tab: "overview",
-        context: null,
-      },
+  useEffect(() => {
+    const undoLocationChange = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== "z" ||
+        (!event.ctrlKey && !event.metaKey) ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+
+      if (
+        target instanceof Element &&
+        target.closest("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+
+      const workspace = useWorkspaceStore.getState();
+
+      if (!workspace.locationChangeUndo) {
+        return;
+      }
+
+      event.preventDefault();
+      workspace.undoLocationChange();
     };
 
-    const url = sharedViewUrl(sharedView);
+    window.addEventListener("keydown", undoLocationChange);
 
-    try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-      } else {
-        window.prompt("Copy this link", url);
-      }
-    } catch {
-      window.prompt("Unable to access the clipboard. Copy this link manually:", url);
-      setWorkspaceError("The share link could not be copied automatically");
-    }
-  }
+    return () => window.removeEventListener("keydown", undoLocationChange);
+  }, []);
 
   const layoutClass =
     controlsOpen && inspectorOpen
-      ? "xl:grid-cols-[17rem_minmax(0,1fr)_24rem]"
+      ? "xl:grid-cols-[17rem_minmax(0,1fr)_26rem]"
       : controlsOpen
         ? "xl:grid-cols-[17rem_minmax(0,1fr)]"
         : inspectorOpen
-          ? "xl:grid-cols-[minmax(0,1fr)_24rem]"
+          ? "xl:grid-cols-[minmax(0,1fr)_26rem]"
           : "xl:grid-cols-1";
 
   return (
     <main className="flex min-h-screen flex-col bg-slate-950 xl:h-screen xl:min-h-0">
-      <SharedViewPrompt apply={applySharedView} />
       <div className={`grid min-h-0 flex-1 grid-cols-1 ${layoutClass}`}>
         <aside
           className={`${controlsOpen ? "flex" : "hidden"} min-h-0 flex-col border-r border-white/10 bg-slate-900`}
         >
           <div className="flex items-center justify-between px-3 pt-2">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-slate-100">Wardmap</p>
+              <p className="text-sm font-medium text-slate-100">Wardmap</p>
               <a
                 aria-label="Open Wardmap on GitHub"
                 className="p-1 text-slate-600 hover:text-slate-300"
@@ -200,7 +228,7 @@ export default function Workspace({
                     <>
                       Filters
                       {filterCount > 0 ? (
-                        <span className="ml-1.5 font-mono text-[9px] text-cyan-400">
+                        <span className="ml-1.5 text-[11px] text-cyan-400 tabular-nums">
                           {filterCount}
                         </span>
                       ) : null}
@@ -261,11 +289,11 @@ export default function Workspace({
                 ) : null}
               </div>
             ) : !ready ? (
-              <p className="mb-2 text-[10px] text-slate-500">Restoring workspace…</p>
+              <p className="mb-2 text-xs text-slate-500">Restoring workspace…</p>
             ) : null}
 
             {datasetChanged || datasetFreshness.stale ? (
-              <p className="mb-2 text-[10px] text-amber-300">
+              <p className="mb-2 text-xs text-amber-300">
                 {datasetChanged
                   ? "Map still shows the previous dataset"
                   : `${datasetFreshness.availableMatches.toLocaleString()} parsed matches available`}
@@ -273,7 +301,7 @@ export default function Workspace({
             ) : null}
 
             {loadingData ? (
-              <p className="mb-2 text-[10px] text-cyan-300">
+              <p className="mb-2 text-xs text-cyan-300">
                 {dataLoadProgress
                   ? `Loaded ${dataLoadProgress.loaded.toLocaleString()} of ${dataLoadProgress.total.toLocaleString()} wards`
                   : "Checking dataset size…"}
@@ -301,7 +329,7 @@ export default function Workspace({
                 Reset
               </button>
               <button
-                className="min-w-0 flex-1 rounded-sm bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-white disabled:bg-slate-700 disabled:text-slate-400"
+                className="min-w-0 flex-1 rounded-sm bg-slate-200 px-3 py-2 text-xs font-medium text-slate-950 hover:bg-white disabled:bg-slate-700 disabled:text-slate-400"
                 disabled={!loadingData && (!datasetValid || (!datasetChanged && !loadedDataset))}
                 type="button"
                 onClick={() => {
@@ -334,27 +362,43 @@ export default function Workspace({
         </aside>
 
         <section className="relative min-h-[60vh] overflow-hidden bg-slate-950 xl:min-h-0">
-          <MapSettings
-            clusterMarkerSize={clusterMarkerSize}
-            downloadMap={async () => {
-              await mapView.current?.downloadImage();
-            }}
-            mapVersion={mapVersion}
-            visionTechnique={visionTechnique}
-            setVisionTechnique={updateVisionTechnique}
-            setClusterMarkerSize={updateClusterMarkerSize}
-            viewActions={
+          <div className="absolute top-12 left-3 z-20 flex flex-col items-start gap-1">
+            <SavedViewsMenu>
               <SavedViewControls
+                activeView={activeView}
+                deletedView={deletedView}
                 disabled={!clusterSets}
+                exportView={exportView}
+                importView={importView}
+                modified={viewModified}
                 remove={removeView}
                 rename={renameView}
+                resetCurrentView={resetCurrentView}
                 restore={restoreView}
+                revert={revertView}
                 save={saveView}
-                share={shareView}
+                update={updateView}
+                undoRemove={undoRemoveView}
                 views={savedViews}
               />
-            }
-          />
+            </SavedViewsMenu>
+            <MapSettings
+              clusterMarkerSize={clusterMarkerSize}
+              mapVersion={mapVersion}
+              visionTechnique={visionTechnique}
+              setVisionTechnique={updateVisionTechnique}
+              setClusterMarkerSize={updateClusterMarkerSize}
+              colorMode={colorMode}
+              colorStatistic={colorStatistic}
+              setColorMode={updateColorMode}
+              setColorStatistic={updateColorStatistic}
+            />
+            <DownloadMapButton
+              download={async () => {
+                await mapView.current?.downloadImage();
+              }}
+            />
+          </div>
           <FloatingIconButton
             aria-label={controlsOpen ? "Hide filters" : "Show filters"}
             className={`absolute top-3 left-3 z-30 ${controlsOpen ? "bg-slate-800 text-slate-100" : ""}`}

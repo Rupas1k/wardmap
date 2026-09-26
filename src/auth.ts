@@ -14,7 +14,15 @@ export function getApiKey(): string {
     return "";
   }
 
-  return window.sessionStorage.getItem(storageKey) ?? "";
+  const apiKey =
+    window.localStorage.getItem(storageKey) ?? window.sessionStorage.getItem(storageKey) ?? "";
+
+  if (apiKey && !window.localStorage.getItem(storageKey)) {
+    window.localStorage.setItem(storageKey, apiKey);
+    window.sessionStorage.removeItem(storageKey);
+  }
+
+  return apiKey;
 }
 
 export function authHeaders(apiKey = getApiKey()): Record<string, string> {
@@ -35,8 +43,9 @@ export async function verifyApiKey(apiKey: string): Promise<AccessStatus> {
 
 export function saveApiKey(apiKey: string): void {
   if (apiKey) {
-    window.sessionStorage.setItem(storageKey, apiKey);
+    window.localStorage.setItem(storageKey, apiKey);
   } else {
+    window.localStorage.removeItem(storageKey);
     window.sessionStorage.removeItem(storageKey);
   }
 }

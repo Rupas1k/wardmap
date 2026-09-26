@@ -56,6 +56,10 @@ function mockMatch(file: ReplayDescriptor, mapVersion: number, offset: number): 
     const destroyerPool = players.filter((candidate) => candidate.isRadiant !== player.isRadiant);
     const destroyer = destroyed ? destroyerPool[Math.floor(next() * destroyerPool.length)]! : null;
     const observer = next() > 0.28;
+    const scoutingTracking = observer ? Math.round(next() * 1_200) / 10 : null;
+    const scoutingDiscovery = observer ? Math.round(next() * 500) / 10 : null;
+    const addedVision = observer ? Math.round(next() * 800) / 10 : null;
+    const freshSightings = observer ? Math.floor(next() * 6) : null;
 
     return {
       id: matchId * 100 + index,
@@ -69,6 +73,22 @@ function mockMatch(file: ReplayDescriptor, mapVersion: number, offset: number): 
       is_destroyed: destroyed,
       time_placed: timePlaced,
       duration: lifetime,
+      scouting_tracking_seconds: scoutingTracking,
+      scouting_discovery_seconds: scoutingDiscovery,
+      measurement: {
+        sightings: [],
+        vision_complete: observer,
+        placed_at_seconds: timePlaced,
+        ended_at_seconds: timePlaced + lifetime,
+        outcome: destroyed ? "dewarded" : "expired",
+        outcome_reason: destroyed ? "enemy_destroyed" : "natural_expiry",
+        added_vision_seconds: addedVision,
+        fresh_sightings: freshSightings,
+        fresh_sighting_threshold_seconds: 5,
+        vision_possible_seconds: observer ? lifetime : 0,
+        vision_measured_seconds: observer ? lifetime : 0,
+        vision_coverage: observer ? 1 : null,
+      },
       enemy_hero_vision_seconds: observer ? Math.round(next() * 1000) / 10 : null,
       unique_enemy_hero_vision_seconds: observer ? Math.round(next() * 700) / 10 : null,
       heroes_spotted: observer ? Math.floor(next() * 6) : null,

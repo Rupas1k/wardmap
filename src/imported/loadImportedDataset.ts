@@ -3,6 +3,32 @@ import type { DatasetSettings } from "../dataset/model";
 import type { Ward } from "../types";
 import { loadImportedLibrary } from "./storage";
 
+function outcomeMatches(ward: Ward, outcome: DatasetSettings["outcome"]): boolean {
+  if (outcome === "all") {
+    return true;
+  }
+  if (outcome === "unresolved_removal") {
+    return ["replay_ended", "unknown"].includes(ward.measurement.outcome);
+  }
+
+  return ward.measurement.outcome === outcome;
+}
+
+function optionalRangeMatches(
+  value: number | null,
+  minimum: number | null,
+  maximum: number | null,
+): boolean {
+  if (minimum === null && maximum === null) {
+    return true;
+  }
+  if (value === null) {
+    return false;
+  }
+
+  return (minimum === null || value >= minimum) && (maximum === null || value <= maximum);
+}
+
 export async function loadImportedWardDataset(
   dataset: DatasetSettings,
   mapVersion: number,
@@ -70,13 +96,33 @@ export async function loadImportedWardDataset(
             dataset.opponentTeamIds.includes(ward.opponent_team_id))) &&
         (dataset.side === "all" || ward.is_radiant === (dataset.side === "radiant")) &&
         (dataset.wardType === "all" || ward.is_obs === (dataset.wardType === "observer")) &&
-        (dataset.outcome === "all" || ward.is_destroyed === (dataset.outcome === "destroyed")) &&
+        outcomeMatches(ward, dataset.outcome) &&
         (dataset.teamResult === "all" || ward.team_won === (dataset.teamResult === "won")) &&
         ward.time_placed >= dataset.minimumGameMinute * 60 &&
         ward.time_placed <= dataset.maximumGameMinute * 60 &&
         (ward.match_duration ?? 0) >= dataset.minimumMatchDuration * 60 &&
         (ward.match_duration ?? 0) <= dataset.maximumMatchDuration * 60 &&
         ward.duration >= dataset.minimumWardLifetime &&
+        optionalRangeMatches(
+          ward.measurement.added_vision_seconds,
+          dataset.minimumAddedVision,
+          dataset.maximumAddedVision,
+        ) &&
+        optionalRangeMatches(
+          ward.measurement.fresh_sightings,
+          dataset.minimumFreshSightings,
+          dataset.maximumFreshSightings,
+        ) &&
+        optionalRangeMatches(
+          ward.scouting_tracking_seconds,
+          dataset.minimumScoutingTracking,
+          dataset.maximumScoutingTracking,
+        ) &&
+        optionalRangeMatches(
+          ward.scouting_discovery_seconds,
+          dataset.minimumScoutingDiscovery,
+          dataset.maximumScoutingDiscovery,
+        ) &&
         ward.duration <= dataset.maximumWardLifetime
       );
     });
