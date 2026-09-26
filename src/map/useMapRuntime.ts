@@ -3,7 +3,7 @@ import { boundingExtent } from "ol/extent";
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { useMapStore } from "../state/mapState";
-import { fetchElevations } from "./fetchElevations";
+import { loadElevations } from "./loadElevations";
 import { unitToPixel } from "./projections";
 
 export function useElevationGrid(version: number) {
@@ -16,7 +16,7 @@ export function useElevationGrid(version: number) {
 
     setLoading(true);
     setError(null);
-    void fetchElevations(version, controller.signal)
+    void loadElevations(version, controller.signal)
       .then((elevations) => {
         setElevations(elevations);
         setLoading(false);
