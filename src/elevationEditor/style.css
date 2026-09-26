@@ -1,0 +1,250 @@
+html,
+body,
+#elevation-editor {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.elevation-editor {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: #e2e8f0;
+  background: #020617;
+}
+
+.editor-map {
+  width: 100%;
+  height: 100%;
+}
+
+.editor-panel {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  width: 268px;
+  padding: 14px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 6px;
+  background: rgb(15 23 42 / 96%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 28%);
+}
+
+.editor-heading {
+  display: grid;
+  gap: 3px;
+  padding: 0 2px 14px;
+}
+
+.editor-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-heading strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.editor-heading > span,
+.section-label,
+.editor-row span,
+.editor-status {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.editor-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px 2px;
+  border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+.section-label {
+  line-height: 1;
+}
+
+.save-state {
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.save-state[hidden] {
+  display: none;
+}
+
+.editor-panel button,
+.button-like,
+.editor-panel select {
+  min-height: 36px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 5px;
+  color: #cbd5e1;
+  background: #111c31;
+  font: inherit;
+}
+
+.editor-panel button,
+.button-like {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 11px;
+  cursor: pointer;
+}
+
+.editor-panel button:hover:not(:disabled),
+.button-like:hover {
+  border-color: rgb(103 232 249 / 42%);
+  color: #f8fafc;
+}
+
+.editor-panel button:focus-visible,
+.button-like:focus-within,
+.editor-panel select:focus-visible {
+  outline: 2px solid rgb(34 211 238 / 70%);
+  outline-offset: 2px;
+}
+
+.editor-panel button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.editor-file {
+  width: 100%;
+}
+
+.editor-file input {
+  display: none;
+}
+
+.editor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-row select {
+  min-width: 112px;
+  padding: 0 9px;
+}
+
+.mode-group,
+.action-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.mode-group button,
+.action-row button {
+  border-radius: 0;
+}
+
+.mode-group button:first-child,
+.action-row button:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.mode-group button:last-child,
+.action-row button:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.mode-group button + button,
+.action-row button + button {
+  margin-left: -1px;
+}
+
+.mode-group button.active {
+  z-index: 1;
+  border-color: rgb(103 232 249 / 55%);
+  color: #cffafe;
+  background: rgb(8 145 178 / 18%);
+}
+
+.editor-changes {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+
+.editor-changes > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.editor-changes strong {
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.action-row {
+  grid-template-columns: repeat(2, auto);
+}
+
+.export-button {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.editor-panel button.primary {
+  border-color: rgb(34 211 238 / 48%);
+  color: #ecfeff;
+  background: #0e7490;
+}
+
+.editor-status {
+  position: absolute;
+  z-index: 2;
+  right: 12px;
+  bottom: 12px;
+  padding: 7px 9px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 5px;
+  background: rgb(15 23 42 / 92%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  pointer-events: none;
+}
+
+.editor-error {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  left: 50%;
+  max-width: min(520px, calc(100% - 24px));
+  padding: 8px 10px;
+  border: 1px solid rgb(248 113 113 / 45%);
+  border-radius: 5px;
+  color: #fecaca;
+  background: rgb(69 10 10 / 94%);
+  transform: translateX(-50%);
+}
+
+.elevation-editor .ol-zoom {
+  top: 12px;
+  right: 12px;
+  left: auto;
+}
+
+@media (max-width: 640px) {
+  .editor-panel {
+    right: 12px;
+    width: auto;
+  }
+
+  .editor-status {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    text-align: center;
+  }
+}
