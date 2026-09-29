@@ -6,25 +6,20 @@ import type { PlayerPerspective } from "./model";
 import { Field, GameTimeRange, OptionalRange, Range, SelectionDialog } from "./DatasetFormControls";
 import type { SelectionOption } from "./DatasetFormControls";
 import { fieldControlClass } from "../components/ui";
+import { mapPatchLabel, mapPatchLabels } from "../map/versions";
 import ImportedMatches from "../imported/ImportedMatches";
 import { useImportedStore } from "../imported/state";
+import { newestPlayerNames } from "../imported/playerIdentity";
 
 interface DatasetControlsProps {
   onShowImportedMatches: (matchIds: number[]) => void;
   leagues: readonly League[];
-  mapVersion: number;
   players: readonly Player[];
   opponentPlayers: readonly Player[];
   teams: readonly Team[];
   settings: DatasetSettings;
   setSettings: (settings: DatasetSettings) => void;
 }
-
-const mapLabels: Readonly<Record<number, string>> = {
-  0: "2023 map",
-  1: "2024 map",
-  2: "2026 map",
-};
 
 function selectionSummary(ids: number[], options: SelectionOption[], empty: string) {
   if (ids.length === 0) {
@@ -75,7 +70,6 @@ function CompactSelect({
 export default function DatasetControls({
   onShowImportedMatches,
   leagues,
-  mapVersion,
   players,
   opponentPlayers,
   teams,
@@ -86,13 +80,16 @@ export default function DatasetControls({
   const update = <K extends keyof DatasetSettings>(key: K, value: DatasetSettings[K]) =>
     setSettings({ ...settings, [key]: value });
   const importedMatches = importedLibrary.matches.filter(
-    (match) => match.mapVersion === mapVersion,
+    (match) => match.mapVersion === settings.importedMapVersion,
   );
-  const importedPlayers = [
-    ...new Map(
-      importedMatches.flatMap((match) => match.players).map((player) => [player.id, player]),
-    ).values(),
-  ].map((player) => ({ id: player.id, name: player.name }));
+  const importedPlayerNames = newestPlayerNames(importedLibrary.matches);
+  const importedPlayerIds = new Set(
+    importedMatches.flatMap((match) => match.players.map((player) => player.id)),
+  );
+  const importedPlayers = [...importedPlayerIds].map((id) => ({
+    id,
+    name: importedPlayerNames.get(id) ?? `Player ${id}`,
+  }));
   const importedTeams = [
     ...new Map(
       importedMatches
@@ -119,7 +116,7 @@ export default function DatasetControls({
   const leagueOptions = leagues.map((league) => ({
     id: league.id,
     name: league.name,
-    meta: mapLabels[league.version] ?? `Map version ${league.version}`,
+    meta: mapPatchLabel(league.version),
   }));
 
   const teamOptions: SelectionOption[] = availableTeams.map((team) => ({
@@ -153,6 +150,7 @@ export default function DatasetControls({
               ...settings,
               source: event.target.value as DatasetSettings["source"],
               collectionIds: [],
+              wardType: "observer",
               perspective: "all",
               playerIds: "",
               opponentPlayerIds: "",
@@ -197,7 +195,7 @@ export default function DatasetControls({
               value={settings.importedMapVersion}
               onChange={(event) => update("importedMapVersion", Number(event.target.value))}
             >
-              {Object.entries(mapLabels).map(([version, label]) => (
+              {Object.entries(mapPatchLabels).map(([version, label]) => (
                 <option key={version} value={version}>
                   {label}
                 </option>
@@ -207,7 +205,10 @@ export default function DatasetControls({
               <span className="text-slate-500">Matches</span>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-slate-300">{importedMatches.length}</span>
-                <ImportedMatches mapVersion={mapVersion} onShowMatches={onShowImportedMatches} />
+                <ImportedMatches
+                  mapVersion={settings.importedMapVersion}
+                  onShowMatches={onShowImportedMatches}
+                />
               </div>
             </div>
             {importedLibrary.collections.length > 0 ? (

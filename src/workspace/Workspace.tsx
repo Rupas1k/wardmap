@@ -271,7 +271,7 @@ export default function Workspace({
                         source: "imported",
                         leagueIds: [],
                         importedMapVersion,
-                        wardType: "all",
+                        wardType: "observer",
                         matchIds: matchIds.join(","),
                       },
                       true,
@@ -293,7 +293,6 @@ export default function Workspace({
                   })();
                 }}
                 leagues={leagues}
-                mapVersion={importedMapVersion}
                 players={players}
                 opponentPlayers={opponentPlayers}
                 teams={teams}

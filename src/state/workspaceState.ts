@@ -11,6 +11,7 @@ import { normalizeLocationKeys } from "../locations/locationIdentity";
 import { compatibleManualLocations, manualLocationId } from "../locations/manualLocations";
 import type { ManualLocation } from "../locations/manualLocations";
 import type { ViewState } from "../savedViews/viewState";
+import { readDatasetPreference, writeDatasetPreference } from "../workspace/datasetPreference";
 
 export type InspectorTab = "overview" | "locations" | "details";
 export type InspectorReturnTab = Exclude<InspectorTab, "details">;
@@ -158,9 +159,14 @@ export interface WorkspaceState {
   setError: (error: string | null) => void;
 }
 
+const datasetPreference = readDatasetPreference(
+  typeof localStorage === "undefined" ? undefined : localStorage,
+);
+const initialDataset = { ...defaultDataset, ...datasetPreference };
+
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   leagues: [],
-  draftDataset: defaultDataset,
+  draftDataset: initialDataset,
   loadedDataset: null,
   wards: [],
   clusterSets: null,
@@ -202,6 +208,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   setDraftDataset: (update) =>
     set((state) => {
       const draftDataset = resolve(state.draftDataset, update);
+
+      writeDatasetPreference(typeof localStorage === "undefined" ? undefined : localStorage, {
+        source: draftDataset.source,
+        importedMapVersion: draftDataset.importedMapVersion,
+      });
 
       return {
         draftDataset,

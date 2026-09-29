@@ -67,7 +67,12 @@ export default function useWorkspaceRestore({
         const autoView = normalizeSavedViewState(storedAutoView);
         const cachedView = session ? normalizeSavedViewState(session.settings) : null;
         const view = autoView ?? cachedView;
-        const dataset = normalizeDataset(view?.workspace.dataset ?? initialDraft);
+        const restoredDataset = view?.workspace.dataset ?? initialDraft;
+        const dataset = normalizeDataset({
+          ...restoredDataset,
+          source: initialDraft.source,
+          importedMapVersion: initialDraft.importedMapVersion,
+        });
 
         setDraftDataset(dataset);
 
