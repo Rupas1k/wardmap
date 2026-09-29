@@ -1,12 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { parseWardRecords } from "../api/validation";
-import { defaultDataset, isClusterSets, normalizeDataset } from "../dataset/model";
+import { isClusterSets, normalizeDataset } from "../dataset/model";
 import type { DatasetSettings } from "../dataset/model";
 import { clusterDataVersion, wardDataVersion } from "../dataset/storage";
 import { getAnalysis, getSetting } from "../indexedDb";
 import { autoViewSettingKey, normalizeSavedViewState } from "../savedViews/viewState";
 import type { ViewState } from "../savedViews/viewState";
 import { useWorkspaceActions } from "../state/workspaceSelectors";
+import { useWorkspaceStore } from "../state/workspaceState";
 import type { League } from "../types";
 import type { BooleanRef } from "./useDatasetLoader";
 import useViewRestoration from "./useViewRestoration";
@@ -27,117 +28,131 @@ export default function useWorkspaceRestore({
   restoredClusters,
 }: WorkspaceRestoreOptions): BooleanRef {
   const autoViewReady = useRef(false);
+  const [pending, setPending] = useState<{
+    dataset: DatasetSettings;
+    view: ViewState | null;
+  } | null>(null);
+  const draftDataset = useWorkspaceStore((state) => state.draftDataset);
   const { applyWorkspaceSettings, restorePresentation } = useViewRestoration();
-  const { setDataLoadProgress, setDatasetSnapshot, setDraftDataset, setLoadingData } =
+  const { setDataLoadProgress, setDatasetSnapshot, setDraftDataset, setLoadingData, setError } =
     useWorkspaceActions();
 
-  function applyViewState(state: ViewState) {
-    restorePresentation(state);
-    autoViewReady.current = true;
-  }
-
+  // Restore browser data first. Only a subsequent competitive load needs leagues.
   useEffect(() => {
-    if (!ready || !defaultLeague) {
+    if (!ready || autoViewReady.current) {
       return;
     }
 
     let active = true;
-    const initialDataset = { ...defaultDataset, leagueIds: [defaultLeague.id] };
+    const initialDraft = useWorkspaceStore.getState().draftDataset;
 
     setLoadingData(true);
     setDataLoadProgress(null);
-    setDatasetSnapshot(null, [], null);
 
     void Promise.all([getAnalysis("workspace:last"), getSetting(autoViewSettingKey)])
-      .then(async ([session, storedAutoView]) => {
+      .then(([session, storedAutoView]) => {
         if (!active) {
+          return;
+        }
+        autoViewReady.current = true;
+        const current = useWorkspaceStore.getState();
+
+        // Do not overwrite an import or source change made while IndexedDB was opening.
+        if (current.draftDataset !== initialDraft || current.loadedDataset) {
+          setLoadingData(false);
+
           return;
         }
 
         const autoView = normalizeSavedViewState(storedAutoView);
         const cachedView = session ? normalizeSavedViewState(session.settings) : null;
-        const state = autoView ?? cachedView;
-
-        if (!state) {
-          setDraftDataset(initialDataset);
-          setDatasetSnapshot(null, [], null);
-          await loadDataset(initialDataset, false);
-          autoViewReady.current = true;
-
-          return;
-        }
-
-        const settings = state.workspace;
-        const normalizedDataset = normalizeDataset(settings.dataset, defaultLeague.id);
-        const dataset = compatibleDataset(normalizedDataset);
-        const removedIncompatibleLeagues =
-          dataset.leagueIds.length !== normalizedDataset.leagueIds.length;
+        const view = autoView ?? cachedView;
+        const restoredDataset = view?.workspace.dataset ?? initialDraft;
+        const dataset = normalizeDataset({
+          ...restoredDataset,
+          source: initialDraft.source,
+          importedMapVersion: initialDraft.importedMapVersion,
+        });
 
         setDraftDataset(dataset);
-        applyWorkspaceSettings(state);
 
-        const cachedSettingsMatch = Boolean(
-          cachedView && JSON.stringify(cachedView.workspace) === JSON.stringify(settings),
-        );
+        if (view) {
+          applyWorkspaceSettings(view);
+        }
+
         const canRestoreCache = Boolean(
+          view &&
           session &&
           isClusterSets(session.clusterSets) &&
-          cachedSettingsMatch &&
-          !removedIncompatibleLeagues &&
-          settings.wardDataVersion === wardDataVersion,
+          cachedView &&
+          JSON.stringify(cachedView.workspace) === JSON.stringify(view.workspace) &&
+          view.workspace.wardDataVersion === wardDataVersion,
         );
 
-        if (!canRestoreCache || !session) {
-          setDatasetSnapshot(null, [], null);
-          await loadDataset(dataset, false);
+        if (canRestoreCache && session && view) {
+          try {
+            const wards = parseWardRecords(session.wards);
+            const clustersMatch = view.workspace.clusterDataVersion === clusterDataVersion;
 
-          if (active) {
-            applyViewState(state);
+            restoredClusters.current = clustersMatch;
+            setDatasetSnapshot(
+              dataset,
+              wards,
+              clustersMatch ? session.clusterSets! : null,
+              session.leagueFreshness ?? null,
+            );
+            setLoadingData(false);
+            restorePresentation(view);
+
+            return;
+          } catch {
+            // Reload invalid cached data from its original source.
           }
-
-          return;
         }
 
-        let restoredWards;
-
-        try {
-          restoredWards = parseWardRecords(session.wards);
-        } catch {
-          setDatasetSnapshot(null, [], null);
-          await loadDataset(dataset, false);
-
-          if (active) {
-            applyViewState(state);
-          }
-
-          return;
-        }
-
-        if (!active) {
-          return;
-        }
-
-        const clustersMatchCurrentModel = settings.clusterDataVersion === clusterDataVersion;
-
-        restoredClusters.current = clustersMatchCurrentModel;
-        setDatasetSnapshot(
-          dataset,
-          restoredWards,
-          clustersMatchCurrentModel ? session.clusterSets! : null,
-          session.leagueFreshness ?? null,
-        );
+        setDatasetSnapshot(null, [], null);
         setLoadingData(false);
-        applyViewState(state);
+        setPending({ dataset, view });
       })
-      .catch(async () => {
-        await loadDataset(initialDataset, false);
-        autoViewReady.current = true;
+      .catch((reason: unknown) => {
+        if (active) {
+          autoViewReady.current = true;
+          setLoadingData(false);
+          setError(reason instanceof Error ? reason.message : "Unable to restore workspace");
+        }
       });
 
     return () => {
       active = false;
     };
-  }, [defaultLeague?.id, ready]);
+  }, [ready]);
+
+  useEffect(() => {
+    if (!pending) {
+      return;
+    }
+    if (draftDataset !== pending.dataset) {
+      setPending(null);
+
+      return;
+    }
+    if (pending.dataset.source === "competitive" && !defaultLeague) {
+      return;
+    }
+
+    const dataset = compatibleDataset(pending.dataset);
+    const view = pending.view;
+
+    setPending(null);
+    void loadDataset(dataset, false).then(() => {
+      if (
+        view &&
+        JSON.stringify(useWorkspaceStore.getState().loadedDataset) === JSON.stringify(dataset)
+      ) {
+        restorePresentation(view);
+      }
+    });
+  }, [pending, draftDataset, defaultLeague, compatibleDataset, loadDataset]);
 
   return autoViewReady;
 }

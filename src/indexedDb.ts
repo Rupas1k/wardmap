@@ -1,9 +1,10 @@
 import type { ClusterSets, Ward, WardPopulation } from "./types";
 
 const databaseName = "dota2wardmap";
-const databaseVersion = 3;
+const databaseVersion = 4;
 const settingsStore = "settings";
 const analysesStore = "analyses";
+const importedMatchesStore = "importedMatches";
 
 export interface StoredAnalysis<TSettings = unknown> {
   key: string;
@@ -34,6 +35,13 @@ function openDatabase(): Promise<IDBDatabase> {
 
       if (!database.objectStoreNames.contains(settingsStore)) {
         database.createObjectStore(settingsStore);
+      }
+
+      if (!database.objectStoreNames.contains(importedMatchesStore)) {
+        const importedMatches = database.createObjectStore(importedMatchesStore, {
+          keyPath: "matchId",
+        });
+        importedMatches.createIndex("fileHash", "fileHash");
       }
 
       let analyses: IDBObjectStore;
@@ -88,6 +96,16 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
+function transactionDone(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error("IndexedDB transaction failed"));
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
+  });
+}
+
 export async function getSetting<T>(key: string): Promise<T | null> {
   const database = await openDatabase();
 
@@ -109,6 +127,90 @@ export async function setSetting<T>(key: string, value: T): Promise<void> {
     await requestResult(
       database.transaction(settingsStore, "readwrite").objectStore(settingsStore).put(value, key),
     );
+  } finally {
+    database.close();
+  }
+}
+
+export async function deleteSetting(key: string): Promise<void> {
+  const database = await openDatabase();
+
+  try {
+    await requestResult(
+      database.transaction(settingsStore, "readwrite").objectStore(settingsStore).delete(key),
+    );
+  } finally {
+    database.close();
+  }
+}
+
+interface ImportedMatchRecord {
+  matchId: number;
+  fileHash: string;
+}
+
+export async function listImportedMatches<T extends ImportedMatchRecord>(): Promise<T[]> {
+  const database = await openDatabase();
+
+  try {
+    return (await requestResult(
+      database.transaction(importedMatchesStore).objectStore(importedMatchesStore).getAll(),
+    )) as T[];
+  } finally {
+    database.close();
+  }
+}
+
+export async function saveImportedMatch<T extends ImportedMatchRecord>(
+  match: T,
+  replacedMatchId?: number,
+): Promise<void> {
+  const database = await openDatabase();
+
+  try {
+    const transaction = database.transaction(importedMatchesStore, "readwrite");
+    const store = transaction.objectStore(importedMatchesStore);
+
+    store.put(match);
+
+    if (replacedMatchId !== undefined && replacedMatchId !== match.matchId) {
+      store.delete(replacedMatchId);
+    }
+    await transactionDone(transaction);
+  } finally {
+    database.close();
+  }
+}
+
+export async function deleteImportedMatches(matchIds: readonly number[]): Promise<void> {
+  if (!matchIds.length) {
+    return;
+  }
+
+  const database = await openDatabase();
+
+  try {
+    const transaction = database.transaction(importedMatchesStore, "readwrite");
+    const store = transaction.objectStore(importedMatchesStore);
+
+    matchIds.forEach((matchId) => store.delete(matchId));
+    await transactionDone(transaction);
+  } finally {
+    database.close();
+  }
+}
+
+export async function replaceImportedMatches<T extends ImportedMatchRecord>(
+  matches: readonly T[],
+): Promise<void> {
+  const database = await openDatabase();
+
+  try {
+    const transaction = database.transaction(importedMatchesStore, "readwrite");
+    const store = transaction.objectStore(importedMatchesStore);
+    store.clear();
+    matches.forEach((match) => store.put(match));
+    await transactionDone(transaction);
   } finally {
     database.close();
   }

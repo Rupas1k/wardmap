@@ -38,6 +38,7 @@ export default function Workspace({
 }) {
   const mapView = useRef<MapViewHandle>(null);
   const [controlTab, setControlTab] = useState<ControlTab>("filters");
+  const [mapHandoff, setMapHandoff] = useState<string | null>(null);
   const currentSide = useMapStore((state) => state.currentSide);
   const {
     data: {
@@ -52,6 +53,8 @@ export default function Workspace({
       players,
       opponentPlayers,
       defaultLeague,
+      importedLibrary,
+      importedLibraryReady,
     },
     panels: { controlsOpen, inspectorOpen },
     analysis: {
@@ -106,7 +109,9 @@ export default function Workspace({
   const datasetChanged = JSON.stringify(draftDataset) !== JSON.stringify(loadedDataset);
   const resetDataset = {
     ...defaultDataset,
-    leagueIds: defaultLeague ? [defaultLeague.id] : [],
+    source: draftDataset.source,
+    importedMapVersion: draftDataset.importedMapVersion,
+    leagueIds: draftDataset.source === "competitive" && defaultLeague ? [defaultLeague.id] : [],
   };
   const filtersAtDefault = JSON.stringify(draftDataset) === JSON.stringify(resetDataset);
   const filterCount = changedSettingCount(draftDataset, resetDataset);
@@ -115,6 +120,17 @@ export default function Workspace({
     clusteringEnabled &&
     !groupByGridCell &&
     !showUnclustered;
+  const selectedImportedMatchIds = new Set(
+    importedLibrary.collections
+      .filter((collection) => draftDataset.collectionIds.includes(collection.id))
+      .flatMap((collection) => collection.matchIds),
+  );
+  const importedMapVersion = draftDataset.importedMapVersion;
+  const importedMatchesAvailable = importedLibrary.matches.some(
+    (match) =>
+      match.mapVersion === importedMapVersion &&
+      (draftDataset.collectionIds.length === 0 || selectedImportedMatchIds.has(match.matchId)),
+  );
   const visionRanges: [number | null, number | null][] = [
     [draftDataset.minimumScoutingTracking, draftDataset.maximumScoutingTracking],
     [draftDataset.minimumScoutingDiscovery, draftDataset.maximumScoutingDiscovery],
@@ -123,7 +139,9 @@ export default function Workspace({
     ([minimum, maximum]) => minimum === null || maximum === null || minimum <= maximum,
   );
   const datasetValid =
-    draftDataset.leagueIds.length > 0 &&
+    (draftDataset.source === "competitive"
+      ? draftDataset.leagueIds.length > 0
+      : importedLibraryReady && importedMatchesAvailable) &&
     draftDataset.minimumGameMinute <= draftDataset.maximumGameMinute &&
     draftDataset.minimumMatchDuration <= draftDataset.maximumMatchDuration &&
     draftDataset.minimumWardLifetime <= draftDataset.maximumWardLifetime &&
@@ -133,8 +151,13 @@ export default function Workspace({
     leagues
       .filter((candidate) => (loadedDataset ?? draftDataset).leagueIds.includes(candidate.id))
       .sort((left, right) => right.version - left.version)[0] ?? defaultLeague;
-  const mapVersion = mapLeague?.version ?? fallbackMapVersion;
-  const displayedError = leagueError ?? error;
+  const mapDataset = loadedDataset ?? draftDataset;
+  const mapVersion =
+    mapDataset.source === "imported"
+      ? mapDataset.importedMapVersion
+      : (mapLeague?.version ?? fallbackMapVersion);
+  const competitiveLeagueError = draftDataset.source === "competitive" ? leagueError : null;
+  const displayedError = competitiveLeagueError ?? error;
 
   useEffect(() => {
     const undoLocationChange = (event: KeyboardEvent) => {
@@ -170,6 +193,16 @@ export default function Workspace({
 
     return () => window.removeEventListener("keydown", undoLocationChange);
   }, []);
+
+  useEffect(() => {
+    if (!mapHandoff) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setMapHandoff(null), 5000);
+
+    return () => window.clearTimeout(timeout);
+  }, [mapHandoff]);
 
   const layoutClass =
     controlsOpen && inspectorOpen
@@ -230,6 +263,35 @@ export default function Workspace({
               className={`${controlTab === "filters" ? "block" : "hidden"} h-full overflow-y-auto p-3`}
             >
               <DatasetControls
+                onShowImportedMatches={(matchIds) => {
+                  void (async () => {
+                    await loadDataset(
+                      {
+                        ...defaultDataset,
+                        source: "imported",
+                        leagueIds: [],
+                        importedMapVersion,
+                        wardType: "observer",
+                        matchIds: matchIds.join(","),
+                      },
+                      true,
+                    );
+                    const loaded = useWorkspaceStore.getState();
+
+                    if (loaded.loadedDataset?.source !== "imported" || !loaded.wards.length) {
+                      return;
+                    }
+                    useMapStore.setState({
+                      cameraRequest: {
+                        kind: "fit",
+                        positions: loaded.wards.map((ward) => [ward.x_pos, ward.y_pos, ward.z_pos]),
+                      },
+                    });
+                    setMapHandoff(
+                      `${matchIds.length} ${matchIds.length === 1 ? "match" : "matches"}, ${loaded.wards.length} ${loaded.wards.length === 1 ? "ward" : "wards"}`,
+                    );
+                  })();
+                }}
                 leagues={leagues}
                 players={players}
                 opponentPlayers={opponentPlayers}
@@ -261,7 +323,7 @@ export default function Workspace({
             {displayedError ? (
               <div className="mb-2 flex items-start justify-between gap-2 text-xs leading-4 text-rose-300">
                 <p>{displayedError}</p>
-                {leagueError ? (
+                {competitiveLeagueError ? (
                   <button
                     className="shrink-0 text-slate-400 hover:text-slate-200"
                     type="button"
@@ -330,13 +392,15 @@ export default function Workspace({
               >
                 {loadingData
                   ? "Cancel load"
-                  : !datasetValid
-                    ? "Check filter ranges"
-                    : datasetChanged
-                      ? "Apply filters"
-                      : datasetFreshness.stale
-                        ? "Update dataset"
-                        : "Refresh dataset"}
+                  : draftDataset.source === "imported" && !importedMatchesAvailable
+                    ? "Import matches to continue"
+                    : !datasetValid
+                      ? "Check filter ranges"
+                      : datasetChanged
+                        ? "Apply filters"
+                        : datasetFreshness.stale
+                          ? "Update dataset"
+                          : "Refresh dataset"}
               </button>
             </div>
           </div>
@@ -391,7 +455,7 @@ export default function Workspace({
           {displayedError && !controlsOpen ? (
             <div className="absolute bottom-3 left-3 z-30 flex max-w-md items-start gap-3 bg-slate-950/90 px-3 py-2 text-xs text-rose-300">
               <p>{displayedError}</p>
-              {leagueError ? (
+              {competitiveLeagueError ? (
                 <button
                   className="shrink-0 text-slate-400 hover:text-slate-200"
                   type="button"
@@ -408,6 +472,15 @@ export default function Workspace({
             ref={mapView}
             showUnclustered={showUnclustered}
           />
+          {mapHandoff ? (
+            <button
+              className="absolute top-3 left-1/2 z-30 -translate-x-1/2 rounded-sm border border-cyan-400/20 bg-slate-950/90 px-3 py-2 text-xs text-cyan-200 shadow-xl"
+              type="button"
+              onClick={() => setMapHandoff(null)}
+            >
+              Loaded {mapHandoff}
+            </button>
+          ) : null}
           {displayClusterSets && wards.length === 0 ? (
             <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-slate-950/35">
               <p className="bg-slate-950/90 px-4 py-3 text-sm text-slate-300">

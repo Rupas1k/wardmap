@@ -17,7 +17,6 @@
   "dependencies": {
     "@turf/helpers": "^7.4.0",
     "@turf/intersect": "^7.4.0",
-    "bz2": "^1.0.1",
     "chart.js": "^4.5.1",
     "ol": "^10.10.0",
     "react": "^19.2.8",
@@ -36,7 +35,6 @@
     "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
-    "jiti": "^2.7.0",
     "prettier": "^3.9.6",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",

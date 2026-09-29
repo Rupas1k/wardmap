@@ -11,6 +11,7 @@ import { normalizeLocationKeys } from "../locations/locationIdentity";
 import { compatibleManualLocations, manualLocationId } from "../locations/manualLocations";
 import type { ManualLocation } from "../locations/manualLocations";
 import type { ViewState } from "../savedViews/viewState";
+import { readDatasetPreference, writeDatasetPreference } from "../workspace/datasetPreference";
 
 export type InspectorTab = "overview" | "locations" | "details";
 export type InspectorReturnTab = Exclude<InspectorTab, "details">;
@@ -42,7 +43,7 @@ function resolve<T>(current: T, update: Update<T>): T {
 }
 
 function validWardId(id: number): boolean {
-  return Number.isSafeInteger(id) && id > 0;
+  return Number.isSafeInteger(id) && id !== 0;
 }
 
 function locationUndoSnapshot(state: WorkspaceState): LocationChangeUndo {
@@ -158,9 +159,14 @@ export interface WorkspaceState {
   setError: (error: string | null) => void;
 }
 
+const datasetPreference = readDatasetPreference(
+  typeof localStorage === "undefined" ? undefined : localStorage,
+);
+const initialDataset = { ...defaultDataset, ...datasetPreference };
+
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   leagues: [],
-  draftDataset: defaultDataset,
+  draftDataset: initialDataset,
   loadedDataset: null,
   wards: [],
   clusterSets: null,
@@ -200,7 +206,19 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   error: null,
   setLeagues: (leagues) => set({ leagues }),
   setDraftDataset: (update) =>
-    set((state) => ({ draftDataset: resolve(state.draftDataset, update) })),
+    set((state) => {
+      const draftDataset = resolve(state.draftDataset, update);
+
+      writeDatasetPreference(typeof localStorage === "undefined" ? undefined : localStorage, {
+        source: draftDataset.source,
+        importedMapVersion: draftDataset.importedMapVersion,
+      });
+
+      return {
+        draftDataset,
+        error: draftDataset.source !== state.draftDataset.source ? null : state.error,
+      };
+    }),
   setLoadedDataset: (loadedDataset) => set({ loadedDataset }),
   setWards: (wards) =>
     set((state) => {

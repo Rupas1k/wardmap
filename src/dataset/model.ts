@@ -1,3 +1,4 @@
+import { fallbackMapVersion } from "../map/constants";
 import type { ClusteringSettings, VisionTechnique } from "../state/mapState";
 import type { ClusterSets, Side } from "../types";
 import { isManualLocations } from "../locations/manualLocations";
@@ -7,9 +8,15 @@ export type WardType = "all" | "observer" | "sentry";
 export type WardOutcome =
   "all" | "dewarded" | "expired" | "allied_removed" | "match_ended" | "unresolved_removal";
 export type TeamResult = "all" | "won" | "lost";
+export type DatasetSource = "competitive" | "imported";
+export type PlayerPerspective = "all" | "mine" | "allies" | "enemies";
 
 export interface DatasetSettings {
+  source: DatasetSource;
+  importedMapVersion: number;
   leagueIds: number[];
+  collectionIds: string[];
+  perspective: PlayerPerspective;
   side: Side;
   wardType: WardType;
   outcome: WardOutcome;
@@ -52,7 +59,11 @@ export interface WorkspaceSettings {
 }
 
 export const defaultDataset: DatasetSettings = {
+  source: "competitive",
+  importedMapVersion: fallbackMapVersion,
   leagueIds: [],
+  collectionIds: [],
+  perspective: "all",
   side: "all",
   wardType: "observer",
   outcome: "all",
@@ -104,8 +115,15 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
 
   return Boolean(
     dataset &&
+    (dataset.source === undefined || ["competitive", "imported"].includes(dataset.source)) &&
+    (dataset.importedMapVersion === undefined || [0, 1, 2].includes(dataset.importedMapVersion)) &&
     Array.isArray(dataset.leagueIds) &&
     dataset.leagueIds.every(Number.isFinite) &&
+    (dataset.collectionIds === undefined ||
+      (Array.isArray(dataset.collectionIds) &&
+        dataset.collectionIds.every((id) => typeof id === "string"))) &&
+    (dataset.perspective === undefined ||
+      ["all", "mine", "allies", "enemies"].includes(dataset.perspective)) &&
     ["all", "radiant", "dire"].includes(dataset.side) &&
     ["all", "observer", "sentry"].includes(dataset.wardType) &&
     ["all", "dewarded", "expired", "allied_removed", "match_ended", "unresolved_removal"].includes(
@@ -231,22 +249,23 @@ export function isClusterSets(value: unknown): value is ClusterSets {
 
 export function normalizeDataset(
   settings: Partial<DatasetSettings>,
-  defaultLeagueId: number,
+  defaultLeagueId?: number,
 ): DatasetSettings {
-  const currentSettings = { ...settings } as Partial<DatasetSettings> & {
-    collectionIds?: unknown;
-    perspective?: unknown;
-    source?: unknown;
-  };
-
-  delete currentSettings.collectionIds;
-  delete currentSettings.perspective;
-  delete currentSettings.source;
-
   return {
     ...defaultDataset,
-    ...currentSettings,
-    leagueIds: settings.leagueIds?.length ? settings.leagueIds : [defaultLeagueId],
+    ...settings,
+    source: settings.source ?? "competitive",
+    importedMapVersion: settings.importedMapVersion ?? fallbackMapVersion,
+    leagueIds:
+      settings.source === "imported"
+        ? []
+        : settings.leagueIds?.length
+          ? settings.leagueIds
+          : defaultLeagueId === undefined
+            ? []
+            : [defaultLeagueId],
+    collectionIds: settings.collectionIds ?? [],
+    perspective: settings.perspective ?? "all",
     teamIds: settings.teamIds ?? [],
     opponentTeamIds: settings.opponentTeamIds ?? [],
     opponentPlayerIds: settings.opponentPlayerIds ?? "",

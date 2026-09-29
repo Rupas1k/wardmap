@@ -4,6 +4,7 @@ import { fetchTeams } from "../api/fetchTeams";
 import { useWorkspaceStore } from "../state/workspaceState";
 
 export default function useDatasetMetadata() {
+  const source = useWorkspaceStore((state) => state.draftDataset.source);
   const leagueIds = useWorkspaceStore((state) => state.draftDataset.leagueIds);
   const teamIds = useWorkspaceStore((state) => state.draftDataset.teamIds);
   const opponentTeamIds = useWorkspaceStore((state) => state.draftDataset.opponentTeamIds);
@@ -14,7 +15,7 @@ export default function useDatasetMetadata() {
     let active = true;
     const controller = new AbortController();
 
-    if (leagueIds.length === 0) {
+    if (source === "imported" || leagueIds.length === 0) {
       setMetadata([], [], []);
 
       return;
@@ -40,5 +41,5 @@ export default function useDatasetMetadata() {
       active = false;
       controller.abort();
     };
-  }, [leagueIds, opponentTeamIds, setError, setMetadata, teamIds]);
+  }, [leagueIds, opponentTeamIds, setError, setMetadata, source, teamIds]);
 }

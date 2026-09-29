@@ -18,10 +18,11 @@ import type { LeagueFreshness } from "../indexedDb";
 import type { ClusterSets, League, Ward, WardPopulation } from "../types";
 import { normalizeSavedViewState } from "../savedViews/viewState";
 import type { ViewState } from "../savedViews/viewState";
-import { numericIds } from "./model";
+import { defaultDataset, numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
+import { loadImportedWardDataset } from "../imported/loadImportedDataset";
 
-export const clusterDataVersion = 16;
+export const clusterDataVersion = 17;
 export const wardDataVersion = 8;
 const datasetCacheLimit = 8;
 
@@ -31,6 +32,7 @@ function canonicalDataset(dataset: DatasetSettings): DatasetSettings {
 
   return {
     ...dataset,
+    collectionIds: [...new Set(dataset.collectionIds)].sort(),
     leagueIds: numeric(dataset.leagueIds),
     teamIds: numeric(dataset.teamIds),
     opponentTeamIds: numeric(dataset.opponentTeamIds),
@@ -82,6 +84,22 @@ export async function loadWardDataset(
   forceRefresh: boolean,
   { signal, maximumWards, onProgress }: LoadWardDatasetOptions,
 ): Promise<LoadedWardDataset> {
+  if (dataset.source === "imported") {
+    const mapVersion = dataset.importedMapVersion ?? defaultDataset.importedMapVersion;
+
+    const wards = await loadImportedWardDataset(dataset, mapVersion, signal);
+
+    if (wards.length > maximumWards) {
+      throw new DatasetTooLargeError(wards.length, maximumWards);
+    }
+
+    return {
+      wards,
+      leagueFreshness: null,
+      population: null,
+    };
+  }
+
   const normalizedDataset = canonicalDataset(dataset);
   const key = `workspace:data:v${wardDataVersion}:${JSON.stringify(normalizedDataset)}`;
 

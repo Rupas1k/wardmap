@@ -225,7 +225,7 @@ function normalizeSelection(
   return {
     locationKey: typeof value?.locationKey === "string" ? value.locationKey : null,
     wardId:
-      typeof wardId === "number" && Number.isSafeInteger(wardId) && wardId > 0 ? wardId : null,
+      typeof wardId === "number" && Number.isSafeInteger(wardId) && wardId !== 0 ? wardId : null,
     expandedLocationKeys: Array.isArray(value?.expandedLocationKeys)
       ? [...new Set(value.expandedLocationKeys.filter((key) => typeof key === "string"))]
       : [],

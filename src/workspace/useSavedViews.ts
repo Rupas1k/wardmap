@@ -281,14 +281,15 @@ export default function useSavedViews({
   }
 
   async function applyViewState(view: ViewState, activeKey: string | null): Promise<boolean> {
-    if (!defaultLeague) {
+    const settings = view.workspace;
+
+    if (settings.dataset.source === "competitive" && !defaultLeague) {
       setError("Unable to load leagues");
 
       return false;
     }
 
-    const settings = view.workspace;
-    const dataset = compatibleDataset(normalizeDataset(settings.dataset, defaultLeague.id));
+    const dataset = compatibleDataset(normalizeDataset(settings.dataset, defaultLeague?.id));
 
     applyWorkspaceSettings(view);
     selectActiveView(activeKey);
@@ -332,13 +333,20 @@ export default function useSavedViews({
   }
 
   async function resetCurrentView() {
-    if (!defaultLeague) {
+    const currentDataset = useWorkspaceStore.getState().draftDataset;
+
+    if (currentDataset.source === "competitive" && !defaultLeague) {
       setError("Unable to load leagues");
 
       return;
     }
 
-    const dataset = { ...defaultDataset, leagueIds: [defaultLeague.id] };
+    const dataset = {
+      ...defaultDataset,
+      source: currentDataset.source,
+      importedMapVersion: currentDataset.importedMapVersion,
+      leagueIds: currentDataset.source === "competitive" && defaultLeague ? [defaultLeague.id] : [],
+    };
     const workspaceState = useWorkspaceStore.getState();
     const mapState = useMapStore.getState();
 
@@ -374,12 +382,6 @@ export default function useSavedViews({
   }
 
   function restoreView(key: string) {
-    if (!defaultLeague) {
-      setError("Unable to load leagues");
-
-      return;
-    }
-
     const view = savedViews.find((candidate) => candidate.key === key);
 
     if (!view) {
@@ -394,7 +396,7 @@ export default function useSavedViews({
 
     const state = view.settings;
     const settings = state.workspace;
-    const normalizedDataset = normalizeDataset(settings.dataset, defaultLeague.id);
+    const normalizedDataset = normalizeDataset(settings.dataset, defaultLeague?.id);
     const dataset = compatibleDataset(normalizedDataset);
     const removedIncompatibleLeagues =
       dataset.leagueIds.length !== normalizedDataset.leagueIds.length;

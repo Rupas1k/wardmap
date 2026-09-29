@@ -23,7 +23,7 @@ export function isManualLocation(value: unknown): value is ManualLocation {
         candidate.name === candidate.name.trim())) &&
     Array.isArray(candidate.wardIds) &&
     candidate.wardIds.length >= 2 &&
-    candidate.wardIds.every((id) => Number.isSafeInteger(id) && id > 0) &&
+    candidate.wardIds.every((id) => Number.isSafeInteger(id) && id !== 0) &&
     new Set(candidate.wardIds).size === candidate.wardIds.length &&
     candidate.wardIds.every((id, index, wardIds) => index === 0 || (wardIds[index - 1] ?? id) < id),
   );

@@ -16,6 +16,8 @@ import {
   datasetFreshness as calculateDatasetFreshness,
   selectDefaultLeague,
 } from "./workspaceDataset";
+import useImportedLibrary from "../imported/useImportedLibrary";
+import { useImportedStore } from "../imported/state";
 import { useWorkspaceStore } from "../state/workspaceState";
 
 export default function useWorkspaceController() {
@@ -69,6 +71,7 @@ export default function useWorkspaceController() {
   } = useWorkspaceSettings();
 
   useDatasetMetadata();
+  useImportedLibrary();
   useLocationClustering({
     clusteringEnabled,
     clusteringSettings,
@@ -77,6 +80,8 @@ export default function useWorkspaceController() {
   });
 
   const defaultLeague = selectDefaultLeague(leagues);
+  const importedLibrary = useImportedStore((state) => state.library);
+  const importedLibraryReady = useImportedStore((state) => state.ready);
   const datasetFreshness = useMemo(
     () => calculateDatasetFreshness(loadedDataset, leagues, loadedLeagueFreshness),
     [leagues, loadedDataset, loadedLeagueFreshness],
@@ -156,6 +161,8 @@ export default function useWorkspaceController() {
       players,
       opponentPlayers,
       defaultLeague,
+      importedLibrary,
+      importedLibraryReady,
     },
     panels: { controlsOpen, inspectorOpen },
     analysis: {
