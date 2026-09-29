@@ -18,11 +18,11 @@ import type { LeagueFreshness } from "../indexedDb";
 import type { ClusterSets, League, Ward, WardPopulation } from "../types";
 import { normalizeSavedViewState } from "../savedViews/viewState";
 import type { ViewState } from "../savedViews/viewState";
-import { numericIds } from "./model";
+import { defaultDataset, numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
 import { loadImportedWardDataset } from "../imported/loadImportedDataset";
 
-export const clusterDataVersion = 16;
+export const clusterDataVersion = 17;
 export const wardDataVersion = 8;
 const datasetCacheLimit = 8;
 
@@ -85,16 +85,16 @@ export async function loadWardDataset(
   { signal, maximumWards, onProgress }: LoadWardDatasetOptions,
 ): Promise<LoadedWardDataset> {
   if (dataset.source === "imported") {
-    const mapVersion =
-      leagues.find((league) => dataset.leagueIds.includes(league.id))?.version ??
-      leagues[0]?.version;
+    const mapVersion = dataset.importedMapVersion ?? defaultDataset.importedMapVersion;
 
-    if (mapVersion === undefined) {
-      throw new Error("No supported map version is available");
+    const wards = await loadImportedWardDataset(dataset, mapVersion, signal);
+
+    if (wards.length > maximumWards) {
+      throw new DatasetTooLargeError(wards.length, maximumWards);
     }
 
     return {
-      wards: await loadImportedWardDataset(dataset, mapVersion, signal),
+      wards,
       leagueFreshness: null,
       population: null,
     };

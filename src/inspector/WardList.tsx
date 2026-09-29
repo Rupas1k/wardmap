@@ -200,7 +200,11 @@ function WardReport({
 
     setSightings(null);
     setSightingError(false);
-    void fetchWardEvidence(ward.id)
+    void (
+      ward.id < 0
+        ? Promise.resolve({ ward_id: ward.id, sightings: ward.measurement.sightings })
+        : fetchWardEvidence(ward.id)
+    )
       .then((evidence) => {
         if (active) {
           setSightings(evidence.sightings);

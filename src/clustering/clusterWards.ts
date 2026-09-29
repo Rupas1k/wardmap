@@ -56,10 +56,12 @@ function splitByWardType(wards: Ward[]): Ward[][] {
 
 function mergeTypeResults(wards: Ward[], results: ClusterResult[]): ClusterResult {
   let nextClusterId = 0;
+  let nextNoiseId = -2;
   const clusters = results.flatMap((result) =>
-    result.clusters.map((cluster) =>
-      cluster.unclustered ? cluster : { ...cluster, cluster_id: nextClusterId++ },
-    ),
+    result.clusters.map((cluster) => ({
+      ...cluster,
+      cluster_id: cluster.unclustered ? nextNoiseId-- : nextClusterId++,
+    })),
   );
 
   return {
@@ -70,7 +72,7 @@ function mergeTypeResults(wards: Ward[], results: ClusterResult[]): ClusterResul
 
 function gridMemberships(wards: Ward[], groupByGridCell: boolean): Map<number, number[]> {
   if (!groupByGridCell) {
-    return new Map(wards.map((ward) => [ward.id, [ward.id]]));
+    return new Map(wards.map((ward, index) => [index, [ward.id]]));
   }
 
   const cells = new Map<string, number[]>();
@@ -123,7 +125,7 @@ async function clusterWardType(
   signal?: AbortSignal,
 ): Promise<ClusterResult> {
   if (settings.algorithm === "auto" && !shouldClusterAutomatically(wards.length)) {
-    return buildClusters(wards, new Map(wards.map((ward) => [ward.id, [ward.id]])));
+    return buildClusters(wards, new Map(wards.map((ward, index) => [index, [ward.id]])));
   }
 
   if (settings.algorithm !== "auto") {

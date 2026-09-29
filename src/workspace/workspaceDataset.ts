@@ -11,8 +11,15 @@ export function selectDefaultLeague(leagues: League[]): League | null {
 export function compatibleLeagueDataset(
   dataset: DatasetSettings,
   leagues: League[],
-  defaultLeague: League,
+  defaultLeague: League | null,
 ): DatasetSettings {
+  if (dataset.source === "imported") {
+    return { ...dataset, leagueIds: [] };
+  }
+  if (!defaultLeague) {
+    return dataset;
+  }
+
   const selectedLeagues = dataset.leagueIds.flatMap((id) => {
     const league = leagues.find((candidate) => candidate.id === id);
 

@@ -120,6 +120,7 @@ function wardRecord(ward: Ward): ClusterWard {
 export function buildClusters(wards: Ward[], memberships: Map<number, number[]>): ClusterResult {
   const wardsById = new Map(wards.map((ward) => [ward.id, ward]));
   const clusters: Cluster[] = [];
+  let nextNoiseId = -2;
 
   for (const [clusterId, wardIds] of memberships) {
     if (clusterId < 0) {
@@ -133,7 +134,7 @@ export function buildClusters(wards: Ward[], memberships: Map<number, number[]>)
         const radiant = ward.is_radiant === true ? [ward] : [];
         const dire = ward.is_radiant === false ? [ward] : [];
         clusters.push({
-          cluster_id: -(ward.id + 2),
+          cluster_id: nextNoiseId--,
           unclustered: true,
           x_pos: ward.x_pos,
           y_pos: ward.y_pos,

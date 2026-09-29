@@ -42,7 +42,7 @@ function resolve<T>(current: T, update: Update<T>): T {
 }
 
 function validWardId(id: number): boolean {
-  return Number.isSafeInteger(id) && id > 0;
+  return Number.isSafeInteger(id) && id !== 0;
 }
 
 function locationUndoSnapshot(state: WorkspaceState): LocationChangeUndo {
@@ -200,7 +200,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   error: null,
   setLeagues: (leagues) => set({ leagues }),
   setDraftDataset: (update) =>
-    set((state) => ({ draftDataset: resolve(state.draftDataset, update) })),
+    set((state) => {
+      const draftDataset = resolve(state.draftDataset, update);
+
+      return {
+        draftDataset,
+        error: draftDataset.source !== state.draftDataset.source ? null : state.error,
+      };
+    }),
   setLoadedDataset: (loadedDataset) => set({ loadedDataset }),
   setWards: (wards) =>
     set((state) => {

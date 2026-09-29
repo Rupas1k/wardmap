@@ -1,3 +1,4 @@
+import { fallbackMapVersion } from "../map/constants";
 import type { ClusteringSettings, VisionTechnique } from "../state/mapState";
 import type { ClusterSets, Side } from "../types";
 import { isManualLocations } from "../locations/manualLocations";
@@ -12,6 +13,7 @@ export type PlayerPerspective = "all" | "mine" | "allies" | "enemies";
 
 export interface DatasetSettings {
   source: DatasetSource;
+  importedMapVersion: number;
   leagueIds: number[];
   collectionIds: string[];
   perspective: PlayerPerspective;
@@ -58,6 +60,7 @@ export interface WorkspaceSettings {
 
 export const defaultDataset: DatasetSettings = {
   source: "competitive",
+  importedMapVersion: fallbackMapVersion,
   leagueIds: [],
   collectionIds: [],
   perspective: "all",
@@ -113,6 +116,7 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
   return Boolean(
     dataset &&
     (dataset.source === undefined || ["competitive", "imported"].includes(dataset.source)) &&
+    (dataset.importedMapVersion === undefined || [0, 1, 2].includes(dataset.importedMapVersion)) &&
     Array.isArray(dataset.leagueIds) &&
     dataset.leagueIds.every(Number.isFinite) &&
     (dataset.collectionIds === undefined ||
@@ -245,13 +249,21 @@ export function isClusterSets(value: unknown): value is ClusterSets {
 
 export function normalizeDataset(
   settings: Partial<DatasetSettings>,
-  defaultLeagueId: number,
+  defaultLeagueId?: number,
 ): DatasetSettings {
   return {
     ...defaultDataset,
     ...settings,
     source: settings.source ?? "competitive",
-    leagueIds: settings.leagueIds?.length ? settings.leagueIds : [defaultLeagueId],
+    importedMapVersion: settings.importedMapVersion ?? fallbackMapVersion,
+    leagueIds:
+      settings.source === "imported"
+        ? []
+        : settings.leagueIds?.length
+          ? settings.leagueIds
+          : defaultLeagueId === undefined
+            ? []
+            : [defaultLeagueId],
     collectionIds: settings.collectionIds ?? [],
     perspective: settings.perspective ?? "all",
     teamIds: settings.teamIds ?? [],

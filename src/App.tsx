@@ -4,11 +4,16 @@ import Workspace from "./workspace/Workspace";
 import { useWorkspaceStore } from "./state/workspaceState";
 
 export default function App() {
+  const source = useWorkspaceStore((state) => state.draftDataset.source);
   const setLeagues = useWorkspaceStore((state) => state.setLeagues);
   const [leagueError, setLeagueError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
+    if (source === "imported") {
+      return;
+    }
+
     let active = true;
     let controller: AbortController | null = null;
 
@@ -20,7 +25,7 @@ export default function App() {
 
       void fetchLeagues(requestController.signal)
         .then((result) => {
-          if (active) {
+          if (active && !requestController.signal.aborted) {
             setLeagues(result);
             setLeagueError(null);
           }
@@ -42,7 +47,7 @@ export default function App() {
       window.clearInterval(interval);
       window.removeEventListener("focus", refreshLeagues);
     };
-  }, [loadAttempt, setLeagues]);
+  }, [loadAttempt, setLeagues, source]);
 
   return (
     <Workspace
