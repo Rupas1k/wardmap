@@ -10,6 +10,7 @@ import ImportedMatches from "../imported/ImportedMatches";
 import { useImportedStore } from "../imported/state";
 
 interface DatasetControlsProps {
+  onShowImportedMatches: (matchIds: number[]) => void;
   leagues: readonly League[];
   mapVersion: number;
   players: readonly Player[];
@@ -72,6 +73,7 @@ function CompactSelect({
 }
 
 export default function DatasetControls({
+  onShowImportedMatches,
   leagues,
   mapVersion,
   players,
@@ -190,11 +192,22 @@ export default function DatasetControls({
           />
         ) : (
           <section>
+            <CompactSelect
+              label="Map"
+              value={settings.importedMapVersion}
+              onChange={(event) => update("importedMapVersion", Number(event.target.value))}
+            >
+              {Object.entries(mapLabels).map(([version, label]) => (
+                <option key={version} value={version}>
+                  {label}
+                </option>
+              ))}
+            </CompactSelect>
             <div className="flex items-center justify-between py-2 text-xs">
               <span className="text-slate-500">Matches</span>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-slate-300">{importedMatches.length}</span>
-                <ImportedMatches mapVersion={mapVersion} />
+                <ImportedMatches mapVersion={mapVersion} onShowMatches={onShowImportedMatches} />
               </div>
             </div>
             {importedLibrary.collections.length > 0 ? (
@@ -205,13 +218,19 @@ export default function DatasetControls({
                 </div>
                 {importedLibrary.collections.map((collection) => (
                   <label
-                    className="flex cursor-pointer items-center justify-between py-1 text-xs text-slate-400"
+                    className="flex cursor-pointer items-center justify-between py-1 text-xs text-slate-400 has-disabled:cursor-not-allowed has-disabled:opacity-40"
                     key={collection.id}
                   >
-                    <span>{collection.name}</span>
+                    <span>
+                      {collection.name}{" "}
+                      <span className="text-[10px] text-slate-600">
+                        {collection.matchIds.length}
+                      </span>
+                    </span>
                     <input
                       checked={settings.collectionIds.includes(collection.id)}
                       className="accent-cyan-400"
+                      disabled={collection.matchIds.length === 0}
                       type="checkbox"
                       onChange={() =>
                         update(
