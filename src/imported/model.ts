@@ -4,7 +4,7 @@ export interface ImportedPlayer {
   id: number;
   name: string;
   isRadiant: boolean;
-  hero: string;
+  hero: string | null;
 }
 
 export interface ImportedMatch {
@@ -12,12 +12,13 @@ export interface ImportedMatch {
   fileName: string;
   fileHash: string;
   mapVersion: number;
-  gameVersion: number;
-  startedAt: number;
-  duration: number;
+  gameVersion: number | null;
+  startedAt: number | null;
+  duration: number | null;
   importedAt: number;
   parserVersion: number;
-  radiantWon: boolean;
+  warnings?: string[];
+  radiantWon: boolean | null;
   players: ImportedPlayer[];
   wards: Ward[];
 }
@@ -27,6 +28,8 @@ export interface ImportedCollection {
   name: string;
   matchIds: number[];
   createdAt: number;
+  updatedAt?: number;
+  description?: string;
 }
 
 export interface ImportedProfile {
@@ -34,6 +37,7 @@ export interface ImportedProfile {
 }
 
 export interface ImportedLibrary {
+  nextWardId?: number;
   matches: ImportedMatch[];
   collections: ImportedCollection[];
   profile: ImportedProfile;

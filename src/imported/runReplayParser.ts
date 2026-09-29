@@ -1,39 +1,71 @@
 import type { ImportedMatch } from "./model";
 
-interface ParserResponse {
-  matches?: ImportedMatch[];
-  error?: string;
+export interface ParserResult {
+  matches: ImportedMatch[];
+  errors: string[];
 }
 
 export default function runReplayParser(
   files: readonly File[],
   mapVersion: number,
-): Promise<ImportedMatch[]> {
-  const worker = new Worker(new URL("./mockParser.worker.ts", import.meta.url), { type: "module" });
+  onProgress: (message: string) => void,
+  signal: AbortSignal,
+): Promise<ParserResult> {
+  const worker = new Worker(new URL("./replayParser.worker.ts", import.meta.url), {
+    type: "module",
+  });
 
   return new Promise((resolve, reject) => {
-    worker.onmessage = (event: MessageEvent<ParserResponse>) => {
+    const cleanup = () => {
       worker.terminate();
+      signal.removeEventListener("abort", abort);
+    };
+
+    const abort = () => {
+      cleanup();
+      reject(new DOMException("Replay import cancelled", "AbortError"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+
+    if (signal.aborted) {
+      abort();
+
+      return;
+    }
+    worker.onmessage = (
+      event: MessageEvent<Partial<ParserResult> & { progress?: string; error?: string }>,
+    ) => {
+      if (event.data.progress) {
+        onProgress(event.data.progress);
+
+        return;
+      }
+      cleanup();
 
       if (event.data.error) {
         reject(new Error(event.data.error));
 
         return;
       }
+      if (!event.data.matches || !event.data.errors) {
+        reject(new Error("Replay parser returned an invalid result"));
 
-      resolve(event.data.matches ?? []);
+        return;
+      }
+      resolve({ matches: event.data.matches, errors: event.data.errors });
     };
     worker.onerror = (event) => {
-      worker.terminate();
-      reject(new Error(event.message || "Replay parser worker failed"));
+      cleanup();
+      reject(
+        new Error(
+          event.message || "Replay parser failed. The replay may be unsupported or too large.",
+        ),
+      );
     };
-    worker.postMessage({
-      files: files.map((file) => ({
-        name: file.name,
-        size: file.size,
-        modified: file.lastModified,
-      })),
-      mapVersion,
-    });
+    worker.onmessageerror = () => {
+      cleanup();
+      reject(new Error("Unable to read replay parser results"));
+    };
+    worker.postMessage({ files, mapVersion });
   });
 }

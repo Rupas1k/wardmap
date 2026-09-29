@@ -1,4 +1,5 @@
 mod clustering;
+mod replay;
 mod utils;
 
 use wasm_bindgen::prelude::*;
