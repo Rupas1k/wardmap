@@ -1,16 +1,20 @@
 import type { ImportedMatch } from "./model";
 
-export interface ParserResult {
-  matches: ImportedMatch[];
-  errors: string[];
+interface ParserMessage {
+  type: "progress" | "complete" | "failed";
+  jobId: string;
+  message?: string;
+  match?: ImportedMatch;
+  error?: string;
 }
 
 export default function runReplayParser(
-  files: readonly File[],
+  file: File,
   mapVersion: number,
+  jobId: string,
   onProgress: (message: string) => void,
   signal: AbortSignal,
-): Promise<ParserResult> {
+): Promise<ImportedMatch> {
   const worker = new Worker(new URL("./replayParser.worker.ts", import.meta.url), {
     type: "module",
   });
@@ -32,27 +36,33 @@ export default function runReplayParser(
 
       return;
     }
-    worker.onmessage = (
-      event: MessageEvent<Partial<ParserResult> & { progress?: string; error?: string }>,
-    ) => {
-      if (event.data.progress) {
-        onProgress(event.data.progress);
+
+    worker.onmessage = (event: MessageEvent<ParserMessage>) => {
+      const message = event.data;
+
+      if (message.jobId !== jobId) {
+        return;
+      }
+      if (message.type === "progress" && message.message) {
+        onProgress(message.message);
 
         return;
       }
+
       cleanup();
 
-      if (event.data.error) {
-        reject(new Error(event.data.error));
+      if (message.type === "failed") {
+        reject(new Error(message.error ?? "Replay parser failed"));
 
         return;
       }
-      if (!event.data.matches || !event.data.errors) {
+      if (message.type !== "complete" || !message.match) {
         reject(new Error("Replay parser returned an invalid result"));
 
         return;
       }
-      resolve({ matches: event.data.matches, errors: event.data.errors });
+
+      resolve(message.match);
     };
     worker.onerror = (event) => {
       cleanup();
@@ -66,6 +76,6 @@ export default function runReplayParser(
       cleanup();
       reject(new Error("Unable to read replay parser results"));
     };
-    worker.postMessage({ files, mapVersion });
+    worker.postMessage({ jobId, file, mapVersion });
   });
 }

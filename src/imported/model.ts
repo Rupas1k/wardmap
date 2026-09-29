@@ -12,12 +12,10 @@ export interface ImportedMatch {
   fileName: string;
   fileHash: string;
   mapVersion: number;
-  gameVersion: number | null;
   startedAt: number | null;
   duration: number | null;
   importedAt: number;
   parserVersion: number;
-  warnings?: string[];
   radiantWon: boolean | null;
   players: ImportedPlayer[];
   wards: Ward[];

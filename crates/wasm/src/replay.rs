@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::{borrow::Cow, io::Read};
 
 use serde_json::{json, Value};
 use wasm_bindgen::prelude::*;
@@ -13,16 +13,16 @@ fn account_id(steam_id: u64) -> Option<u32> {
         .filter(|id| *id != 0)
 }
 
-fn replay_bytes(data: &[u8]) -> Result<Vec<u8>, String> {
+fn replay_bytes(data: &[u8]) -> Result<Cow<'_, [u8]>, String> {
     let bytes = if data.starts_with(b"BZh") {
         let mut result = Vec::new();
         bzip2::read::MultiBzDecoder::new(data)
             .take(MAX_REPLAY_BYTES + 1)
             .read_to_end(&mut result)
             .map_err(|error| format!("Unable to decompress replay: {error}"))?;
-        result
+        Cow::Owned(result)
     } else {
-        data.to_vec()
+        Cow::Borrowed(data)
     };
     if bytes.len() as u64 > MAX_REPLAY_BYTES {
         return Err("Replay exceeds the 512 MB decompressed limit".into());
@@ -93,7 +93,7 @@ fn convert(replay: wardmap_parser::Replay) -> Result<Value, String> {
 #[wasm_bindgen]
 pub fn parse_replay(data: &[u8], map_version: u8) -> Result<String, JsError> {
     let bytes = replay_bytes(data).map_err(|error| JsError::new(&error))?;
-    let replay = wardmap_parser::parse_replay(&bytes, map_version)
+    let replay = wardmap_parser::parse_replay(bytes.as_ref(), map_version)
         .map_err(|error| JsError::new(&format!("Unable to parse replay: {error}")))?;
     let result = convert(replay).map_err(|error| JsError::new(&error))?;
     Ok(result.to_string())
@@ -195,8 +195,11 @@ mod tests {
         let bytes = b"PBDEMS2\0test";
         let mut encoder = bzip2::write::BzEncoder::new(Vec::new(), bzip2::Compression::default());
         encoder.write_all(bytes).unwrap();
-        assert_eq!(replay_bytes(&encoder.finish().unwrap()).unwrap(), bytes);
-        assert_eq!(replay_bytes(bytes).unwrap(), bytes);
+        assert_eq!(
+            replay_bytes(&encoder.finish().unwrap()).unwrap().as_ref(),
+            bytes
+        );
+        assert_eq!(replay_bytes(bytes).unwrap().as_ref(), bytes);
         assert!(replay_bytes(b"not a replay").is_err());
         assert!(replay_bytes(b"BZh9broken").is_err());
     }

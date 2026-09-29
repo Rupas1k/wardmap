@@ -1,12 +1,23 @@
-import { getSetting, setSetting } from "../indexedDb";
+import {
+  deleteImportedMatches,
+  deleteSetting,
+  getSetting,
+  listImportedMatches,
+  replaceImportedMatches,
+  saveImportedMatch as saveImportedMatchRecord,
+  setSetting,
+} from "../indexedDb";
 import { parseWardRecords } from "../api/validation";
 import { emptyImportedLibrary } from "./model";
-import type { ImportedLibrary } from "./model";
+import type { ImportedLibrary, ImportedMatch } from "./model";
 
-const libraryKey = "imported-match-library";
+const legacyLibraryKey = "imported-match-library";
+const metadataKey = "imported-library-metadata";
 const backupFormat = "wardmap-replay-library";
 const backupVersion = 1;
 const maximumBackupBytes = 256 * 1024 * 1024;
+
+type ImportedLibraryMetadata = Omit<ImportedLibrary, "matches">;
 
 interface LibraryBackup {
   format: typeof backupFormat;
@@ -18,11 +29,20 @@ interface LibraryBackup {
 function normalizeLibrary(value: ImportedLibrary): ImportedLibrary {
   const matches = value.matches
     .filter((match) => match.parserVersion > 0)
-    .map((match) => ({
-      ...match,
-      warnings: match.warnings ?? [],
-      wards: parseWardRecords(match.wards),
-    }));
+    .map((match) => {
+      const cleaned = { ...match } as ImportedMatch & {
+        gameVersion?: unknown;
+        warnings?: unknown;
+      };
+
+      delete cleaned.gameVersion;
+      delete cleaned.warnings;
+
+      return {
+        ...cleaned,
+        wards: parseWardRecords(cleaned.wards),
+      };
+    });
   const ids = new Set(matches.map((match) => match.matchId));
 
   return {
@@ -40,19 +60,76 @@ function normalizeLibrary(value: ImportedLibrary): ImportedLibrary {
   };
 }
 
-export async function loadImportedLibrary(): Promise<ImportedLibrary> {
-  const library = (await getSetting<ImportedLibrary>(libraryKey)) ?? emptyImportedLibrary;
+function metadata(library: ImportedLibrary): ImportedLibraryMetadata {
+  return {
+    ...(library.nextWardId === undefined ? {} : { nextWardId: library.nextWardId }),
+    collections: library.collections,
+    profile: library.profile,
+  };
+}
+
+async function migrateLegacyLibrary(library: ImportedLibrary): Promise<ImportedLibrary> {
   const cleaned = normalizeLibrary(library);
 
-  if (JSON.stringify(cleaned) !== JSON.stringify(library)) {
-    await saveImportedLibrary(cleaned);
-  }
+  await replaceImportedMatches(cleaned.matches);
+  await setSetting(metadataKey, metadata(cleaned));
+  await deleteSetting(legacyLibraryKey);
 
   return cleaned;
 }
 
-export async function saveImportedLibrary(library: ImportedLibrary): Promise<void> {
-  await setSetting(libraryKey, library);
+export async function loadImportedLibrary(): Promise<ImportedLibrary> {
+  const [storedMetadata, matches, legacy] = await Promise.all([
+    getSetting<ImportedLibraryMetadata>(metadataKey),
+    listImportedMatches<ImportedMatch>(),
+    getSetting<ImportedLibrary>(legacyLibraryKey),
+  ]);
+
+  if (!storedMetadata && legacy) {
+    return migrateLegacyLibrary(legacy);
+  }
+
+  const library = normalizeLibrary({
+    matches,
+    collections: storedMetadata?.collections ?? [],
+    profile: storedMetadata?.profile ?? emptyImportedLibrary.profile,
+    ...(storedMetadata?.nextWardId === undefined ? {} : { nextWardId: storedMetadata.nextWardId }),
+  });
+
+  if (library.matches.length !== matches.length) {
+    await replaceImportedMatches(library.matches);
+  }
+  if (JSON.stringify(metadata(library)) !== JSON.stringify(storedMetadata)) {
+    await setSetting(metadataKey, metadata(library));
+  }
+  if (legacy) {
+    await deleteSetting(legacyLibraryKey);
+  }
+
+  return library;
+}
+
+export async function saveImportedLibraryMetadata(library: ImportedLibrary): Promise<void> {
+  await setSetting(metadataKey, metadata(library));
+}
+
+export async function saveImportedMatch(
+  match: ImportedMatch,
+  replacedMatchId?: number,
+): Promise<void> {
+  await saveImportedMatchRecord(match, replacedMatchId);
+}
+
+export async function removeImportedMatches(matchIds: readonly number[]): Promise<void> {
+  await deleteImportedMatches(matchIds);
+}
+
+export async function replaceImportedLibrary(library: ImportedLibrary): Promise<void> {
+  const cleaned = normalizeLibrary(library);
+
+  await replaceImportedMatches(cleaned.matches);
+  await setSetting(metadataKey, metadata(cleaned));
+  await deleteSetting(legacyLibraryKey);
 }
 
 export function downloadImportedLibrary(library: ImportedLibrary): void {
@@ -68,8 +145,10 @@ export function downloadImportedLibrary(library: ImportedLibrary): void {
 
   link.download = `wardmap-replay-library-${new Date().toISOString().slice(0, 10)}.json`;
   link.href = url;
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export async function readImportedLibraryBackup(file: File): Promise<ImportedLibrary> {

@@ -3,31 +3,34 @@ import { createPortal } from "react-dom";
 import {
   BsArrowDown,
   BsArrowUp,
-  BsCollection,
   BsDownload,
   BsFileEarmarkArrowUp,
-  BsGear,
   BsSearch,
   BsTrash,
   BsUpload,
   BsX,
 } from "react-icons/bs";
-import {
-  elevatedSurfaceClass,
-  fieldControlClass,
-  formControlClass,
-  SwitchNav,
-} from "../components/ui";
+import { elevatedSurfaceClass, formControlClass, SwitchNav } from "../components/ui";
 import { numericIds } from "../dataset/model";
+import { mapPatchLabel, mapPatchLabels } from "../map/versions";
+import { emptyImportedLibrary } from "./model";
 import type { ImportedCollection, ImportedLibrary, ImportedMatch } from "./model";
+import { newestPlayerNames } from "./playerIdentity";
 import runReplayParser from "./runReplayParser";
-import { downloadImportedLibrary, readImportedLibraryBackup, saveImportedLibrary } from "./storage";
+import {
+  downloadImportedLibrary,
+  readImportedLibraryBackup,
+  removeImportedMatches,
+  replaceImportedLibrary,
+  saveImportedLibraryMetadata,
+  saveImportedMatch,
+} from "./storage";
 import { useImportedStore } from "./state";
 
 type ImportedTab = "library" | "import" | "settings";
 type QueueStatus =
   "queued" | "parsing" | "saving" | "imported" | "duplicate" | "failed" | "cancelled";
-type QueueEntry = { file: File; status: QueueStatus; detail?: string };
+type QueueEntry = { jobId: string; file: File; status: QueueStatus; detail?: string };
 type CollectionFilter = string;
 
 const tabs: { id: ImportedTab; label: string }[] = [
@@ -36,15 +39,12 @@ const tabs: { id: ImportedTab; label: string }[] = [
   { id: "settings", label: "Settings" },
 ];
 
-const mapLabels: Record<number, string> = { 0: "2023", 1: "2024", 2: "2026" };
-
 const primaryButtonClass =
   "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-sm bg-cyan-500/15 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-35";
 const secondaryButtonClass =
   "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-sm border border-white/10 bg-white/[0.025] px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-white/20 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-35";
 const dangerButtonClass =
   "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-sm border border-rose-400/20 px-3 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-400/10 disabled:cursor-not-allowed disabled:opacity-35";
-const panelClass = "rounded-sm border border-white/8 bg-white/[0.025] p-4";
 
 function duration(seconds: number | null) {
   if (seconds === null) {
@@ -74,6 +74,14 @@ function playerFor(match: ImportedMatch, accountIds: readonly number[]) {
   return match.players.find((player) => accountIds.includes(player.id));
 }
 
+function matchSummary(match: ImportedMatch, won: boolean | null): string {
+  const started =
+    match.startedAt === null ? "Date unknown" : new Date(match.startedAt).toLocaleDateString();
+  const result = won === null ? [] : [won ? "Won" : "Lost"];
+
+  return [started, duration(match.duration), `${match.wards.length} wards`, ...result].join(", ");
+}
+
 export default function ImportedMatches({
   mapVersion,
   onShowMatches,
@@ -92,6 +100,7 @@ export default function ImportedMatches({
   const [importCollectionId, setImportCollectionId] = useState("");
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [collectionName, setCollectionName] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
   const [accountIds, setAccountIds] = useState(library.profile.accountIds.join(", "));
   const [search, setSearch] = useState("");
   const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>("all");
@@ -99,7 +108,6 @@ export default function ImportedMatches({
   const [importedWithinDays, setImportedWithinDays] = useState<"all" | number>("all");
   const [versionFilter, setVersionFilter] = useState<"all" | number>(mapVersion);
   const [onlyMine, setOnlyMine] = useState(false);
-  const [warningsOnly, setWarningsOnly] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
   const [bulkCollectionId, setBulkCollectionId] = useState("");
   const [importing, setImporting] = useState(false);
@@ -108,17 +116,17 @@ export default function ImportedMatches({
     usage: undefined,
     quota: undefined,
   });
+  const [persistentStorage, setPersistentStorage] = useState<boolean | null>(null);
   const importRequest = useRef<AbortController | null>(null);
   const backupInput = useRef<HTMLInputElement>(null);
 
+  const playerNames = useMemo(() => newestPlayerNames(library.matches), [library.matches]);
   const players = useMemo(
     () =>
-      [
-        ...new Map(
-          library.matches.flatMap((match) => match.players).map((player) => [player.id, player]),
-        ).values(),
-      ].sort((left, right) => left.name.localeCompare(right.name)),
-    [library.matches],
+      [...playerNames]
+        .map(([id, name]) => ({ id, name }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [playerNames],
   );
 
   const visibleMatches = useMemo(() => {
@@ -138,7 +146,11 @@ export default function ImportedMatches({
         const text = [
           match.matchId,
           match.fileName,
-          ...match.players.flatMap((player) => [player.name, player.hero ?? ""]),
+          ...match.players.flatMap((player) => [
+            player.name,
+            playerNames.get(player.id) ?? "",
+            player.hero ?? "",
+          ]),
         ]
           .join(" ")
           .toLocaleLowerCase();
@@ -148,7 +160,6 @@ export default function ImportedMatches({
           (versionFilter === "all" || match.mapVersion === versionFilter) &&
           (resultFilter === "all" || won === (resultFilter === "won")) &&
           (!onlyMine || Boolean(me)) &&
-          (!warningsOnly || (match.warnings?.length ?? 0) > 0) &&
           (importedWithinDays === "all" ||
             match.importedAt >= Date.now() - importedWithinDays * 86_400_000) &&
           (!query || text.includes(query))
@@ -168,7 +179,7 @@ export default function ImportedMatches({
     resultFilter,
     search,
     versionFilter,
-    warningsOnly,
+    playerNames,
   ]);
 
   useEffect(() => () => importRequest.current?.abort(), []);
@@ -180,6 +191,13 @@ export default function ImportedMatches({
       ?.estimate()
       .then((estimate) => setStorage({ usage: estimate.usage, quota: estimate.quota }));
   }, [library]);
+
+  useEffect(() => {
+    void navigator.storage
+      ?.persisted?.()
+      .then(setPersistentStorage)
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -197,14 +215,14 @@ export default function ImportedMatches({
     return () => window.removeEventListener("keydown", close);
   }, [open]);
 
-  async function persist(next: ImportedLibrary) {
-    await saveImportedLibrary(next);
+  async function persistMetadata(next: ImportedLibrary) {
+    await saveImportedLibraryMetadata(next);
     setLibrary(next);
   }
 
-  function updateQueue(key: string, update: Partial<QueueEntry>) {
+  function updateQueue(jobId: string, update: Partial<QueueEntry>) {
     setQueue((current) =>
-      current.map((entry) => (fileKey(entry.file) === key ? { ...entry, ...update } : entry)),
+      current.map((entry) => (entry.jobId === jobId ? { ...entry, ...update } : entry)),
     );
   }
 
@@ -222,7 +240,7 @@ export default function ImportedMatches({
         ...current,
         ...accepted
           .filter((file) => !keys.has(fileKey(file)))
-          .map((file): QueueEntry => ({ file, status: "queued" })),
+          .map((file): QueueEntry => ({ jobId: crypto.randomUUID(), file, status: "queued" })),
       ];
     });
     setMessage(
@@ -245,99 +263,95 @@ export default function ImportedMatches({
     setMessage(null);
     const controller = new AbortController();
     importRequest.current = controller;
-    const names = new Map(pending.map((entry) => [entry.file.name, fileKey(entry.file)]));
+    let current = useImportedStore.getState().library;
+    let nextWardId = Math.min(
+      current.nextWardId ?? -1,
+      current.matches.reduce(
+        (minimum, match) => match.wards.reduce((value, ward) => Math.min(value, ward.id), minimum),
+        0,
+      ) - 1,
+    );
+    const importedIds: number[] = [];
+    let duplicates = 0;
+    let failures = 0;
 
     try {
-      const { matches: parsed, errors } = await runReplayParser(
-        pending.map((entry) => entry.file),
-        mapVersion,
-        (progress) => {
-          const name = [...names.keys()].find((candidate) => progress.endsWith(candidate));
+      for (const entry of pending) {
+        updateQueue(entry.jobId, { status: "parsing", detail: `Reading ${entry.file.name}` });
 
-          if (name) {
-            updateQueue(names.get(name)!, { status: "parsing", detail: progress });
-          }
-        },
-        controller.signal,
-      );
-      const current = useImportedStore.getState().library;
-      const nextMatches = [...current.matches];
-      let nextWardId = Math.min(
-        current.nextWardId ?? -1,
-        current.matches.reduce(
-          (minimum, match) =>
-            match.wards.reduce((value, ward) => Math.min(value, ward.id), minimum),
-          0,
-        ) - 1,
-      );
-      const importedIds: number[] = [];
+        try {
+          const match = await runReplayParser(
+            entry.file,
+            mapVersion,
+            entry.jobId,
+            (progress) => updateQueue(entry.jobId, { status: "parsing", detail: progress }),
+            controller.signal,
+          );
+          const duplicateIndex = current.matches.findIndex(
+            (candidate) =>
+              candidate.fileHash === match.fileHash || candidate.matchId === match.matchId,
+          );
 
-      for (const match of parsed) {
-        const key = names.get(match.fileName);
-
-        if (key) {
-          updateQueue(key, { status: "saving", detail: "Saving parsed match" });
-        }
-
-        const duplicateIndex = nextMatches.findIndex(
-          (candidate) =>
-            candidate.fileHash === match.fileHash || candidate.matchId === match.matchId,
-        );
-
-        if (duplicateIndex >= 0 && !replaceExisting) {
-          if (key) {
-            updateQueue(key, {
+          if (duplicateIndex >= 0 && !replaceExisting) {
+            duplicates += 1;
+            updateQueue(entry.jobId, {
               status: "duplicate",
               detail: `Match ${match.matchId} already exists`,
             });
+            continue;
           }
-          continue;
-        }
 
-        match.wards = match.wards.map((ward) => ({ ...ward, id: nextWardId-- }));
+          updateQueue(entry.jobId, { status: "saving", detail: "Saving parsed match" });
+          match.wards = match.wards.map((ward) => ({ ...ward, id: nextWardId-- }));
+          const replacedMatchId = current.matches[duplicateIndex]?.matchId;
 
-        if (duplicateIndex >= 0) {
-          nextMatches.splice(duplicateIndex, 1, match);
-        } else {
-          nextMatches.push(match);
-        }
-        importedIds.push(match.matchId);
+          await saveImportedMatch(match, replacedMatchId);
 
-        if (key) {
-          updateQueue(key, { status: "imported", detail: `Match ${match.matchId}` });
+          const matches = [...current.matches];
+
+          if (duplicateIndex >= 0) {
+            matches.splice(duplicateIndex, 1, match);
+          } else {
+            matches.push(match);
+          }
+
+          const collections = current.collections.map((collection) =>
+            collection.id === importCollectionId
+              ? {
+                  ...collection,
+                  matchIds: [...new Set([...collection.matchIds, match.matchId])],
+                  updatedAt: Date.now(),
+                }
+              : collection,
+          );
+          current = { ...current, matches, nextWardId, collections };
+          await saveImportedLibraryMetadata(current);
+          setLibrary(current);
+          importedIds.push(match.matchId);
+          updateQueue(entry.jobId, { status: "imported", detail: `Match ${match.matchId}` });
+        } catch (reason) {
+          if (reason instanceof DOMException && reason.name === "AbortError") {
+            throw reason;
+          }
+
+          failures += 1;
+          updateQueue(entry.jobId, {
+            status: "failed",
+            detail: reason instanceof Error ? reason.message : "Unable to import replay",
+          });
         }
       }
 
-      for (const error of errors) {
-        const name = [...names.keys()].find((candidate) => error.startsWith(`${candidate}:`));
-
-        if (name) {
-          updateQueue(names.get(name)!, { status: "failed", detail: error.slice(name.length + 2) });
-        }
-      }
-
-      const collections = current.collections.map((collection) =>
-        collection.id === importCollectionId
-          ? {
-              ...collection,
-              matchIds: [...new Set([...collection.matchIds, ...importedIds])],
-              updatedAt: Date.now(),
-            }
-          : collection,
-      );
-      await persist({ ...current, matches: nextMatches, nextWardId, collections });
-      setMessage(
-        `${importedIds.length} imported, ${parsed.length - importedIds.length} duplicates, ${errors.length} failed`,
-      );
+      setMessage(`${importedIds.length} imported, ${duplicates} duplicates, ${failures} failed`);
 
       if (importedIds.length) {
         setSelected(importedIds);
       }
     } catch (reason) {
       const cancelled = reason instanceof DOMException && reason.name === "AbortError";
-      setQueue((current) =>
-        current.map((entry) =>
-          ["parsing", "saving"].includes(entry.status)
+      setQueue((entries) =>
+        entries.map((entry) =>
+          entry.status === "parsing"
             ? {
                 ...entry,
                 status: cancelled ? "cancelled" : "failed",
@@ -346,13 +360,7 @@ export default function ImportedMatches({
             : entry,
         ),
       );
-      setMessage(
-        cancelled
-          ? "Import cancelled"
-          : reason instanceof Error
-            ? reason.message
-            : "Unable to import matches",
-      );
+      setMessage(cancelled ? "Import cancelled" : "Unable to continue importing replays");
     } finally {
       importRequest.current = null;
       setImporting(false);
@@ -376,15 +384,16 @@ export default function ImportedMatches({
       updatedAt: now,
     };
 
-    await persist({ ...library, collections: [...library.collections, collection] });
+    await persistMetadata({ ...library, collections: [...library.collections, collection] });
     setImportCollectionId(collection.id);
     setCollectionFilter(collection.id);
     setCollectionName("");
+    setCreatingCollection(false);
   }
 
   async function updateCollection(id: string, update: Partial<ImportedCollection>) {
     const current = useImportedStore.getState().library;
-    await persist({
+    await persistMetadata({
       ...current,
       collections: current.collections.map((collection) =>
         collection.id === id ? { ...collection, ...update, updatedAt: Date.now() } : collection,
@@ -396,7 +405,7 @@ export default function ImportedMatches({
     if (!window.confirm(`Delete “${collection.name}”? Its matches will remain in the library.`)) {
       return;
     }
-    await persist({
+    await persistMetadata({
       ...library,
       collections: library.collections.filter(({ id }) => id !== collection.id),
     });
@@ -411,7 +420,7 @@ export default function ImportedMatches({
 
   async function duplicateCollection(collection: ImportedCollection) {
     const now = Date.now();
-    await persist({
+    await persistMetadata({
       ...library,
       collections: [
         ...library.collections,
@@ -444,7 +453,7 @@ export default function ImportedMatches({
 
     const collections = [...library.collections];
     [collections[index], collections[target]] = [collections[target]!, collections[index]!];
-    await persist({ ...library, collections });
+    await persistMetadata({ ...library, collections });
   }
 
   async function setMatchesInCollection(
@@ -454,7 +463,7 @@ export default function ImportedMatches({
   ) {
     const ids = new Set(matchIds);
     const current = useImportedStore.getState().library;
-    await persist({
+    await persistMetadata({
       ...current,
       collections: current.collections.map((collection) => {
         if (collection.id !== id) {
@@ -483,19 +492,24 @@ export default function ImportedMatches({
     ) {
       return;
     }
-    await persist({
-      ...library,
-      matches: library.matches.filter((match) => !ids.has(match.matchId)),
-      collections: library.collections.map((collection) => ({
+
+    const current = useImportedStore.getState().library;
+    const next = {
+      ...current,
+      matches: current.matches.filter((match) => !ids.has(match.matchId)),
+      collections: current.collections.map((collection) => ({
         ...collection,
         matchIds: collection.matchIds.filter((id) => !ids.has(id)),
       })),
-    });
+    };
+
+    await removeImportedMatches([...ids]);
+    await persistMetadata(next);
   }
 
   async function saveProfile() {
     const profile = { accountIds: numericIds(accountIds).map(Number) };
-    await persist({ ...library, profile });
+    await persistMetadata({ ...library, profile });
     setMessage(profile.accountIds.length ? "Player identity saved" : "Player identity cleared");
   }
 
@@ -534,7 +548,8 @@ export default function ImportedMatches({
       ) {
         return;
       }
-      await persist(restored);
+      await replaceImportedLibrary(restored);
+      setLibrary(restored);
       setSelected([]);
       setMessage(`${restored.matches.length} matches restored from backup`);
       setTab("library");
@@ -543,9 +558,53 @@ export default function ImportedMatches({
     }
   }
 
+  async function protectStorage() {
+    if (!navigator.storage?.persist) {
+      setMessage("Persistent browser storage is not available");
+
+      return;
+    }
+
+    try {
+      const granted = await navigator.storage.persist();
+
+      setPersistentStorage(granted);
+      setMessage(granted ? "Replay storage protected" : "Storage protection was not granted");
+    } catch {
+      setMessage("Unable to change browser storage protection");
+    }
+  }
+
+  async function clearLibrary() {
+    const next: ImportedLibrary = {
+      ...emptyImportedLibrary,
+      profile: library.profile,
+    };
+
+    await replaceImportedLibrary(next);
+    setLibrary(next);
+    setSelected([]);
+    setMessage("Replay library cleared");
+  }
+
+  const pendingCount = queue.filter((entry) =>
+    ["queued", "failed", "cancelled"].includes(entry.status),
+  ).length;
+  const finishedCount = queue.filter((entry) =>
+    ["imported", "duplicate"].includes(entry.status),
+  ).length;
   const selectedVisible = visibleMatches.filter((match) => selected.includes(match.matchId));
   const allVisibleSelected =
     visibleMatches.length > 0 && selectedVisible.length === visibleMatches.length;
+  const activeCollection = library.collections.find(({ id }) => id === collectionFilter) ?? null;
+  const activeCollectionIndex = activeCollection
+    ? library.collections.findIndex(({ id }) => id === activeCollection.id)
+    : -1;
+
+  function openLibrary() {
+    setTab(library.matches.length ? "library" : "import");
+    setOpen(true);
+  }
 
   const dialog = (
     <div
@@ -556,18 +615,12 @@ export default function ImportedMatches({
       <section
         aria-label="Replay library"
         aria-modal="true"
-        className={`${elevatedSurfaceClass} flex max-h-[min(50rem,calc(100vh-2rem))] w-full max-w-5xl flex-col overflow-hidden`}
+        className={`${elevatedSurfaceClass} flex max-h-[min(46rem,calc(100vh-2rem))] w-full max-w-2xl flex-col overflow-hidden`}
         role="dialog"
       >
         <header className="shrink-0 border-b border-white/8 px-5 pt-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-100">Replay library</h3>
-              <p className="mt-0.5 text-[11px] text-slate-500">
-                {library.matches.filter((match) => match.mapVersion === mapVersion).length} ready
-                for map {mapVersion}, {library.matches.length} total
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="text-sm font-semibold text-slate-100">Replay library</h3>
             <button
               aria-label="Close replay library"
               className="grid size-9 place-items-center rounded-sm text-xl text-slate-500 hover:bg-white/5 hover:text-slate-200"
@@ -578,14 +631,8 @@ export default function ImportedMatches({
             </button>
           </div>
           <SwitchNav
-            className="mt-4 max-w-md"
-            options={tabs.map(({ id, label }) => ({
-              value: id,
-              label:
-                id === "library" && library.matches.length
-                  ? `${label} ${library.matches.length}`
-                  : label,
-            }))}
+            className="mt-4"
+            options={tabs.map(({ id, label }) => ({ value: id, label }))}
             value={tab}
             onChange={setTab}
           />
@@ -593,190 +640,71 @@ export default function ImportedMatches({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-5">
           {tab === "library" ? (
-            <div className="grid min-h-[30rem] gap-5 md:grid-cols-[13rem_minmax(0,1fr)]">
-              <aside className="border-b border-white/8 pb-4 md:border-r md:border-b-0 md:pr-4 md:pb-0">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold text-slate-300">Collections</p>
-                  <button
-                    className="text-xs text-cyan-400 hover:text-cyan-300"
-                    type="button"
-                    onClick={() => document.getElementById("new-imported-collection")?.focus()}
-                  >
-                    New
-                  </button>
-                </div>
-                {(
-                  [
-                    ["all", "All matches", library.matches.length],
-                    [
-                      "unsorted",
-                      "Unsorted",
+            <div className="mx-auto max-w-3xl">
+              <div className="flex gap-2">
+                <label className="relative min-w-0 flex-1">
+                  <BsSearch className="absolute top-2.5 left-2.5 text-slate-600" />
+                  <input
+                    aria-label="Search replay library"
+                    className={`${formControlClass} min-h-9 pl-8`}
+                    placeholder="Match, file, player, or hero"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3 flex min-w-0 gap-1">
+                <select
+                  aria-label="Collection filter"
+                  className={`${formControlClass} min-w-0 flex-1`}
+                  value={collectionFilter}
+                  onChange={(event) => setCollectionFilter(event.target.value)}
+                >
+                  <option value="all">All matches ({library.matches.length})</option>
+                  <option value="unsorted">
+                    Unsorted (
+                    {
                       library.matches.filter(
                         (match) =>
                           !library.collections.some((collection) =>
                             collection.matchIds.includes(match.matchId),
                           ),
-                      ).length,
-                    ],
-                  ] as const
-                ).map(([id, name, count]) => (
-                  <button
-                    className={`mb-1 flex min-h-9 w-full items-center justify-between rounded-sm px-3 py-2 text-left text-xs ${collectionFilter === id ? "bg-cyan-400/10 font-medium text-cyan-200" : "text-slate-400 hover:bg-white/4"}`}
-                    key={id}
-                    type="button"
-                    onClick={() => setCollectionFilter(id)}
-                  >
-                    <span>{name}</span>
-                    <span className="text-[10px] text-slate-600">{count}</span>
-                  </button>
-                ))}
-                <div className="mt-1 space-y-0.5">
-                  {library.collections.map((collection, index) => (
-                    <div
-                      className={`group rounded-sm ${collectionFilter === collection.id ? "bg-cyan-400/10" : "hover:bg-white/4"}`}
-                      key={collection.id}
-                    >
-                      <button
-                        className={`flex min-h-9 w-full items-center justify-between px-3 py-2 text-left text-xs ${collectionFilter === collection.id ? "font-medium text-cyan-200" : "text-slate-400"}`}
-                        type="button"
-                        onClick={() => setCollectionFilter(collection.id)}
-                      >
-                        <span className="truncate">{collection.name}</span>
-                        <span className="text-[10px] text-slate-600">
-                          {collection.matchIds.length}
-                        </span>
-                      </button>
-                      {collectionFilter === collection.id ? (
-                        <div className="grid grid-cols-2 gap-1.5 border-t border-white/5 p-2 text-xs">
-                          <button
-                            aria-label="Move collection up"
-                            className={secondaryButtonClass}
-                            disabled={index === 0}
-                            type="button"
-                            onClick={() => void moveCollection(collection.id, -1)}
-                          >
-                            <BsArrowUp /> Up
-                          </button>
-                          <button
-                            aria-label="Move collection down"
-                            className={secondaryButtonClass}
-                            disabled={index === library.collections.length - 1}
-                            type="button"
-                            onClick={() => void moveCollection(collection.id, 1)}
-                          >
-                            <BsArrowDown /> Down
-                          </button>
-                          <button
-                            className={`${primaryButtonClass} col-span-2`}
-                            type="button"
-                            onClick={() => showMatches(collection.matchIds)}
-                          >
-                            Show collection on map
-                          </button>
-                          <button
-                            className={secondaryButtonClass}
-                            type="button"
-                            onClick={() => void renameCollection(collection)}
-                          >
-                            Rename
-                          </button>
-                          <button
-                            className={secondaryButtonClass}
-                            type="button"
-                            onClick={() => void duplicateCollection(collection)}
-                          >
-                            Duplicate
-                          </button>
-                          <button
-                            className={secondaryButtonClass}
-                            type="button"
-                            onClick={() => exportCollection(collection)}
-                          >
-                            Export
-                          </button>
-                          <button
-                            className={dangerButtonClass}
-                            type="button"
-                            onClick={() => void removeCollection(collection)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
+                      ).length
+                    }
+                    )
+                  </option>
+                  {library.collections.map((collection) => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.name} ({collection.matchIds.length})
+                    </option>
                   ))}
-                </div>
-                <div className="mt-4 grid gap-2">
-                  <input
-                    id="new-imported-collection"
-                    className={`${formControlClass} min-w-0 px-3 py-2 text-xs`}
-                    placeholder="New collection"
-                    value={collectionName}
-                    onChange={(event) => setCollectionName(event.target.value)}
-                    onKeyDown={(event) => event.key === "Enter" && void createCollection()}
-                  />
-                  <button
-                    className={secondaryButtonClass}
-                    disabled={!collectionName.trim()}
-                    type="button"
-                    onClick={() => void createCollection()}
-                  >
-                    Create collection
-                  </button>
-                </div>
-                {collectionFilter !== "all" && collectionFilter !== "unsorted" ? (
-                  <div className="mt-2">
-                    <p className="mb-2 text-[11px] leading-relaxed text-slate-500">
-                      {Object.entries(
-                        library.collections
-                          .find(({ id }) => id === collectionFilter)
-                          ?.matchIds.reduce<Record<number, number>>((counts, matchId) => {
-                            const version = library.matches.find(
-                              (match) => match.matchId === matchId,
-                            )?.mapVersion;
+                </select>
+                <button
+                  aria-label="New collection"
+                  className="grid size-9 shrink-0 place-items-center rounded-sm border border-white/10 text-lg text-slate-500 hover:border-white/20 hover:text-slate-200"
+                  title="New collection"
+                  type="button"
+                  onClick={() => setCreatingCollection(true)}
+                >
+                  +
+                </button>
+              </div>
 
-                            if (version !== undefined) {
-                              counts[version] = (counts[version] ?? 0) + 1;
-                            }
-
-                            return counts;
-                          }, {}) ?? {},
-                      )
-                        .map(
-                          ([version, count]) =>
-                            `${mapLabels[Number(version)] ?? version}: ${count}`,
-                        )
-                        .join(", ") || "Empty collection"}
-                    </p>
-                    <textarea
-                      aria-label="Collection notes"
-                      className={`${formControlClass} min-h-20 resize-y text-xs`}
-                      placeholder="Collection notes"
-                      defaultValue={
-                        library.collections.find(({ id }) => id === collectionFilter)?.description
-                      }
-                      key={collectionFilter}
-                      onBlur={(event) =>
-                        void updateCollection(collectionFilter, {
-                          description: event.target.value.trim(),
-                        })
-                      }
-                    />
-                  </div>
-                ) : null}
-              </aside>
-
-              <section className="min-w-0">
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <label className="relative block sm:col-span-3">
-                    <BsSearch className="absolute top-2 left-2 text-slate-600" />
+              <details className="mt-2 border-y border-white/8 text-xs">
+                <summary className="cursor-pointer py-2 text-slate-400 hover:text-slate-200">
+                  Filters
+                </summary>
+                <div className="grid gap-2 pb-3 sm:grid-cols-2">
+                  <label className="flex min-h-9 items-center gap-2 text-slate-400">
                     <input
-                      aria-label="Search replay library"
-                      className={`${formControlClass} pl-7`}
-                      placeholder="Match, file, player, or hero"
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
+                      checked={onlyMine}
+                      className="accent-cyan-400"
+                      disabled={!library.profile.accountIds.length}
+                      type="checkbox"
+                      onChange={(event) => setOnlyMine(event.target.checked)}
                     />
+                    My matches
                   </label>
                   <select
                     aria-label="Map version filter"
@@ -789,9 +717,9 @@ export default function ImportedMatches({
                     }
                   >
                     <option value="all">All maps</option>
-                    {Object.entries(mapLabels).map(([version, label]) => (
+                    {Object.entries(mapPatchLabels).map(([version, label]) => (
                       <option key={version} value={version}>
-                        {label} map
+                        {label}
                       </option>
                     ))}
                   </select>
@@ -820,297 +748,303 @@ export default function ImportedMatches({
                     <option value="30">Last 30 days</option>
                   </select>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                  <label className="flex min-h-9 items-center gap-2 rounded-sm border border-white/8 px-3">
-                    <input
-                      checked={onlyMine}
-                      disabled={!library.profile.accountIds.length}
-                      type="checkbox"
-                      onChange={(event) => setOnlyMine(event.target.checked)}
-                    />{" "}
-                    My matches
-                  </label>
-                  <label className="flex min-h-9 items-center gap-2 rounded-sm border border-white/8 px-3">
-                    <input
-                      checked={warningsOnly}
-                      type="checkbox"
-                      onChange={(event) => setWarningsOnly(event.target.checked)}
-                    />{" "}
-                    Has warnings
-                  </label>
+              </details>
+
+              {creatingCollection ? (
+                <div className="mt-3 flex items-center gap-2 border-y border-white/8 py-2">
+                  <input
+                    autoFocus
+                    className={`${formControlClass} min-w-0 flex-1`}
+                    placeholder="Collection name"
+                    value={collectionName}
+                    onChange={(event) => setCollectionName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void createCollection();
+                      }
+                      if (event.key === "Escape") {
+                        setCreatingCollection(false);
+                        setCollectionName("");
+                      }
+                    }}
+                  />
                   <button
-                    className={`${secondaryButtonClass} ml-auto`}
+                    className={primaryButtonClass}
+                    disabled={!collectionName.trim()}
                     type="button"
-                    onClick={() => setTab("settings")}
+                    onClick={() => void createCollection()}
                   >
-                    <BsGear className="inline" /> Identity & storage
+                    Create
+                  </button>
+                  <button
+                    className={secondaryButtonClass}
+                    type="button"
+                    onClick={() => {
+                      setCreatingCollection(false);
+                      setCollectionName("");
+                    }}
+                  >
+                    Cancel
                   </button>
                 </div>
+              ) : null}
 
-                <div
-                  className={`mt-4 flex min-h-12 flex-wrap items-center gap-2 ${selected.length ? "rounded-sm border border-cyan-400/15 bg-cyan-400/5 p-2" : "border-y border-white/8 py-2"} text-xs`}
-                >
-                  <label className="flex items-center gap-2 text-slate-400">
-                    <input
-                      checked={allVisibleSelected}
-                      type="checkbox"
-                      onChange={() =>
-                        setSelected(
-                          allVisibleSelected
-                            ? selected.filter(
-                                (id) => !visibleMatches.some((match) => match.matchId === id),
-                              )
-                            : [
-                                ...new Set([
-                                  ...selected,
-                                  ...visibleMatches.map((match) => match.matchId),
-                                ]),
-                              ],
-                        )
-                      }
-                    />
-                    {selected.length
-                      ? `${selected.length} selected`
-                      : `${visibleMatches.length} matches`}
-                  </label>
-                  {selected.length ? (
-                    <>
-                      <button
-                        className={primaryButtonClass}
-                        type="button"
-                        onClick={() => showMatches(selected)}
-                      >
-                        Show on map
-                      </button>
-                      <select
-                        aria-label="Bulk collection"
-                        className={`${formControlClass} min-h-9`}
-                        value={bulkCollectionId}
-                        onChange={(event) => setBulkCollectionId(event.target.value)}
-                      >
-                        <option value="">Choose collection</option>
-                        {library.collections.map((collection) => (
-                          <option key={collection.id} value={collection.id}>
-                            {collection.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        disabled={!bulkCollectionId}
-                        className={secondaryButtonClass}
-                        type="button"
-                        onClick={() =>
-                          void setMatchesInCollection(selected, bulkCollectionId, true)
-                        }
-                      >
-                        Add
-                      </button>
-                      <button
-                        disabled={!bulkCollectionId}
-                        className={secondaryButtonClass}
-                        type="button"
-                        onClick={() =>
-                          void setMatchesInCollection(selected, bulkCollectionId, false)
-                        }
-                      >
-                        Remove
-                      </button>
-                      <button
-                        className={`${dangerButtonClass} ml-auto`}
-                        type="button"
-                        onClick={() => void removeMatches(selected)}
-                      >
-                        <BsTrash className="inline" /> Delete
-                      </button>
-                    </>
-                  ) : null}
+              {activeCollection ? (
+                <details className="mt-2 border-b border-white/8 text-xs">
+                  <summary className="cursor-pointer py-2 text-slate-400 hover:text-slate-200">
+                    Manage {activeCollection.name}
+                  </summary>
+                  <div className="flex flex-wrap items-center gap-1.5 pb-2">
+                    <span className="mr-auto min-w-0 truncate font-medium text-slate-300">
+                      {activeCollection.name}
+                      <span className="ml-2 font-normal text-slate-600">
+                        {activeCollection.matchIds.length} matches
+                      </span>
+                    </span>
+                    <button
+                      aria-label="Move collection up"
+                      className="grid size-8 place-items-center text-slate-500 hover:text-slate-200 disabled:text-slate-700"
+                      disabled={activeCollectionIndex === 0}
+                      title="Move up"
+                      type="button"
+                      onClick={() => void moveCollection(activeCollection.id, -1)}
+                    >
+                      <BsArrowUp />
+                    </button>
+                    <button
+                      aria-label="Move collection down"
+                      className="grid size-8 place-items-center text-slate-500 hover:text-slate-200 disabled:text-slate-700"
+                      disabled={activeCollectionIndex === library.collections.length - 1}
+                      title="Move down"
+                      type="button"
+                      onClick={() => void moveCollection(activeCollection.id, 1)}
+                    >
+                      <BsArrowDown />
+                    </button>
+                    <button
+                      className="min-h-8 px-2 text-cyan-400 hover:text-cyan-300"
+                      type="button"
+                      onClick={() => showMatches(activeCollection.matchIds)}
+                    >
+                      Show
+                    </button>
+                    <button
+                      className="min-h-8 px-2 text-slate-400 hover:text-slate-200"
+                      type="button"
+                      onClick={() => void renameCollection(activeCollection)}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      className="min-h-8 px-2 text-slate-400 hover:text-slate-200"
+                      type="button"
+                      onClick={() => exportCollection(activeCollection)}
+                    >
+                      Export
+                    </button>
+                    <button
+                      className="min-h-8 px-2 text-slate-400 hover:text-slate-200"
+                      type="button"
+                      onClick={() => void duplicateCollection(activeCollection)}
+                    >
+                      Duplicate
+                    </button>
+                    <button
+                      aria-label={`Delete ${activeCollection.name}`}
+                      className="grid size-8 place-items-center text-slate-600 hover:text-rose-300"
+                      title="Delete collection"
+                      type="button"
+                      onClick={() => void removeCollection(activeCollection)}
+                    >
+                      <BsTrash />
+                    </button>
+                  </div>
+                  <textarea
+                    aria-label="Collection notes"
+                    className="mt-2 min-h-9 w-full resize-y border-0 border-t border-white/6 bg-transparent pt-2 text-[11px] text-slate-400 outline-none placeholder:text-slate-700"
+                    placeholder="Add notes"
+                    defaultValue={activeCollection.description}
+                    key={activeCollection.id}
+                    onBlur={(event) =>
+                      void updateCollection(activeCollection.id, {
+                        description: event.target.value.trim(),
+                      })
+                    }
+                  />
+                </details>
+              ) : null}
+
+              <div
+                className={`mt-2 flex min-h-11 flex-wrap items-center gap-2 border-y border-white/8 py-2 text-xs ${selected.length ? "bg-cyan-400/5 px-2" : ""}`}
+              >
+                <label className="flex items-center gap-2 text-slate-400">
+                  <input
+                    checked={allVisibleSelected}
+                    className="accent-cyan-400"
+                    type="checkbox"
+                    onChange={() =>
+                      setSelected(
+                        allVisibleSelected
+                          ? selected.filter(
+                              (id) => !visibleMatches.some((match) => match.matchId === id),
+                            )
+                          : [
+                              ...new Set([
+                                ...selected,
+                                ...visibleMatches.map((match) => match.matchId),
+                              ]),
+                            ],
+                      )
+                    }
+                  />
+                  {selected.length
+                    ? `${selected.length} selected`
+                    : `${visibleMatches.length} matches`}
+                </label>
+                {selected.length ? (
+                  <>
+                    <button
+                      className={primaryButtonClass}
+                      type="button"
+                      onClick={() => showMatches(selected)}
+                    >
+                      Show
+                    </button>
+                    <select
+                      aria-label="Bulk collection"
+                      className={`${formControlClass} min-h-9 w-auto min-w-36`}
+                      value={bulkCollectionId}
+                      onChange={(event) => setBulkCollectionId(event.target.value)}
+                    >
+                      <option value="">Choose collection</option>
+                      {library.collections.map((collection) => (
+                        <option key={collection.id} value={collection.id}>
+                          {collection.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className={secondaryButtonClass}
+                      disabled={!bulkCollectionId}
+                      type="button"
+                      onClick={() => void setMatchesInCollection(selected, bulkCollectionId, true)}
+                    >
+                      Add
+                    </button>
+                    <button
+                      className={secondaryButtonClass}
+                      disabled={!bulkCollectionId}
+                      type="button"
+                      onClick={() => void setMatchesInCollection(selected, bulkCollectionId, false)}
+                    >
+                      Remove
+                    </button>
+                    <button
+                      aria-label="Delete selected matches"
+                      className="ml-auto grid size-9 place-items-center text-slate-600 hover:text-rose-300"
+                      title="Delete selected"
+                      type="button"
+                      onClick={() => void removeMatches(selected)}
+                    >
+                      <BsTrash />
+                    </button>
+                  </>
+                ) : null}
+              </div>
+
+              {!visibleMatches.length ? (
+                <div className="py-16 text-center text-sm text-slate-500">
+                  No matches match these filters.
                 </div>
+              ) : (
+                <div className="divide-y divide-white/8">
+                  {visibleMatches.map((match) => {
+                    const me = playerFor(match, library.profile.accountIds);
+                    const won =
+                      me && match.radiantWon !== null ? me.isRadiant === match.radiantWon : null;
+                    const supported = match.mapVersion === mapVersion;
 
-                {!visibleMatches.length ? (
-                  <div className="py-16 text-center text-sm text-slate-500">
-                    No matches match these filters.
-                  </div>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {visibleMatches.map((match) => {
-                      const me = playerFor(match, library.profile.accountIds);
-                      const won =
-                        me && match.radiantWon !== null ? me.isRadiant === match.radiantWon : null;
-                      const supported = match.mapVersion === mapVersion;
-                      const memberships = library.collections.filter((collection) =>
-                        collection.matchIds.includes(match.matchId),
-                      );
-
-                      return (
-                        <article
-                          className={`cursor-pointer rounded-sm border p-3 transition ${selected.includes(match.matchId) ? "border-cyan-400/35 bg-cyan-400/[0.07]" : "border-white/8 bg-slate-950/35 hover:border-white/15"}`}
-                          key={match.fileHash}
-                          onClick={(event) => {
-                            if (
-                              event.target instanceof Element &&
-                              event.target.closest(
-                                "button, input, select, textarea, label, summary",
+                    return (
+                      <article
+                        className={`cursor-pointer px-2 py-3 transition ${selected.includes(match.matchId) ? "bg-cyan-400/[0.07]" : "hover:bg-white/[0.025]"}`}
+                        key={match.fileHash}
+                        onClick={(event) => {
+                          if (
+                            event.target instanceof Element &&
+                            event.target.closest("button, input, select, textarea, label, summary")
+                          ) {
+                            return;
+                          }
+                          setSelected((current) =>
+                            current.includes(match.matchId)
+                              ? current.filter((id) => id !== match.matchId)
+                              : [...current, match.matchId],
+                          );
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            aria-label={`Select match ${match.matchId}`}
+                            checked={selected.includes(match.matchId)}
+                            className="mt-0.5 accent-cyan-400"
+                            type="checkbox"
+                            onChange={() =>
+                              setSelected((current) =>
+                                current.includes(match.matchId)
+                                  ? current.filter((id) => id !== match.matchId)
+                                  : [...current, match.matchId],
                               )
-                            ) {
-                              return;
                             }
-                            setSelected((current) =>
-                              current.includes(match.matchId)
-                                ? current.filter((id) => id !== match.matchId)
-                                : [...current, match.matchId],
-                            );
-                          }}
-                        >
-                          <div className="flex items-start gap-3">
-                            <input
-                              aria-label={`Select match ${match.matchId}`}
-                              checked={selected.includes(match.matchId)}
-                              className="mt-0.5 accent-cyan-400"
-                              type="checkbox"
-                              onChange={() =>
-                                setSelected((current) =>
-                                  current.includes(match.matchId)
-                                    ? current.filter((id) => id !== match.matchId)
-                                    : [...current, match.matchId],
-                                )
-                              }
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-xs font-medium text-slate-200">
-                                  Match {match.matchId}
-                                </p>
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${supported ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"}`}
-                                >
-                                  {supported ? "Ready" : `Map ${match.mapVersion}`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs font-medium text-slate-200">
+                                Match {match.matchId}
+                              </p>
+                              {!supported ? (
+                                <span className="text-[10px] text-amber-300">
+                                  {mapPatchLabel(match.mapVersion)}
                                 </span>
-                                {(match.warnings?.length ?? 0) > 0 ? (
-                                  <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-[10px] text-amber-300">
-                                    {match.warnings!.length} warnings
-                                  </span>
-                                ) : null}
-                              </div>
-                              <p className="mt-1.5 text-[11px] text-slate-400">
-                                {match.startedAt === null
-                                  ? "Date unknown"
-                                  : new Date(match.startedAt).toLocaleDateString()}{" "}
-                                , {duration(match.duration)}, {match.wards.length} wards
-                                {won === null ? "" : won ? ", Won" : ", Lost"}
-                              </p>
-                              <p className="mt-1 truncate text-[11px] text-slate-500">
-                                {me ? `${me.name}, ${me.hero ?? "Unknown hero"}` : match.fileName}
-                              </p>
-                              <details className="mt-2 rounded-sm bg-white/[0.025] px-2 py-1.5">
-                                <summary className="cursor-pointer text-[11px] text-slate-400 hover:text-slate-200">
-                                  <BsCollection className="mr-1 inline" />
-                                  {memberships.length
-                                    ? memberships.map(({ name }) => name).join(", ")
-                                    : "Unsorted"}
-                                </summary>
-                                <div className="mt-1 grid gap-1 sm:grid-cols-2">
-                                  {library.collections.length ? (
-                                    library.collections.map((collection) => {
-                                      const included = collection.matchIds.includes(match.matchId);
-
-                                      return (
-                                        <label
-                                          className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-400"
-                                          key={collection.id}
-                                        >
-                                          <input
-                                            aria-label={`${included ? "Remove" : "Add"} match ${match.matchId} ${included ? "from" : "to"} ${collection.name}`}
-                                            checked={included}
-                                            className="accent-cyan-400"
-                                            type="checkbox"
-                                            onChange={(event) =>
-                                              void setMatchesInCollection(
-                                                [match.matchId],
-                                                collection.id,
-                                                event.target.checked,
-                                              )
-                                            }
-                                          />
-                                          <span className="truncate">{collection.name}</span>
-                                        </label>
-                                      );
-                                    })
-                                  ) : (
-                                    <button
-                                      className="text-left text-cyan-400"
-                                      type="button"
-                                      onClick={() =>
-                                        document.getElementById("new-imported-collection")?.focus()
-                                      }
-                                    >
-                                      Create a collection
-                                    </button>
-                                  )}
-                                </div>
-                              </details>
+                              ) : null}
                             </div>
-                            <button
-                              disabled={!supported}
-                              className={`${primaryButtonClass} shrink-0`}
-                              type="button"
-                              onClick={() => showMatches([match.matchId])}
-                            >
-                              Show on map
-                            </button>
-                            <button
-                              aria-label={`Delete match ${match.matchId}`}
-                              className="grid size-9 shrink-0 place-items-center rounded-sm text-slate-600 hover:bg-rose-400/10 hover:text-rose-300"
-                              type="button"
-                              onClick={() => void removeMatches([match.matchId])}
-                            >
-                              <BsTrash />
-                            </button>
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              {matchSummary(match, won)}
+                            </p>
+                            <p className="mt-1 truncate text-[11px] text-slate-500">
+                              {me
+                                ? `${playerNames.get(me.id) ?? me.name}, ${me.hero ?? "Unknown hero"}`
+                                : match.fileName}
+                            </p>
                           </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+                          <button
+                            className="min-h-8 shrink-0 px-2 text-xs text-cyan-400 hover:text-cyan-300 disabled:text-slate-700"
+                            disabled={!supported}
+                            type="button"
+                            onClick={() => showMatches([match.matchId])}
+                          >
+                            Show
+                          </button>
+                          <button
+                            aria-label={`Delete match ${match.matchId}`}
+                            className="grid size-9 shrink-0 place-items-center text-slate-600 hover:text-rose-300"
+                            type="button"
+                            onClick={() => void removeMatches([match.matchId])}
+                          >
+                            <BsTrash />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ) : null}
 
           {tab === "import" ? (
             <div className="mx-auto max-w-2xl">
-              <div className="mb-5">
-                <h4 className="text-sm font-semibold text-slate-100">Import replay files</h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  Select one or more Dota replay files. Parsing and storage happen in this browser.
-                </p>
-              </div>
-              <div className={`${panelClass} mb-4 grid gap-3 sm:grid-cols-2`}>
-                <label className="text-xs font-medium text-slate-300">
-                  Add imported matches to
-                  <select
-                    className={fieldControlClass}
-                    value={importCollectionId}
-                    onChange={(event) => setImportCollectionId(event.target.value)}
-                  >
-                    <option value="">Unsorted</option>
-                    {library.collections.map((collection) => (
-                      <option key={collection.id} value={collection.id}>
-                        {collection.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex items-center gap-2 text-xs text-slate-400 sm:pt-5">
-                  <input
-                    checked={replaceExisting}
-                    className="accent-cyan-400"
-                    type="checkbox"
-                    onChange={(event) => setReplaceExisting(event.target.checked)}
-                  />{" "}
-                  Replace existing match when reimported
-                </label>
-              </div>
               <label
-                className={`grid min-h-44 cursor-pointer place-items-center rounded-sm border border-dashed px-4 text-center transition ${dragging ? "border-cyan-300/60 bg-cyan-400/5" : "border-white/15 bg-slate-950/35 hover:border-cyan-300/35 hover:bg-white/[0.025]"}`}
+                className={`grid min-h-32 cursor-pointer place-items-center rounded-sm border border-dashed px-4 text-center outline-none transition focus-within:border-cyan-300/60 ${dragging ? "border-cyan-300/60 bg-cyan-400/5" : "border-white/15 hover:border-cyan-300/35 hover:bg-white/[0.02]"}`}
                 onDragEnter={(event) => {
                   event.preventDefault();
                   setDragging(true);
@@ -1138,33 +1072,60 @@ export default function ImportedMatches({
                   }}
                 />
                 <span>
-                  <BsFileEarmarkArrowUp className="mx-auto text-2xl text-slate-500" />
-                  <span className="mt-2 block text-xs font-medium text-slate-300">
-                    Drop replay files here, or click to browse
+                  <BsFileEarmarkArrowUp className="mx-auto text-xl text-slate-500" />
+                  <span className="mt-2 block text-xs text-slate-300">
+                    Drop replays here or choose files
                   </span>
                   <span className="mt-1 block text-[11px] text-slate-600">
-                    .dem and .dem.bz2, parsed locally for map {mapVersion}
+                    .dem or .dem.bz2, {mapPatchLabel(mapVersion)}
                   </span>
                 </span>
               </label>
+
+              <div className="mt-4 divide-y divide-white/8 border-y border-white/8">
+                <label className="grid min-h-11 grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 text-xs">
+                  <span className="text-slate-500">Collection</span>
+                  <select
+                    className="min-w-0 justify-self-end bg-transparent text-right text-slate-200 outline-none [color-scheme:dark] [&>option]:bg-slate-900"
+                    value={importCollectionId}
+                    onChange={(event) => setImportCollectionId(event.target.value)}
+                  >
+                    <option value="">Unsorted</option>
+                    {library.collections.map((collection) => (
+                      <option key={collection.id} value={collection.id}>
+                        {collection.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex min-h-11 items-center justify-between gap-3 text-xs">
+                  <span className="text-slate-500">Replace existing matches</span>
+                  <input
+                    checked={replaceExisting}
+                    className="accent-cyan-400"
+                    type="checkbox"
+                    onChange={(event) => setReplaceExisting(event.target.checked)}
+                  />
+                </label>
+              </div>
+
               {queue.length ? (
-                <div className="mt-4 space-y-2">
+                <div className="mt-5 divide-y divide-white/8 border-y border-white/8">
                   {queue.map((entry) => (
                     <div
-                      className="flex items-center gap-3 rounded-sm border border-white/8 bg-white/[0.025] px-3 py-2.5 text-xs"
-                      key={fileKey(entry.file)}
+                      className="flex min-h-12 items-center gap-3 py-2 text-xs"
+                      key={entry.jobId}
                     >
-                      <BsFileEarmarkArrowUp className="shrink-0 text-slate-600" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-slate-300">{entry.file.name}</p>
-                        <p className="truncate text-[10px] text-slate-600">
+                        <p className="truncate text-[11px] text-slate-600">
                           {bytes(entry.file.size)}
                           {entry.detail ? `, ${entry.detail}` : ""}
                         </p>
                       </div>
                       {entry.status === "duplicate" ? (
                         <button
-                          className="text-[10px] text-amber-300 uppercase"
+                          className="text-[11px] text-amber-300 hover:text-amber-200"
                           type="button"
                           onClick={() => {
                             setSearch(entry.detail?.match(/\d+/)?.[0] ?? "");
@@ -1173,19 +1134,29 @@ export default function ImportedMatches({
                             setTab("library");
                           }}
                         >
-                          View duplicate
+                          View match
                         </button>
                       ) : (
                         <span
-                          className={`text-[10px] uppercase ${entry.status === "failed" ? "text-rose-300" : entry.status === "imported" ? "text-emerald-400" : "text-slate-500"}`}
+                          className={`text-[11px] ${entry.status === "failed" ? "text-rose-300" : entry.status === "imported" ? "text-emerald-300" : "text-slate-500"}`}
                         >
-                          {entry.status}
+                          {entry.status === "parsing"
+                            ? "Parsing"
+                            : entry.status === "saving"
+                              ? "Saving"
+                              : entry.status === "imported"
+                                ? "Imported"
+                                : entry.status === "cancelled"
+                                  ? "Cancelled"
+                                  : entry.status === "failed"
+                                    ? "Failed"
+                                    : "Ready"}
                         </span>
                       )}
                       {!importing ? (
                         <button
                           aria-label={`Remove ${entry.file.name}`}
-                          className="text-slate-600"
+                          className="grid size-8 place-items-center text-slate-600 hover:text-slate-300"
                           type="button"
                           onClick={() =>
                             setQueue((current) => current.filter((item) => item !== entry))
@@ -1198,163 +1169,188 @@ export default function ImportedMatches({
                   ))}
                 </div>
               ) : null}
-              <div className="mt-4 flex gap-2">
-                <button
-                  className={`${primaryButtonClass} min-w-0 flex-1`}
-                  disabled={
-                    !queue.some((entry) =>
-                      ["queued", "failed", "cancelled"].includes(entry.status),
-                    ) ||
-                    importing ||
-                    !ready
-                  }
-                  type="button"
-                  onClick={() => void importFiles()}
-                >
-                  {importing ? "Parsing replays…" : "Import queued files"}
-                </button>
-                {importing ? (
-                  <button
-                    className={secondaryButtonClass}
-                    type="button"
-                    onClick={() => importRequest.current?.abort()}
-                  >
-                    Cancel
-                  </button>
-                ) : (
-                  <button
-                    className={secondaryButtonClass}
-                    type="button"
-                    onClick={() =>
-                      setQueue((current) =>
-                        current.filter(
-                          (entry) => !["imported", "duplicate"].includes(entry.status),
-                        ),
-                      )
-                    }
-                  >
-                    Clear completed
-                  </button>
-                )}
-              </div>
-              <p className="mt-3 text-center text-[10px] text-slate-500">
-                Choose the replay's terrain map before importing. Files stay on this device.
-              </p>
+
+              {queue.length ? (
+                <div className="sticky bottom-0 z-10 mt-4 flex min-h-14 items-center gap-3 border-t border-white/10 bg-slate-950/95 py-2 backdrop-blur-sm">
+                  {finishedCount && !importing ? (
+                    <button
+                      className="text-xs text-slate-500 hover:text-slate-300"
+                      type="button"
+                      onClick={() =>
+                        setQueue((current) =>
+                          current.filter(
+                            (entry) => !["imported", "duplicate"].includes(entry.status),
+                          ),
+                        )
+                      }
+                    >
+                      Clear finished
+                    </button>
+                  ) : null}
+                  <div className="ml-auto flex items-center gap-2">
+                    {importing ? (
+                      <button
+                        className={secondaryButtonClass}
+                        type="button"
+                        onClick={() => importRequest.current?.abort()}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
+                    <button
+                      className={primaryButtonClass}
+                      disabled={!pendingCount || importing || !ready}
+                      type="button"
+                      onClick={() => void importFiles()}
+                    >
+                      <BsFileEarmarkArrowUp />
+                      {importing
+                        ? "Importing…"
+                        : `Import ${pendingCount} ${pendingCount === 1 ? "replay" : "replays"}`}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
           {tab === "settings" ? (
-            <div className="mx-auto max-w-2xl space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-100">Library settings</h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  Set your player identity and manage the data stored in this browser.
-                </p>
-              </div>
-              <section className={panelClass}>
-                <h4 className="text-xs font-medium text-slate-200">Personal identity</h4>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Used for My matches, perspective filters, and win/loss labels.
-                </p>
-                <select
-                  className={fieldControlClass}
-                  value={library.profile.accountIds[0] ?? ""}
-                  onChange={(event) => {
-                    const ids = event.target.value ? [Number(event.target.value)] : [];
-                    setAccountIds(ids.join(", "));
-                    void persist({ ...library, profile: { accountIds: ids } });
-                  }}
-                >
-                  <option value="">Not selected</option>
-                  {players.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.name},{" "}
-                      {
-                        library.matches.filter((match) =>
-                          match.players.some((candidate) => candidate.id === player.id),
-                        ).length
-                      }{" "}
-                      matches
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    className={`${formControlClass} min-w-0 flex-1`}
-                    placeholder="Additional account IDs"
-                    value={accountIds}
-                    onChange={(event) => setAccountIds(event.target.value)}
-                  />
-                  <button
-                    className={secondaryButtonClass}
-                    type="button"
-                    onClick={() => void saveProfile()}
-                  >
-                    Save
-                  </button>
+            <div className="mx-auto max-w-2xl">
+              <section>
+                <h4 className="mb-2 text-xs font-medium text-slate-300">Player</h4>
+                <div className="divide-y divide-white/8 border-y border-white/8">
+                  <label className="grid min-h-12 grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 text-xs">
+                    <span className="text-slate-500">Identity</span>
+                    <select
+                      className="min-w-0 justify-self-end bg-transparent text-right text-slate-200 outline-none [color-scheme:dark] [&>option]:bg-slate-900"
+                      value={library.profile.accountIds[0] ?? ""}
+                      onChange={(event) => {
+                        const ids = event.target.value ? [Number(event.target.value)] : [];
+                        setAccountIds(ids.join(", "));
+                        void persistMetadata({ ...library, profile: { accountIds: ids } });
+                      }}
+                    >
+                      <option value="">Not selected</option>
+                      {players.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {player.name} (
+                          {
+                            library.matches.filter((match) =>
+                              match.players.some((candidate) => candidate.id === player.id),
+                            ).length
+                          }
+                          )
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="grid min-h-12 grid-cols-[8rem_minmax(0,1fr)] items-center gap-3 text-xs">
+                    <label className="text-slate-500" htmlFor="imported-account-ids">
+                      Account IDs
+                    </label>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <input
+                        id="imported-account-ids"
+                        className={`${formControlClass} min-w-0 flex-1`}
+                        placeholder="Steam account IDs"
+                        value={accountIds}
+                        onChange={(event) => setAccountIds(event.target.value)}
+                      />
+                      <button
+                        className={secondaryButtonClass}
+                        type="button"
+                        onClick={() => void saveProfile()}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </section>
-              <section className={panelClass}>
-                <h4 className="text-xs font-medium text-slate-200">Local storage</h4>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {bytes(storage.usage)} used{storage.quota ? ` of ${bytes(storage.quota)}` : ""}.
-                  Clearing browser data removes this library.
+                <p className="mt-2 text-[11px] text-slate-600">
+                  Used for My matches, perspective filters, and results.
                 </p>
+              </section>
+
+              <section className="mt-6">
+                <h4 className="mb-2 text-xs font-medium text-slate-300">Storage</h4>
+                <div className="divide-y divide-white/8 border-y border-white/8 text-xs">
+                  <div className="flex min-h-12 items-center justify-between gap-3">
+                    <span className="text-slate-500">Browser storage</span>
+                    <span className="text-slate-300">
+                      {bytes(storage.usage)}
+                      {storage.quota ? ` of ${bytes(storage.quota)}` : ""}
+                    </span>
+                  </div>
+                  <div className="flex min-h-12 items-center justify-between gap-3">
+                    <div>
+                      <p className="text-slate-500">Protect replay data</p>
+                      <p className="mt-0.5 text-[11px] text-slate-600">
+                        Prevent automatic browser cleanup
+                      </p>
+                    </div>
+                    {persistentStorage ? (
+                      <span className="text-emerald-300">Enabled</span>
+                    ) : (
+                      <button
+                        className={secondaryButtonClass}
+                        type="button"
+                        onClick={() => void protectStorage()}
+                      >
+                        Enable
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex min-h-14 flex-wrap items-center gap-2 py-2">
+                    <input
+                      ref={backupInput}
+                      accept="application/json,.json"
+                      className="hidden"
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+
+                        if (file) {
+                          void restoreBackup(file);
+                        }
+                        event.target.value = "";
+                      }}
+                    />
+                    <button
+                      className={secondaryButtonClass}
+                      type="button"
+                      onClick={() => downloadImportedLibrary(library)}
+                    >
+                      <BsDownload /> Export
+                    </button>
+                    <button
+                      className={secondaryButtonClass}
+                      type="button"
+                      onClick={() => backupInput.current?.click()}
+                    >
+                      <BsUpload /> Restore
+                    </button>
+                    <button
+                      className={`${dangerButtonClass} ml-auto`}
+                      type="button"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Delete every imported match and collection from this browser?",
+                          )
+                        ) {
+                          void clearLibrary();
+                        }
+                      }}
+                    >
+                      <BsTrash /> Clear library
+                    </button>
+                  </div>
+                </div>
                 {storage.usage && storage.quota && storage.usage / storage.quota > 0.8 ? (
                   <p className="mt-2 text-xs text-amber-300">
-                    Browser storage is nearly full. Export a backup before importing more replays.
+                    Storage is nearly full. Export a backup before importing more replays.
                   </p>
                 ) : null}
-                <input
-                  ref={backupInput}
-                  accept="application/json,.json"
-                  className="hidden"
-                  type="file"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-
-                    if (file) {
-                      void restoreBackup(file);
-                    }
-                    event.target.value = "";
-                  }}
-                />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    className={secondaryButtonClass}
-                    type="button"
-                    onClick={() => downloadImportedLibrary(library)}
-                  >
-                    <BsDownload className="mr-1 inline" /> Export backup
-                  </button>
-                  <button
-                    className={secondaryButtonClass}
-                    type="button"
-                    onClick={() => backupInput.current?.click()}
-                  >
-                    <BsUpload className="mr-1 inline" /> Restore backup
-                  </button>
-                  <button
-                    className={`${dangerButtonClass} ml-auto`}
-                    type="button"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Delete every imported match and collection from this browser?",
-                        )
-                      ) {
-                        void persist({
-                          matches: [],
-                          collections: [],
-                          profile: library.profile,
-                          nextWardId: -1,
-                        });
-                      }
-                    }}
-                  >
-                    <BsTrash className="mr-1 inline" /> Clear library
-                  </button>
-                </div>
               </section>
             </div>
           ) : null}
@@ -1372,12 +1368,12 @@ export default function ImportedMatches({
   return (
     <>
       <button
-        className="inline-flex items-center gap-1.5 text-[11px] text-cyan-400 hover:text-cyan-300"
-        title="Open local replay library"
+        className="inline-flex min-h-7 items-center gap-1.5 rounded-sm px-1.5 text-[11px] text-cyan-400 hover:bg-cyan-400/5 hover:text-cyan-300"
+        title={library.matches.length ? "Manage imported replays" : "Import replay files"}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openLibrary}
       >
-        <BsUpload /> Replay library
+        <BsFileEarmarkArrowUp /> {library.matches.length ? "Manage" : "Import replays"}
       </button>
       {open ? createPortal(dialog, document.body) : null}
     </>
