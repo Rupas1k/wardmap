@@ -82,6 +82,7 @@ export default function DatasetControls({
   const importedMatches = importedLibrary.matches.filter(
     (match) => match.mapVersion === settings.importedMapVersion,
   );
+  const importedMatchIds = new Set(importedMatches.map((match) => match.matchId));
   const importedPlayerNames = newestPlayerNames(importedLibrary.matches);
   const importedPlayerIds = new Set(
     importedMatches.flatMap((match) => match.players.map((player) => player.id)),
@@ -212,39 +213,58 @@ export default function DatasetControls({
               </div>
             </div>
             {importedLibrary.collections.length > 0 ? (
-              <div className="border-t border-white/7 py-2">
-                <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>Collections</span>
-                  {settings.collectionIds.length === 0 ? <span>All matches</span> : null}
+              <section className="mt-2">
+                <div className="flex min-h-8 items-center justify-between">
+                  <h3 className="text-xs font-medium text-slate-400">Collections</h3>
+                  {settings.collectionIds.length > 0 ? (
+                    <button
+                      className="text-[11px] text-slate-500 hover:text-white"
+                      type="button"
+                      onClick={() => update("collectionIds", [])}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
                 </div>
-                {importedLibrary.collections.map((collection) => (
-                  <label
-                    className="flex cursor-pointer items-center justify-between py-1 text-xs text-slate-400 has-disabled:cursor-not-allowed has-disabled:opacity-40"
-                    key={collection.id}
-                  >
-                    <span>
-                      {collection.name}{" "}
-                      <span className="text-[10px] text-slate-600">
-                        {collection.matchIds.length}
-                      </span>
-                    </span>
-                    <input
-                      checked={settings.collectionIds.includes(collection.id)}
-                      className="accent-cyan-400"
-                      disabled={collection.matchIds.length === 0}
-                      type="checkbox"
-                      onChange={() =>
-                        update(
-                          "collectionIds",
-                          settings.collectionIds.includes(collection.id)
-                            ? settings.collectionIds.filter((id) => id !== collection.id)
-                            : [...settings.collectionIds, collection.id],
-                        )
-                      }
-                    />
-                  </label>
-                ))}
-              </div>
+                <div className="space-y-px">
+                  {importedLibrary.collections.map((collection) => {
+                    const count = collection.matchIds.filter((id) =>
+                      importedMatchIds.has(id),
+                    ).length;
+                    const selected = settings.collectionIds.includes(collection.id);
+
+                    return (
+                      <label
+                        className={
+                          "grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-1.5 text-xs transition " +
+                          (selected
+                            ? "bg-cyan-400/[0.07] text-slate-200"
+                            : "text-slate-400 hover:bg-white/[0.025] hover:text-slate-200") +
+                          (count || selected ? " cursor-pointer" : " cursor-not-allowed opacity-40")
+                        }
+                        key={collection.id}
+                      >
+                        <input
+                          checked={selected}
+                          className="accent-cyan-400"
+                          disabled={!count && !selected}
+                          type="checkbox"
+                          onChange={() =>
+                            update(
+                              "collectionIds",
+                              selected
+                                ? settings.collectionIds.filter((id) => id !== collection.id)
+                                : [...settings.collectionIds, collection.id],
+                            )
+                          }
+                        />
+                        <span className="truncate">{collection.name}</span>
+                        <span className="tabular-nums text-slate-600">{count}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
             ) : null}
             <CompactSelect
               disabled={importedLibrary.profile.accountIds.length === 0}
