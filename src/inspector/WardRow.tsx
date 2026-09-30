@@ -1,7 +1,11 @@
-import { formatGameTime } from "../metrics/wardMetrics";
+import { useEffect } from "react";
+import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
 import { useMapStore } from "../state/mapState";
 import type { ClusterWard, Ward } from "../types";
 import { selectableRowClass } from "../components/ui";
+import { wardOutcomeDotClass, wardOutcomeTextClass } from "../colors";
+import { useWorkspaceStore } from "../state/workspaceState";
+import { useWardSelected } from "../state/workspaceSelectors";
 
 type WardRowData = Pick<
   Ward,
@@ -12,6 +16,7 @@ type WardRowData = Pick<
   | "player_destroyed_name"
   | "is_obs"
   | "is_destroyed"
+  | "measurement"
   | "time_placed"
   | "duration"
   | "x_pos"
@@ -29,34 +34,79 @@ export default function WardRow({
   label,
   onSelect,
   onSelected,
+  primaryValue,
+  showLifetime = true,
   ward,
 }: {
   label?: string;
   onSelect?: () => void;
   onSelected?: () => void;
+  primaryValue?: string;
+  showLifetime?: boolean;
   ward: WardRowData | ClusterWard;
 }) {
   const selectedWardId = useMapStore((state) => state.selectedWardId);
+  const hoveredWardId = useMapStore((state) => state.hoveredWardId);
   const setSelectedWardId = useMapStore((state) => state.setSelectedWardId);
+  const setHoveredWardId = useMapStore((state) => state.setHoveredWardId);
   const centerMapAt = useMapStore((state) => state.centerMapAt);
+  const toggleWardSelection = useWorkspaceStore((state) => state.toggleWardSelection);
   const selected = ward.id === selectedWardId;
+  const multiSelected = useWardSelected(ward.id);
+  const selectionActive = useWorkspaceStore((state) => state.selectedWardIds.length > 0);
+  const hovered = ward.id === hoveredWardId;
   const destroyingPlayer = destroyingPlayerName(ward);
+  const outcome = ward.measurement
+    ? formatWardOutcome(ward.measurement.outcome)
+    : ward.is_destroyed
+      ? "Dewarded"
+      : "Not dewarded";
+
+  useEffect(
+    () => () => {
+      if (useMapStore.getState().hoveredWardId === ward.id) {
+        setHoveredWardId(null);
+      }
+    },
+    [setHoveredWardId, ward.id],
+  );
 
   return (
     <div
-      className={`grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 py-2 ${selectableRowClass(selected)}`}
+      className={`grid grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2 py-2 ${selectableRowClass(selected, hovered, multiSelected)}`}
       data-ward-id={ward.id}
+      onMouseEnter={() => setHoveredWardId(ward.id)}
+      onMouseLeave={() => setHoveredWardId(null)}
     >
-      <i
-        className={`mx-auto size-2 rounded-full ${
-          !ward.is_obs ? "bg-sky-400" : ward.is_destroyed ? "bg-rose-400" : "bg-emerald-400"
-        }`}
-      />
+      {selectionActive ? (
+        <input
+          aria-label={`${multiSelected ? "Deselect" : "Select"} ward by ${ward.player_name ?? "unknown player"}`}
+          checked={multiSelected}
+          className="mx-auto size-3 cursor-pointer accent-cyan-400"
+          type="checkbox"
+          onChange={() => toggleWardSelection(ward.id)}
+        />
+      ) : (
+        <i
+          className={`mx-auto size-2 rounded-full ${
+            !ward.is_obs
+              ? "bg-sky-400"
+              : wardOutcomeDotClass(ward.measurement?.outcome ?? null, ward.is_destroyed)
+          }`}
+        />
+      )}
       <button
-        aria-pressed={selected}
+        aria-pressed={selected || multiSelected}
         className="min-w-0 text-left"
         type="button"
-        onClick={() => {
+        onBlur={() => setHoveredWardId(null)}
+        onClick={(event) => {
+          if (event.shiftKey) {
+            toggleWardSelection(ward.id);
+
+            return;
+          }
+
           if (selected) {
             if (onSelected) {
               onSelected();
@@ -74,25 +124,30 @@ export default function WardRow({
             centerMapAt(ward.x_pos, ward.y_pos);
           }
         }}
+        onFocus={() => setHoveredWardId(ward.id)}
       >
-        {label ? <span className="block truncate text-[10px] text-slate-500">{label}</span> : null}
-        <span
-          className={`block truncate text-xs font-medium ${selected ? "text-white" : "text-slate-300"}`}
-        >
+        {label ? <span className="block truncate text-xs text-slate-500">{label}</span> : null}
+        <span className={`block truncate text-sm ${selected ? "text-white" : "text-slate-300"}`}>
           {ward.player_name ?? "Unknown player"}
         </span>
-        <span className="mt-1 block truncate text-[10px] text-slate-600">
-          {formatGameTime(ward.duration)} lifetime
-          {ward.is_destroyed ? ` · dewarded by ${destroyingPlayer}` : " · not dewarded"}
+        <span className="mt-1 block truncate text-xs text-slate-500">
+          {showLifetime ? `${formatGameTime(ward.duration)} lifetime, ` : null}
+          <span
+            className={wardOutcomeTextClass(ward.measurement?.outcome ?? null, ward.is_destroyed)}
+          >
+            {ward.measurement?.outcome === "dewarded" || (!ward.measurement && ward.is_destroyed)
+              ? `dewarded by ${destroyingPlayer}`
+              : outcome.toLowerCase()}
+          </span>
         </span>
       </button>
       <span className="text-right">
-        <span className="block font-mono text-[11px] text-slate-300">
-          {formatGameTime(ward.time_placed)}
+        <span className="block text-xs text-slate-300 tabular-nums">
+          {primaryValue ?? formatGameTime(ward.time_placed)}
         </span>
         <a
           aria-label={`Open match ${ward.match_id} on OpenDota`}
-          className="block font-mono text-[10px] text-slate-600 hover:text-slate-200 hover:underline"
+          className="block text-xs text-slate-500 tabular-nums hover:text-slate-200 hover:underline"
           href={`https://www.opendota.com/matches/${ward.match_id}`}
           rel="noreferrer"
           target="_blank"

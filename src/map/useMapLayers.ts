@@ -1,14 +1,20 @@
 import Feature from "ol/Feature";
 import CircleGeometry from "ol/geom/Circle";
 import Point from "ol/geom/Point";
+import LineString from "ol/geom/LineString";
 import { useEffect } from "react";
+import { useMapStore } from "../state/mapState";
+import { useWorkspaceStore } from "../state/workspaceState";
 import type { MapFocusRequest, VisionTechnique } from "../state/mapState";
-import type { Cluster, ClusterSets, ClusterWard, Side } from "../types";
+import type { MapPosition } from "../state/mapState";
+import type { Cluster, ClusterSets, Side } from "../types";
+import { locationWards } from "../locations/locationIdentity";
 import { calculateGridNavVision } from "./calculateGridNavVision";
 import calculateVision from "./calculateVision";
 import { mapSize, sentryDetectionRadius } from "./constants";
-import type { ClusterFeature } from "./features";
-import { getClusterFeatureData } from "./features";
+import type { ClusterFeature, WardFeature } from "./features";
+import type { MapColorScale } from "./colorScale";
+import { getClusterFeatureData, getWardFeatureData } from "./features";
 import layers from "./layers";
 import { unitToPixel } from "./projections";
 import type { SentryPlacement } from "../sentry/planner";
@@ -65,6 +71,7 @@ export function useClusterLayer({
   setAverageValues,
   showUnclustered,
   locationFilter,
+  colorScale,
 }: {
   clearMapLocationSelection: () => void;
   clusterSets: ClusterSets;
@@ -74,33 +81,60 @@ export function useClusterLayer({
   setAverageValues: (average: Cluster | null) => void;
   showUnclustered: boolean;
   locationFilter: { playerId: number } | { matchId: number } | null;
+  colorScale: MapColorScale;
 }) {
+  const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
+
   useEffect(() => {
     const source = layers.wards.getSource()!;
+    const playerId =
+      locationFilter && "playerId" in locationFilter ? locationFilter.playerId : null;
+    const matchId = locationFilter && "matchId" in locationFilter ? locationFilter.matchId : null;
     const visibleClusters = clusterSets[currentSide].filter((cluster) => {
       if (!showUnclustered && cluster.unclustered === true) {
         return false;
       }
 
-      return (cluster.wards ?? []).some(
-        (ward) =>
-          (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")) &&
-          (!locationFilter ||
-            ("playerId" in locationFilter
-              ? ward.player_placed_id === locationFilter.playerId
-              : ward.match_id === locationFilter.matchId)),
+      return (
+        locationWards(cluster, {
+          side: currentSide,
+          playerId,
+          matchId,
+        }).length > 0
       );
     });
     const expandedIds = new Set(expandedClusterIds);
+    const selectedWards = new Set(selectedWardIds);
+    const locationNumbers = new Map(
+      [...visibleClusters]
+        .sort((left, right) => left.cluster_id - right.cluster_id)
+        .map((cluster, index) => [cluster.cluster_id, index + 1]),
+    );
+    const hoverState = useMapStore.getState();
     const features: ClusterFeature[] = visibleClusters.map((cluster) => {
       const coordinates: [number, number, number] = [cluster.x_pos, cluster.y_pos, cluster.z_pos];
+      const wards = locationWards(cluster, { side: currentSide, playerId, matchId });
+      const selectedWardCount = wards.filter((ward) => selectedWards.has(ward.id)).length;
+      const multiSelection =
+        selectedWardCount === 0 ? null : selectedWardCount === wards.length ? "full" : "partial";
 
       return new Feature({
         geometry: new Point(unitToPixel(coordinates)),
-        data: { cluster, coordinates },
+        data: {
+          cluster,
+          coordinates,
+          locationNumber: locationNumbers.get(cluster.cluster_id) ?? 0,
+        },
         dimmed: selectedClusterId !== null && cluster.cluster_id !== selectedClusterId,
-        hidden: cluster.cluster_id !== selectedClusterId && expandedIds.has(cluster.cluster_id),
+        hidden:
+          cluster.cluster_id !== selectedClusterId &&
+          (expandedIds.has(cluster.cluster_id) || multiSelection === "partial"),
+        hovered:
+          cluster.cluster_id === hoverState.hoveredClusterId ||
+          (cluster.wards?.some((ward) => ward.id === hoverState.hoveredWardId) ?? false),
         selected: cluster.cluster_id === selectedClusterId,
+        multiSelection,
+        color: colorScale.colorForWards(wards),
       });
     });
 
@@ -122,27 +156,35 @@ export function useClusterLayer({
     currentSide,
     expandedClusterIds,
     selectedClusterId,
+    selectedWardIds,
     setAverageValues,
     showUnclustered,
     locationFilter,
+    colorScale,
   ]);
 }
 
 export function useWardDetailLayer({
   clusters,
   currentSide,
+  expandedClusterIds,
   selectedClusterId,
   selectedMatchId,
   selectedPlayerId,
   selectedWardId,
+  colorScale,
 }: {
   clusters: Cluster[];
   currentSide: Side;
+  expandedClusterIds: number[];
   selectedClusterId: number | null;
   selectedMatchId: number | null;
   selectedPlayerId: number | null;
   selectedWardId: number | null;
+  colorScale: MapColorScale;
 }) {
+  const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
+
   useEffect(() => {
     const source = layers.wardDetails.getSource()!;
 
@@ -152,30 +194,76 @@ export function useWardDetailLayer({
       return;
     }
 
+    const hoveredWardId = useMapStore.getState().hoveredWardId;
+    const multiSelectedWardIds = new Set(selectedWardIds);
+    const expandedIds = new Set(expandedClusterIds);
+
     source.addFeatures(
-      clusters.flatMap((cluster) =>
-        (cluster.wards ?? [])
-          .filter(
-            (ward) =>
-              (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")) &&
-              (selectedPlayerId === null || ward.player_placed_id === selectedPlayerId) &&
-              (selectedMatchId === null || ward.match_id === selectedMatchId),
-          )
-          .map(
-            (ward) =>
-              new Feature({
-                geometry: new Point(unitToPixel([ward.x_pos, ward.y_pos])),
-                wardData: {
-                  clusterId: cluster.cluster_id,
-                  ward,
-                  coordinates: [ward.x_pos, ward.y_pos, ward.z_pos],
-                },
-                selected: cluster.cluster_id === selectedClusterId && ward.id === selectedWardId,
-              }),
-          ),
-      ),
+      clusters.flatMap((cluster) => {
+        const wards = locationWards(cluster, {
+          side: currentSide,
+          playerId: selectedPlayerId,
+          matchId: selectedMatchId,
+        });
+        const visibleWards =
+          cluster.cluster_id === selectedClusterId || expandedIds.has(cluster.cluster_id)
+            ? wards
+            : wards.every((ward) => multiSelectedWardIds.has(ward.id))
+              ? []
+              : wards.filter((ward) => multiSelectedWardIds.has(ward.id));
+
+        return visibleWards.map(
+          (ward) =>
+            new Feature({
+              geometry: new Point(unitToPixel([ward.x_pos, ward.y_pos])),
+              wardData: {
+                clusterId: cluster.cluster_id,
+                ward,
+                coordinates: [ward.x_pos, ward.y_pos, ward.z_pos],
+              },
+              hovered: ward.id === hoveredWardId,
+              multiSelected: multiSelectedWardIds.has(ward.id),
+              selected: cluster.cluster_id === selectedClusterId && ward.id === selectedWardId,
+              color: colorScale.colorForWard(ward),
+            }),
+        );
+      }),
     );
-  }, [clusters, currentSide, selectedClusterId, selectedMatchId, selectedPlayerId, selectedWardId]);
+  }, [
+    clusters,
+    currentSide,
+    expandedClusterIds,
+    selectedClusterId,
+    selectedMatchId,
+    selectedPlayerId,
+    selectedWardId,
+    selectedWardIds,
+    colorScale,
+  ]);
+}
+
+export function useMapHoverState(hoveredClusterId: number | null, hoveredWardId: number | null) {
+  useEffect(() => {
+    const clusterFeatures = layers.wards.getSource()!.getFeatures() as ClusterFeature[];
+
+    for (const feature of clusterFeatures) {
+      const cluster = getClusterFeatureData(feature).cluster;
+      const hovered =
+        cluster.cluster_id === hoveredClusterId ||
+        (cluster.wards?.some((ward) => ward.id === hoveredWardId) ?? false);
+
+      feature.set("hovered", hovered, true);
+    }
+
+    const wardFeatures = layers.wardDetails.getSource()!.getFeatures() as WardFeature[];
+
+    for (const feature of wardFeatures) {
+      feature.set("hovered", getWardFeatureData(feature).ward.id === hoveredWardId, true);
+    }
+
+    layers.wards.changed();
+    layers.wardDetails.changed();
+  }, [hoveredClusterId, hoveredWardId]);
 }
 
 export function useMapFocus({
@@ -218,6 +306,41 @@ export function useMapFocus({
   }, [centerMapAt, clearFocusRequest, focusRequest, selectMapLocation]);
 }
 
+export function useSightingLayer(position: MapPosition | null, routes: MapPosition[][]) {
+  useEffect(() => {
+    const source = layers.sightings.getSource()!;
+
+    source.clear(true);
+
+    if (position) {
+      source.addFeature(new Feature({ geometry: new Point(unitToPixel(position)) }));
+    }
+
+    for (const route of routes) {
+      if (route.length > 1) {
+        source.addFeature(
+          new Feature({
+            geometry: new LineString(route.map((point) => unitToPixel(point))),
+            route: true,
+          }),
+        );
+      }
+    }
+  }, [position, routes]);
+}
+
+export function useHiddenLocationPreviewLayer(position: MapPosition | null) {
+  useEffect(() => {
+    const source = layers.hiddenLocationPreview.getSource()!;
+
+    source.clear(true);
+
+    if (position) {
+      source.addFeature(new Feature({ geometry: new Point(unitToPixel(position)) }));
+    }
+  }, [position]);
+}
+
 export function useVisionLayer({
   elevations,
   selectedCluster,
@@ -255,18 +378,4 @@ export function useVisionLayer({
 
     layers.vision.getSource()!.addFeatures(visionFeatures);
   }, [elevations, selectedCluster, selectedWardId, visionTechnique]);
-}
-
-export function visibleWards(
-  cluster: Cluster | null,
-  side: Side,
-  playerId: number | null,
-  matchId: number | null,
-): ClusterWard[] {
-  return (cluster?.wards ?? []).filter(
-    (ward) =>
-      (side === "all" || ward.is_radiant === (side === "radiant")) &&
-      (playerId === null || ward.player_placed_id === playerId) &&
-      (matchId === null || ward.match_id === matchId),
-  );
 }

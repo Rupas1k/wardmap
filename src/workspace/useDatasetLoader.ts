@@ -5,6 +5,7 @@ import type { DatasetSettings } from "../dataset/model";
 import { useWorkspaceMapSettings } from "../state/mapSelectors";
 import { useWorkspaceActions } from "../state/workspaceSelectors";
 import type { League } from "../types";
+import { useWorkspaceStore } from "../state/workspaceState";
 import { compatibleLeagueDataset } from "./workspaceDataset";
 
 export interface BooleanRef {
@@ -12,6 +13,8 @@ export interface BooleanRef {
 }
 
 export default function useDatasetLoader(leagues: League[], defaultLeague: League | null) {
+  const source = useWorkspaceStore((state) => state.draftDataset.source);
+  const requestSource = useRef(source);
   const dataRun = useRef(0);
   const dataRequest = useRef<AbortController | null>(null);
   const restoredClusters = useRef(false);
@@ -22,14 +25,13 @@ export default function useDatasetLoader(leagues: League[], defaultLeague: Leagu
     useWorkspaceActions();
 
   const compatibleDataset = useCallback(
-    (dataset: DatasetSettings) =>
-      defaultLeague ? compatibleLeagueDataset(dataset, leagues, defaultLeague) : dataset,
+    (dataset: DatasetSettings) => compatibleLeagueDataset(dataset, leagues, defaultLeague),
     [defaultLeague, leagues],
   );
 
   const loadDataset = useCallback(
     async (dataset: DatasetSettings, forceRefresh: boolean) => {
-      if (!defaultLeague) {
+      if (dataset.source === "competitive" && !defaultLeague) {
         setError("Unable to load leagues");
 
         return;
@@ -42,6 +44,8 @@ export default function useDatasetLoader(leagues: League[], defaultLeague: Leagu
 
       const controller = new AbortController();
       dataRequest.current = controller;
+      requestSource.current = compatible.source;
+      setDraftDataset(compatible);
 
       setLoadingData(true);
       setDataLoadProgress(null);
@@ -64,7 +68,13 @@ export default function useDatasetLoader(leagues: League[], defaultLeague: Leagu
         setCurrentSide(compatible.side);
         setDraftDataset(compatible);
         clearSelection();
-        setDatasetSnapshot(compatible, result.wards, null, result.leagueFreshness);
+        setDatasetSnapshot(
+          compatible,
+          result.wards,
+          null,
+          result.leagueFreshness,
+          result.population,
+        );
       } catch (reason) {
         if (run === dataRun.current && !controller.signal.aborted) {
           setError(reason instanceof Error ? reason.message : "Unable to load ward data");
@@ -90,6 +100,16 @@ export default function useDatasetLoader(leagues: League[], defaultLeague: Leagu
       setLoadingData,
     ],
   );
+
+  useEffect(() => {
+    if (dataRequest.current && requestSource.current !== source) {
+      dataRequest.current.abort();
+      dataRequest.current = null;
+      dataRun.current += 1;
+      setLoadingData(false);
+      setDataLoadProgress(null);
+    }
+  }, [source, setDataLoadProgress, setLoadingData]);
 
   const cancelDatasetLoad = useCallback(() => {
     dataRequest.current?.abort();

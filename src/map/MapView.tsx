@@ -8,13 +8,19 @@ import exportMapImage from "./exportMapImage";
 import { ClusterTooltip, WardTooltip } from "./MapTooltips";
 import {
   useClusterLayer,
+  useHiddenLocationPreviewLayer,
+  useMapHoverState,
   useMapFocus,
   useSentryPlanLayer,
+  useSightingLayer,
   useVisionLayer,
   useWardDetailLayer,
 } from "./useMapLayers";
 import useMapInteractions from "./useMapInteractions";
 import { useElevationGrid, useMapCamera } from "./useMapRuntime";
+import { locationWards, withVisibleClusters } from "../locations/locationIdentity";
+import { buildMapColorScale } from "./colorScale";
+import MapColorLegend from "./MapColorLegend";
 
 interface MapViewProps {
   clusterSets: ClusterSets;
@@ -33,11 +39,18 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const {
     selectedClusterId,
     selectedWardId,
+    hoveredClusterId,
+    hoveredWardId,
     expandedClusterIds,
     focusRequest,
+    sightingPosition,
+    sightingRoutes,
+    hiddenLocationPreview,
     elevations,
     currentSide,
     visionTechnique,
+    colorMode,
+    colorStatistic,
     selectMapLocation,
     clearWardSelection,
     clearMapLocationSelection,
@@ -55,6 +68,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const sentryPlacements = useSentryStore((state) => state.placements);
   const selectedSentryRank = useSentryStore((state) => state.selectedRank);
   const showAllSentryRanges = useSentryStore((state) => state.showAllRanges);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
+  const visibleClusterSets = useMemo(
+    () => withVisibleClusters(clusterSets, currentSide, hiddenLocationFingerprints),
+    [clusterSets, currentSide, hiddenLocationFingerprints],
+  );
 
   const { error, loading } = useElevationGrid(mapVersion);
   const { hover, mapElement, mapInstance, wardHover } = useMapInteractions({
@@ -79,18 +98,62 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, [context.origin]);
   const selectedCluster = useMemo(
     () =>
-      clusterSets[currentSide].find((cluster) => cluster.cluster_id === selectedClusterId) ?? null,
-    [clusterSets, currentSide, selectedClusterId],
+      visibleClusterSets[currentSide].find((cluster) => cluster.cluster_id === selectedClusterId) ??
+      null,
+    [currentSide, selectedClusterId, visibleClusterSets],
   );
+  const colorScale = useMemo(() => {
+    const wardGroups = visibleClusterSets[currentSide]
+      .filter((cluster) => showUnclustered || !cluster.unclustered)
+      .map((cluster) =>
+        locationWards(cluster, {
+          side: currentSide,
+          playerId: selectedPlayerId,
+          matchId: selectedMatchId,
+        }),
+      )
+      .filter((wards) => wards.length > 0);
+
+    return buildMapColorScale(wardGroups, colorMode, colorStatistic);
+  }, [
+    colorMode,
+    colorStatistic,
+    currentSide,
+    selectedMatchId,
+    selectedPlayerId,
+    showUnclustered,
+    visibleClusterSets,
+  ]);
   const detailedClusters = useMemo(() => {
     const ids = new Set(expandedClusterIds);
+    const selectedWards = new Set(selectedWardIds);
 
     if (selectedClusterId !== null) {
       ids.add(selectedClusterId);
     }
 
-    return clusterSets[currentSide].filter((cluster) => ids.has(cluster.cluster_id));
-  }, [clusterSets, currentSide, expandedClusterIds, selectedClusterId]);
+    for (const cluster of visibleClusterSets[currentSide]) {
+      if (
+        locationWards(cluster, {
+          side: currentSide,
+          playerId: selectedPlayerId,
+          matchId: selectedMatchId,
+        }).some((ward) => selectedWards.has(ward.id))
+      ) {
+        ids.add(cluster.cluster_id);
+      }
+    }
+
+    return visibleClusterSets[currentSide].filter((cluster) => ids.has(cluster.cluster_id));
+  }, [
+    currentSide,
+    expandedClusterIds,
+    selectedClusterId,
+    selectedMatchId,
+    selectedPlayerId,
+    selectedWardIds,
+    visibleClusterSets,
+  ]);
 
   useImperativeHandle(ref, () => ({
     async downloadImage() {
@@ -105,22 +168,26 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   useMapCamera(mapInstance);
   useClusterLayer({
     clearMapLocationSelection,
-    clusterSets,
+    clusterSets: visibleClusterSets,
     currentSide,
     expandedClusterIds,
     selectedClusterId,
     setAverageValues,
     showUnclustered,
     locationFilter,
+    colorScale,
   });
   useWardDetailLayer({
     clusters: detailedClusters,
     currentSide,
+    expandedClusterIds,
     selectedClusterId,
     selectedMatchId,
     selectedPlayerId,
     selectedWardId,
+    colorScale,
   });
+  useMapHoverState(hoveredClusterId, hoveredWardId);
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
   useSentryPlanLayer(
     sentryPlacements,
@@ -128,6 +195,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     showAllSentryRanges,
     inspectorOpen && inspectorTab === "sentries",
   );
+  useSightingLayer(sightingPosition, sightingRoutes);
+  useHiddenLocationPreviewLayer(hiddenLocationPreview);
   useVisionLayer({ elevations, selectedCluster, selectedWardId, visionTechnique });
 
   return (
@@ -144,9 +213,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       ) : null}
       <div id="map" ref={mapElement} />
       {hover ? (
-        <ClusterTooltip cluster={hover.cluster} side={currentSide} x={hover.x} y={hover.y} />
+        <ClusterTooltip
+          cluster={hover.cluster}
+          locationNumber={hover.locationNumber}
+          side={currentSide}
+          x={hover.x}
+          y={hover.y}
+        />
       ) : null}
       {wardHover ? <WardTooltip ward={wardHover.ward} x={wardHover.x} y={wardHover.y} /> : null}
+      <MapColorLegend scale={colorScale} />
     </div>
   );
 });

@@ -1,12 +1,22 @@
+import { fallbackMapVersion } from "../map/constants";
 import type { ClusteringSettings, VisionTechnique } from "../state/mapState";
 import type { ClusterSets, Side } from "../types";
+import { isManualLocations } from "../locations/manualLocations";
+import type { ManualLocation } from "../locations/manualLocations";
 
 export type WardType = "all" | "observer" | "sentry";
-export type WardOutcome = "all" | "survived" | "destroyed";
+export type WardOutcome =
+  "all" | "dewarded" | "expired" | "allied_removed" | "match_ended" | "unresolved_removal";
 export type TeamResult = "all" | "won" | "lost";
+export type DatasetSource = "competitive" | "imported";
+export type PlayerPerspective = "all" | "mine" | "allies" | "enemies";
 
 export interface DatasetSettings {
+  source: DatasetSource;
+  importedMapVersion: number;
   leagueIds: number[];
+  collectionIds: string[];
+  perspective: PlayerPerspective;
   side: Side;
   wardType: WardType;
   outcome: WardOutcome;
@@ -23,6 +33,14 @@ export interface DatasetSettings {
   maximumMatchDuration: number;
   minimumWardLifetime: number;
   maximumWardLifetime: number;
+  minimumAddedVision: number | null;
+  maximumAddedVision: number | null;
+  minimumFreshSightings: number | null;
+  maximumFreshSightings: number | null;
+  minimumScoutingTracking: number | null;
+  maximumScoutingTracking: number | null;
+  minimumScoutingDiscovery: number | null;
+  maximumScoutingDiscovery: number | null;
 }
 
 export interface WorkspaceSettings {
@@ -31,13 +49,21 @@ export interface WorkspaceSettings {
   clusteringEnabled?: boolean;
   groupByGridCell?: boolean;
   showUnclustered?: boolean;
+  excludedWardIds?: number[];
+  hiddenLocationFingerprints?: string[];
+  locationNames?: Record<string, string>;
+  manualLocations?: ManualLocation[];
   visionTechnique: VisionTechnique;
   clusterDataVersion?: number;
   wardDataVersion?: number;
 }
 
 export const defaultDataset: DatasetSettings = {
+  source: "competitive",
+  importedMapVersion: fallbackMapVersion,
   leagueIds: [],
+  collectionIds: [],
+  perspective: "all",
   side: "all",
   wardType: "observer",
   outcome: "all",
@@ -54,6 +80,14 @@ export const defaultDataset: DatasetSettings = {
   maximumMatchDuration: 180,
   minimumWardLifetime: 0,
   maximumWardLifetime: 600,
+  minimumAddedVision: null,
+  maximumAddedVision: null,
+  minimumFreshSightings: null,
+  maximumFreshSightings: null,
+  minimumScoutingTracking: null,
+  maximumScoutingTracking: null,
+  minimumScoutingDiscovery: null,
+  maximumScoutingDiscovery: null,
 };
 
 export function numericIds(value: string): string[] {
@@ -76,13 +110,25 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
     candidate.clustering = clustering;
   }
 
+  const optionalNumber = (number: unknown) =>
+    number === undefined || number === null || Number.isFinite(number);
+
   return Boolean(
     dataset &&
+    (dataset.source === undefined || ["competitive", "imported"].includes(dataset.source)) &&
+    (dataset.importedMapVersion === undefined || [0, 1, 2].includes(dataset.importedMapVersion)) &&
     Array.isArray(dataset.leagueIds) &&
     dataset.leagueIds.every(Number.isFinite) &&
+    (dataset.collectionIds === undefined ||
+      (Array.isArray(dataset.collectionIds) &&
+        dataset.collectionIds.every((id) => typeof id === "string"))) &&
+    (dataset.perspective === undefined ||
+      ["all", "mine", "allies", "enemies"].includes(dataset.perspective)) &&
     ["all", "radiant", "dire"].includes(dataset.side) &&
     ["all", "observer", "sentry"].includes(dataset.wardType) &&
-    ["all", "survived", "destroyed"].includes(dataset.outcome) &&
+    ["all", "dewarded", "expired", "allied_removed", "match_ended", "unresolved_removal"].includes(
+      dataset.outcome,
+    ) &&
     typeof dataset.matchIds === "string" &&
     typeof dataset.playerIds === "string" &&
     (dataset.opponentPlayerIds === undefined || typeof dataset.opponentPlayerIds === "string") &&
@@ -101,12 +147,37 @@ export function isWorkspaceSettings(value: unknown): value is WorkspaceSettings 
       dataset.minimumWardLifetime,
       dataset.maximumWardLifetime,
     ].every(Number.isFinite) &&
+    [
+      dataset.minimumScoutingTracking,
+      dataset.maximumScoutingTracking,
+      dataset.minimumScoutingDiscovery,
+      dataset.maximumScoutingDiscovery,
+      dataset.minimumAddedVision,
+      dataset.maximumAddedVision,
+      dataset.minimumFreshSightings,
+      dataset.maximumFreshSightings,
+    ].every(optionalNumber) &&
     clustering !== null &&
     isVisionTechnique(candidate.visionTechnique) &&
     (candidate.clusteringEnabled === undefined ||
       typeof candidate.clusteringEnabled === "boolean") &&
     (candidate.groupByGridCell === undefined || typeof candidate.groupByGridCell === "boolean") &&
     (candidate.showUnclustered === undefined || typeof candidate.showUnclustered === "boolean") &&
+    (candidate.excludedWardIds === undefined ||
+      (Array.isArray(candidate.excludedWardIds) &&
+        candidate.excludedWardIds.every(Number.isFinite))) &&
+    (candidate.hiddenLocationFingerprints === undefined ||
+      (Array.isArray(candidate.hiddenLocationFingerprints) &&
+        candidate.hiddenLocationFingerprints.every(
+          (fingerprint) => typeof fingerprint === "string",
+        ))) &&
+    (candidate.locationNames === undefined ||
+      (candidate.locationNames !== null &&
+        typeof candidate.locationNames === "object" &&
+        Object.entries(candidate.locationNames).every(
+          ([fingerprint, name]) => fingerprint.length > 0 && typeof name === "string",
+        ))) &&
+    (candidate.manualLocations === undefined || isManualLocations(candidate.manualLocations)) &&
     (candidate.clusterDataVersion === undefined || Number.isFinite(candidate.clusterDataVersion)) &&
     (candidate.wardDataVersion === undefined || Number.isFinite(candidate.wardDataVersion)),
   );
@@ -178,22 +249,23 @@ export function isClusterSets(value: unknown): value is ClusterSets {
 
 export function normalizeDataset(
   settings: Partial<DatasetSettings>,
-  defaultLeagueId: number,
+  defaultLeagueId?: number,
 ): DatasetSettings {
-  const currentSettings = { ...settings } as Partial<DatasetSettings> & {
-    collectionIds?: unknown;
-    perspective?: unknown;
-    source?: unknown;
-  };
-
-  delete currentSettings.collectionIds;
-  delete currentSettings.perspective;
-  delete currentSettings.source;
-
   return {
     ...defaultDataset,
-    ...currentSettings,
-    leagueIds: settings.leagueIds?.length ? settings.leagueIds : [defaultLeagueId],
+    ...settings,
+    source: settings.source ?? "competitive",
+    importedMapVersion: settings.importedMapVersion ?? fallbackMapVersion,
+    leagueIds:
+      settings.source === "imported"
+        ? []
+        : settings.leagueIds?.length
+          ? settings.leagueIds
+          : defaultLeagueId === undefined
+            ? []
+            : [defaultLeagueId],
+    collectionIds: settings.collectionIds ?? [],
+    perspective: settings.perspective ?? "all",
     teamIds: settings.teamIds ?? [],
     opponentTeamIds: settings.opponentTeamIds ?? [],
     opponentPlayerIds: settings.opponentPlayerIds ?? "",

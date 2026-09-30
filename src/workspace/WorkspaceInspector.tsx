@@ -1,6 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
-import { BsChevronLeft } from "react-icons/bs";
+import {
+  BsChevronLeft,
+  BsDashCircle,
+  BsEyeSlash,
+  BsPencil,
+  BsPinAngle,
+  BsPinAngleFill,
+  BsUnlock,
+} from "react-icons/bs";
 import { useMapStore } from "../state/mapState";
 import { useSelectedCluster } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
@@ -13,11 +21,19 @@ import LocationList from "../inspector/LocationList";
 import { selectDisplayedClusterSets } from "../state/workspaceSelectors";
 import { contextIds } from "../state/analysisContext";
 import type { InspectorTab } from "../state/workspaceState";
-import SentryPlanner from "../sentry/SentryPlanner";
 import { inspectorTabs } from "../inspector/tabs";
+import SentryPlanner from "../sentry/SentryPlanner";
+import {
+  locationKey,
+  locationName,
+  locationWards,
+  visibleClusters,
+} from "../locations/locationIdentity";
+import WardSelectionBar from "./WardSelectionBar";
 
 export default function WorkspaceInspector() {
   const panel = useRef<HTMLElement>(null);
+  const pendingManualLocationId = useRef<string | null>(null);
   const scrollPositions = useRef<Record<InspectorTab, number>>({
     overview: 0,
     locations: 0,
@@ -27,8 +43,11 @@ export default function WorkspaceInspector() {
   const currentSide = useMapStore((state) => state.currentSide);
   const focusRequest = useMapStore((state) => state.focusRequest);
   const clearSelection = useMapStore((state) => state.clearSelection);
+  const clearHover = useMapStore((state) => state.clearHover);
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
   const clearWardSelection = useMapStore((state) => state.clearWardSelection);
+  const focusCluster = useMapStore((state) => state.focusCluster);
+  const focusWard = useMapStore((state) => state.focusWard);
   const expandedClusterIds = useMapStore((state) => state.expandedClusterIds);
   const setClusterExpanded = useMapStore((state) => state.setClusterExpanded);
   const selectedWardId = useMapStore((state) => state.selectedWardId);
@@ -36,15 +55,32 @@ export default function WorkspaceInspector() {
   const inspectorReturnTab = useWorkspaceStore((state) => state.inspectorReturnTab);
   const setInspectorTab = useWorkspaceStore((state) => state.setInspectorTab);
   const context = useWorkspaceStore((state) => state.analysisContext);
+  const clustering = useWorkspaceStore((state) => state.clustering);
+  const pendingLocationReselection = useWorkspaceStore((state) => state.pendingLocationReselection);
+  const setPendingLocationReselection = useWorkspaceStore(
+    (state) => state.setPendingLocationReselection,
+  );
+  const copyLocationName = useWorkspaceStore((state) => state.copyLocationName);
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
   const setLocationView = useWorkspaceStore((state) => state.setLocationView);
   const wards = useWorkspaceStore((state) => state.wards);
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const population = useWorkspaceStore((state) => state.population);
   const clusterSets = useWorkspaceStore((state) => state.clusterSets);
   const displayClusterSets = useWorkspaceStore(selectDisplayedClusterSets);
   const clusteringEnabled = useWorkspaceStore((state) => state.clusteringEnabled);
   const showUnclustered = useWorkspaceStore((state) => state.showUnclustered);
+  const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
+  const locationNames = useWorkspaceStore((state) => state.locationNames);
+  const hideLocation = useWorkspaceStore((state) => state.hideLocation);
+  const excludeWards = useWorkspaceStore((state) => state.excludeWards);
+  const setLocationName = useWorkspaceStore((state) => state.setLocationName);
+  const manualLocations = useWorkspaceStore((state) => state.manualLocations);
+  const removeManualLocation = useWorkspaceStore((state) => state.removeManualLocation);
+  const setManualLocationName = useWorkspaceStore((state) => state.setManualLocationName);
   const selectedCluster = useSelectedCluster();
+  const selectedManualLocationId = selectedCluster?.manual_location_id ?? null;
   const selectedSideData = selectedCluster?.[currentSide];
   const keepExpanded = selectedCluster
     ? expandedClusterIds.includes(selectedCluster.cluster_id)
@@ -54,16 +90,30 @@ export default function WorkspaceInspector() {
       ward.id === selectedWardId &&
       (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")),
   );
+  const selectedLocationFingerprint = selectedCluster
+    ? locationKey(selectedCluster, currentSide)
+    : null;
+  const selectedLocationName = selectedCluster
+    ? locationName(selectedCluster, currentSide, locationNames, manualLocations)
+    : null;
+  const selectedLocationWards = selectedCluster
+    ? locationWards(selectedCluster, {
+        side: currentSide,
+        ...contextIds(context),
+      })
+    : [];
   const contextWards = useMemo(() => {
     const { playerId, matchId } = contextIds(context);
+    const excluded = new Set(excludedWardIds);
 
     return wards.filter(
       (ward) =>
+        !excluded.has(ward.id) &&
         (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")) &&
         (playerId === null || ward.player_placed_id === playerId) &&
         (matchId === null || ward.match_id === matchId),
     );
-  }, [context, currentSide, wards]);
+  }, [context, currentSide, excludedWardIds, wards]);
   const contextLabels = useMemo(() => {
     if (!context.origin) {
       return null;
@@ -100,6 +150,136 @@ export default function WorkspaceInspector() {
     panel.current?.scrollTo({ top: scrollPositions.current[inspectorTab] });
   }, [inspectorTab]);
 
+  useEffect(() => clearHover(), [clearHover, inspectorTab]);
+
+  useEffect(() => {
+    const manualId = pendingManualLocationId.current;
+
+    if (!manualId) {
+      return;
+    }
+
+    if (!displayClusterSets) {
+      return;
+    }
+
+    const cluster = displayClusterSets[currentSide].find(
+      (candidate) => candidate.manual_location_id === manualId,
+    );
+
+    if (cluster) {
+      pendingManualLocationId.current = null;
+      focusCluster(cluster.cluster_id);
+      setInspectorTab("details");
+
+      return;
+    }
+
+    const definitionExists = manualLocations.some((location) => location.id === manualId);
+    const mainResultExists = (clusterSets?.[currentSide] ?? []).some(
+      (candidate) => candidate.manual_location_id === manualId,
+    );
+    const resultIsCurrent = context.origin ? context.status === "ready" : !clustering;
+
+    if (!definitionExists || (resultIsCurrent && mainResultExists)) {
+      pendingManualLocationId.current = null;
+    }
+  }, [
+    clustering,
+    clusterSets,
+    context.origin,
+    context.status,
+    currentSide,
+    displayClusterSets,
+    focusCluster,
+    manualLocations,
+    setInspectorTab,
+  ]);
+
+  useEffect(() => {
+    if (!pendingLocationReselection || !displayClusterSets) {
+      return;
+    }
+    if (context.origin ? context.status !== "ready" : clustering) {
+      return;
+    }
+
+    const clusters = displayClusterSets[currentSide].filter(
+      (cluster) => showUnclustered || !cluster.unclustered,
+    );
+    const changed = new Set(pendingLocationReselection.changedWardIds);
+    const changedWardVisible = clusters.some((cluster) =>
+      cluster.wards?.some((ward) => changed.has(ward.id)),
+    );
+
+    if (pendingLocationReselection.kind === "exclude" && changedWardVisible) {
+      return;
+    }
+    if (pendingLocationReselection.kind === "restore" && !changedWardVisible) {
+      const restoredOutsideContext =
+        Boolean(context.origin) &&
+        !clustering &&
+        (clusterSets?.[currentSide] ?? []).some((cluster) =>
+          cluster.wards?.some((ward) => changed.has(ward.id)),
+        );
+
+      if (restoredOutsideContext) {
+        setPendingLocationReselection(null);
+      }
+
+      return;
+    }
+
+    const expected = new Set(pendingLocationReselection.wardIds);
+    let bestCluster = null as (typeof clusters)[number] | null;
+    let bestOverlap = 0;
+
+    for (const cluster of clusters) {
+      const overlap = (cluster.wards ?? []).filter(
+        (ward) =>
+          expected.has(ward.id) &&
+          (currentSide === "all" || ward.is_radiant === (currentSide === "radiant")),
+      ).length;
+
+      if (overlap > bestOverlap) {
+        bestCluster = cluster;
+        bestOverlap = overlap;
+      }
+    }
+
+    setPendingLocationReselection(null);
+
+    if (bestCluster && pendingLocationReselection.sourceFingerprint) {
+      copyLocationName(
+        pendingLocationReselection.sourceFingerprint,
+        locationKey(bestCluster, currentSide),
+      );
+    }
+    if (bestCluster) {
+      focusCluster(bestCluster.cluster_id);
+
+      return;
+    }
+
+    clearSelection();
+    setInspectorTab(inspectorReturnTab);
+  }, [
+    clearSelection,
+    clustering,
+    clusterSets,
+    context.origin,
+    context.status,
+    currentSide,
+    displayClusterSets,
+    focusCluster,
+    inspectorReturnTab,
+    copyLocationName,
+    pendingLocationReselection,
+    setInspectorTab,
+    setPendingLocationReselection,
+    showUnclustered,
+  ]);
+
   let detailsContent: ReactNode;
 
   if (!selectedCluster) {
@@ -107,31 +287,127 @@ export default function WorkspaceInspector() {
   } else {
     detailsContent = (
       <>
-        {!selectedWard || (selectedSideData?.amount ?? 0) <= 1 ? (
+        <div className="mb-2 flex items-center justify-between gap-3">
           <button
-            className="-ml-1 mb-2 inline-flex items-center gap-1 rounded-sm px-1 py-1 text-xs text-slate-500 transition hover:bg-white/4 hover:text-slate-200"
+            className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 py-1 text-xs text-slate-500 transition hover:bg-white/4 hover:text-slate-200"
             type="button"
             onClick={() => {
-              clearSelection();
-              setInspectorTab(inspectorReturnTab);
+              if (selectedWard && (selectedSideData?.amount ?? 0) > 1) {
+                clearWardSelection();
+              } else {
+                clearSelection();
+                setInspectorTab(inspectorReturnTab);
+              }
             }}
           >
             <BsChevronLeft className="text-[10px]" />
-            {inspectorReturnTab === "overview" ? overviewTabLabel : "Context"}
+            {selectedWard && (selectedSideData?.amount ?? 0) > 1
+              ? "Location summary"
+              : inspectorReturnTab === "overview"
+                ? overviewTabLabel
+                : "Browse"}
           </button>
-        ) : null}
-        {(selectedSideData?.amount ?? 0) > 1 ? (
-          <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
-            <input
-              checked={keepExpanded}
-              className="accent-cyan-400"
-              type="checkbox"
-              onChange={(event) =>
-                setClusterExpanded(selectedCluster.cluster_id, event.target.checked)
-              }
-            />
-            Keep expanded
-          </label>
+          {(selectedSideData?.amount ?? 0) > 1 || selectedManualLocationId ? (
+            <div className="flex items-center gap-0.5">
+              <button
+                aria-label="Rename location"
+                className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+                title="Rename location"
+                type="button"
+                onClick={() => {
+                  if (!selectedLocationFingerprint) {
+                    return;
+                  }
+
+                  const name = window
+                    .prompt("Location name", selectedLocationName ?? "")
+                    ?.trim()
+                    .slice(0, 80);
+
+                  if (name !== undefined) {
+                    if (selectedManualLocationId) {
+                      setManualLocationName(selectedManualLocationId, name || null);
+                    } else {
+                      setLocationName(selectedLocationFingerprint, name || null);
+                    }
+                  }
+                }}
+              >
+                <BsPencil />
+              </button>
+              <button
+                aria-label="Hide location"
+                className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+                title="Hide location"
+                type="button"
+                onClick={() => {
+                  if (!selectedLocationFingerprint) {
+                    return;
+                  }
+
+                  hideLocation(selectedLocationFingerprint);
+                  clearSelection();
+                  setInspectorTab(inspectorReturnTab);
+                }}
+              >
+                <BsEyeSlash />
+              </button>
+              <button
+                aria-label="Exclude location from grouping"
+                className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-rose-300"
+                title="Exclude location from grouping"
+                type="button"
+                onClick={() => {
+                  const wardIds = selectedLocationWards.map((ward) => ward.id);
+
+                  setPendingLocationReselection({
+                    changedWardIds: wardIds,
+                    kind: "exclude",
+                    sourceFingerprint: selectedLocationFingerprint,
+                    wardIds: [],
+                  });
+                  clearExpandedClusters();
+                  excludeWards(wardIds);
+                  clearSelection();
+                  setInspectorTab(inspectorReturnTab);
+                }}
+              >
+                <BsDashCircle />
+              </button>
+              {selectedManualLocationId ? (
+                <button
+                  aria-label="Dissolve location"
+                  className="rounded-sm p-1.5 text-sm text-slate-600 transition hover:bg-white/4 hover:text-slate-200"
+                  title="Dissolve location"
+                  type="button"
+                  onClick={() => {
+                    removeManualLocation(selectedManualLocationId);
+                    clearSelection();
+                    setInspectorTab(inspectorReturnTab);
+                  }}
+                >
+                  <BsUnlock />
+                </button>
+              ) : null}
+              <button
+                aria-label={keepExpanded ? "Unpin expanded location" : "Pin expanded location"}
+                aria-pressed={keepExpanded}
+                className={`rounded-sm p-1.5 text-sm transition hover:bg-white/4 hover:text-slate-200 ${
+                  keepExpanded ? "text-cyan-400" : "text-slate-600"
+                }`}
+                title={keepExpanded ? "Unpin expanded location" : "Keep location expanded"}
+                type="button"
+                onClick={() => setClusterExpanded(selectedCluster.cluster_id, !keepExpanded)}
+              >
+                {keepExpanded ? <BsPinAngleFill /> : <BsPinAngle />}
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {!selectedWard && (selectedSideData?.amount ?? 0) > 1 && selectedLocationName ? (
+          <h2 className="mb-3 truncate text-sm font-medium text-slate-100">
+            {selectedLocationName}
+          </h2>
         ) : null}
         {!selectedWard && (selectedSideData?.amount ?? 0) > 1 ? (
           <>
@@ -147,14 +423,37 @@ export default function WorkspaceInspector() {
   const contentByTab: Record<InspectorTab, ReactNode> = {
     overview: (
       <DatasetOverview
+        clusters={visibleClusters(
+          displayClusterSets?.[currentSide] ?? [],
+          currentSide,
+          hiddenLocationFingerprints,
+        )}
         contextLabel={
           contextLabels
             ? contextLabels.refinement
-              ? `${contextLabels.origin} · ${contextLabels.refinement}`
+              ? `${contextLabels.origin}, ${contextLabels.refinement}`
               : contextLabels.origin
             : null
         }
+        selectedClusterId={selectedCluster?.cluster_id ?? null}
+        side={currentSide}
+        showUnclustered={showUnclustered}
         wards={contextWards}
+        population={context.origin ? null : population}
+        onSelectCluster={(cluster, openDetails) => {
+          focusCluster(cluster.cluster_id);
+
+          if (openDetails) {
+            setInspectorTab("details");
+          }
+        }}
+        onSelectWard={(ward, openDetails) => {
+          focusWard(ward.id);
+
+          if (openDetails) {
+            setInspectorTab("details");
+          }
+        }}
         onChangeContext={() => {
           if (context.origin) {
             setLocationView(context.origin.kind === "player" ? "players" : "matches");
@@ -166,7 +465,11 @@ export default function WorkspaceInspector() {
     locations: (
       <LocationList
         baseClusters={clusterSets?.[currentSide] ?? []}
-        clusters={displayClusterSets?.[currentSide] ?? []}
+        clusters={visibleClusters(
+          displayClusterSets?.[currentSide] ?? [],
+          currentSide,
+          hiddenLocationFingerprints,
+        )}
         clusteringEnabled={clusteringEnabled}
         showUnclustered={showUnclustered}
         side={currentSide}
@@ -185,59 +488,60 @@ export default function WorkspaceInspector() {
       }}
     >
       <div className="sticky top-0 z-20 border-b border-white/10 bg-slate-900/95 px-4 pt-4 backdrop-blur">
-        <p className="text-sm font-semibold text-slate-100">Inspector</p>
-        <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-slate-500">
-          <span className="shrink-0">Showing:</span>
-          {inspectorTab === "sentries" ? (
-            <span className="truncate text-slate-300">Loaded dataset</span>
-          ) : contextLabels ? (
-            <>
-              <button
-                className={`min-w-0 truncate ${contextLabels.refinement ? "transition hover:text-slate-200" : "text-slate-300"}`}
-                type="button"
-                onClick={() => {
-                  if (context.refinement) {
-                    clearWardSelection();
-                    clearExpandedClusters();
-                    setContextRefinement(null);
-                  }
-                }}
-              >
-                {contextLabels.origin}
-              </button>
-              {contextLabels.refinement ? (
-                <>
-                  <span>/</span>
-                  <span className="min-w-0 truncate text-slate-300">
-                    {contextLabels.refinement}
-                  </span>
-                </>
-              ) : null}
-              <button
-                aria-label="Clear current context level"
-                className="ml-auto shrink-0 px-1 text-sm leading-none text-slate-600 transition hover:text-slate-200"
-                type="button"
-                onClick={() => {
-                  if (context.refinement) {
-                    clearWardSelection();
-                    clearExpandedClusters();
-                    setContextRefinement(null);
-                  } else {
-                    clearSelection();
-                    clearExpandedClusters();
-                    setContextOrigin(null);
-                  }
-                }}
-              >
-                ×
-              </button>
-              {context.status === "clustering" ? (
-                <span className="shrink-0 text-slate-600">Clustering…</span>
-              ) : null}
-            </>
-          ) : (
-            <span className="truncate text-slate-300">All wards</span>
-          )}
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <p className="shrink-0 text-sm font-medium text-slate-100">Inspector</p>
+          <div className="flex min-w-0 items-center justify-end gap-1.5 text-xs text-slate-400">
+            <span className="shrink-0">Showing:</span>
+            {inspectorTab === "sentries" ? (
+              <span className="truncate text-slate-300">Loaded dataset</span>
+            ) : contextLabels ? (
+              <>
+                {contextLabels.refinement ? (
+                  <button
+                    className="min-w-0 truncate transition hover:text-slate-200"
+                    type="button"
+                    onClick={() => {
+                      clearWardSelection();
+                      clearExpandedClusters();
+                      setContextRefinement(null);
+                    }}
+                  >
+                    {contextLabels.origin}
+                  </button>
+                ) : (
+                  <span className="min-w-0 truncate text-slate-300">{contextLabels.origin}</span>
+                )}
+                {contextLabels.refinement ? (
+                  <>
+                    <span>/</span>
+                    <span className="min-w-0 truncate text-slate-300">
+                      {contextLabels.refinement}
+                    </span>
+                  </>
+                ) : null}
+                <button
+                  aria-label="Clear current context level"
+                  className="shrink-0 px-1 text-sm leading-none text-slate-600 transition hover:text-slate-200"
+                  type="button"
+                  onClick={() => {
+                    if (context.refinement) {
+                      clearWardSelection();
+                      clearExpandedClusters();
+                      setContextRefinement(null);
+                    } else {
+                      clearSelection();
+                      clearExpandedClusters();
+                      setContextOrigin(null);
+                    }
+                  }}
+                >
+                  ×
+                </button>
+              </>
+            ) : (
+              <span className="truncate text-slate-300">All wards</span>
+            )}
+          </div>
         </div>
         <SwitchNav
           className="mt-2"
@@ -248,6 +552,15 @@ export default function WorkspaceInspector() {
           }))}
           value={inspectorTab}
           onChange={setInspectorTab}
+        />
+        <WardSelectionBar
+          onManualLocationChanged={(id) => {
+            if (id) {
+              pendingManualLocationId.current = id;
+            } else {
+              setInspectorTab(inspectorReturnTab);
+            }
+          }}
         />
       </div>
       <div className="px-4 py-3">{contentByTab[inspectorTab]}</div>

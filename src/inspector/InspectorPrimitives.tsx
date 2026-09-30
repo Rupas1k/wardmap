@@ -31,7 +31,7 @@ export function MetricRows({ rows }: { rows: [string, ReactNode][] }) {
       {rows.map(([label, value]) => (
         <div className="grid grid-cols-[1fr_auto] items-center gap-4 py-2" key={label}>
           <dt className="text-xs text-slate-500">{label}</dt>
-          <dd className="text-right text-sm font-medium text-slate-200">{value}</dd>
+          <dd className="text-right text-sm text-slate-200">{value}</dd>
         </div>
       ))}
     </dl>

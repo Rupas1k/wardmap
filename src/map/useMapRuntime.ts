@@ -1,8 +1,9 @@
 import type Map from "ol/Map";
+import { boundingExtent } from "ol/extent";
 import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { useMapStore } from "../state/mapState";
-import { fetchElevations } from "./fetchElevations";
+import { loadElevations } from "./loadElevations";
 import { unitToPixel } from "./projections";
 
 export function useElevationGrid(version: number) {
@@ -15,7 +16,7 @@ export function useElevationGrid(version: number) {
 
     setLoading(true);
     setError(null);
-    void fetchElevations(version, controller.signal)
+    void loadElevations(version, controller.signal)
       .then((elevations) => {
         setElevations(elevations);
         setLoading(false);
@@ -44,10 +45,21 @@ export function useMapCamera(map: RefObject<Map | null>) {
       return;
     }
 
-    map.current.getView().animate({
-      center: unitToPixel([request.x, request.y]),
-      duration: 250,
-    });
+    if (request.kind === "fit") {
+      map.current.getView().fit(boundingExtent(request.positions.map(unitToPixel)), {
+        duration: 250,
+        maxZoom: 4,
+        padding: [72, 72, 72, 72],
+      });
+    } else if (request.kind === "center") {
+      map.current.getView().animate({
+        center: unitToPixel([request.x, request.y]),
+        duration: 250,
+      });
+    } else {
+      map.current.getView().setCenter(request.center);
+      map.current.getView().setZoom(request.zoom);
+    }
     clearRequest();
   }, [clearRequest, map, request]);
 }

@@ -16,6 +16,9 @@ import {
   datasetFreshness as calculateDatasetFreshness,
   selectDefaultLeague,
 } from "./workspaceDataset";
+import useImportedLibrary from "../imported/useImportedLibrary";
+import { useImportedStore } from "../imported/state";
+import { useWorkspaceStore } from "../state/workspaceState";
 
 export default function useWorkspaceController() {
   const {
@@ -34,10 +37,22 @@ export default function useWorkspaceController() {
   const { controlsOpen, inspectorOpen } = useWorkspacePanels();
   const { ready, loadingData, dataLoadProgress, clustering, error } = useWorkspaceStatus();
   const { setClustering, setClusterSets, setDraftDataset, setError } = useWorkspaceActions();
+  const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
+  const activeWards = useMemo(() => {
+    if (excludedWardIds.length === 0) {
+      return wards;
+    }
+
+    const excluded = new Set(excludedWardIds);
+
+    return wards.filter((ward) => !excluded.has(ward.id));
+  }, [excludedWardIds, wards]);
 
   const {
     clusteringSettings,
     clusterMarkerSize,
+    colorMode,
+    colorStatistic,
     visionTechnique,
     clusteringEnabled,
     groupByGridCell,
@@ -47,6 +62,8 @@ export default function useWorkspaceController() {
     updateControlsOpen,
     updateClusteringEnabled,
     updateClusterMarkerSize,
+    updateColorMode,
+    updateColorStatistic,
     updateGridCellGrouping,
     updateInspectorOpen,
     updateUnclusteredVisibility,
@@ -54,14 +71,17 @@ export default function useWorkspaceController() {
   } = useWorkspaceSettings();
 
   useDatasetMetadata();
+  useImportedLibrary();
   useLocationClustering({
     clusteringEnabled,
     clusteringSettings,
     groupByGridCell,
-    wards,
+    wards: activeWards,
   });
 
   const defaultLeague = selectDefaultLeague(leagues);
+  const importedLibrary = useImportedStore((state) => state.library);
+  const importedLibraryReady = useImportedStore((state) => state.ready);
   const datasetFreshness = useMemo(
     () => calculateDatasetFreshness(loadedDataset, leagues, loadedLeagueFreshness),
     [leagues, loadedDataset, loadedLeagueFreshness],
@@ -74,7 +94,7 @@ export default function useWorkspaceController() {
     restoredClusters,
   } = useDatasetLoader(leagues, defaultLeague);
 
-  useWorkspaceRestore({
+  const autoViewReady = useWorkspaceRestore({
     compatibleDataset,
     defaultLeague,
     loadDataset,
@@ -96,10 +116,26 @@ export default function useWorkspaceController() {
     setError,
     showUnclustered,
     visionTechnique,
+    clusteringWards: activeWards,
     wards,
   });
 
-  const { applySharedView, removeView, renameView, restoreView, saveView } = useSavedViews({
+  const {
+    activeView,
+    deletedView,
+    exportView,
+    importView,
+    removeView,
+    renameView,
+    resetCurrentView,
+    restoreView,
+    revertView,
+    saveView,
+    updateView,
+    undoRemoveView,
+    viewModified,
+  } = useSavedViews({
+    autoViewReady,
     clusteringEnabled,
     clusteringSettings,
     clustersMatchSettings,
@@ -125,6 +161,8 @@ export default function useWorkspaceController() {
       players,
       opponentPlayers,
       defaultLeague,
+      importedLibrary,
+      importedLibraryReady,
     },
     panels: { controlsOpen, inspectorOpen },
     analysis: {
@@ -134,8 +172,20 @@ export default function useWorkspaceController() {
       showUnclustered,
       visionTechnique,
       clusterMarkerSize,
+      colorMode,
+      colorStatistic,
     },
-    status: { ready, loadingData, dataLoadProgress, clustering, error, datasetFreshness },
+    status: {
+      ready,
+      loadingData,
+      dataLoadProgress,
+      clustering,
+      error,
+      datasetFreshness,
+      activeView,
+      deletedView,
+      viewModified,
+    },
     actions: {
       setDraftDataset,
       setControlsOpen: updateControlsOpen,
@@ -145,13 +195,20 @@ export default function useWorkspaceController() {
       updateUnclusteredVisibility,
       updateVisionTechnique,
       updateClusterMarkerSize,
+      updateColorMode,
+      updateColorStatistic,
       updateClustering,
       replaceClustering,
       saveView,
-      applySharedView,
+      exportView,
+      importView,
       restoreView,
+      revertView,
       renameView,
       removeView,
+      resetCurrentView,
+      updateView,
+      undoRemoveView,
       loadDataset,
       cancelDatasetLoad,
     },

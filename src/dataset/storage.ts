@@ -1,4 +1,9 @@
-import { DatasetTooLargeError, fetchWardCount, fetchWards } from "../api/fetchWards";
+import {
+  DatasetTooLargeError,
+  fetchWardCount,
+  fetchWardPopulation,
+  fetchWards,
+} from "../api/fetchWards";
 import type { WardLoadProgress } from "../api/fetchWards";
 import { parseWardRecords } from "../api/validation";
 import {
@@ -10,12 +15,15 @@ import {
 } from "../indexedDb";
 import type { StoredAnalysis } from "../indexedDb";
 import type { LeagueFreshness } from "../indexedDb";
-import type { ClusterSets, League, Ward } from "../types";
-import { isWorkspaceSettings, numericIds } from "./model";
+import type { ClusterSets, League, Ward, WardPopulation } from "../types";
+import { normalizeSavedViewState } from "../savedViews/viewState";
+import type { ViewState } from "../savedViews/viewState";
+import { defaultDataset, numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
+import { loadImportedWardDataset } from "../imported/loadImportedDataset";
 
-export const clusterDataVersion = 13;
-export const wardDataVersion = 5;
+export const clusterDataVersion = 17;
+export const wardDataVersion = 8;
 const datasetCacheLimit = 8;
 
 function canonicalDataset(dataset: DatasetSettings): DatasetSettings {
@@ -24,6 +32,7 @@ function canonicalDataset(dataset: DatasetSettings): DatasetSettings {
 
   return {
     ...dataset,
+    collectionIds: [...new Set(dataset.collectionIds)].sort(),
     leagueIds: numeric(dataset.leagueIds),
     teamIds: numeric(dataset.teamIds),
     opponentTeamIds: numeric(dataset.opponentTeamIds),
@@ -60,6 +69,7 @@ export function leagueFreshness(
 export interface LoadedWardDataset {
   wards: Ward[];
   leagueFreshness: LeagueFreshness | null;
+  population: WardPopulation | null;
 }
 
 interface LoadWardDatasetOptions {
@@ -74,6 +84,22 @@ export async function loadWardDataset(
   forceRefresh: boolean,
   { signal, maximumWards, onProgress }: LoadWardDatasetOptions,
 ): Promise<LoadedWardDataset> {
+  if (dataset.source === "imported") {
+    const mapVersion = dataset.importedMapVersion ?? defaultDataset.importedMapVersion;
+
+    const wards = await loadImportedWardDataset(dataset, mapVersion, signal);
+
+    if (wards.length > maximumWards) {
+      throw new DatasetTooLargeError(wards.length, maximumWards);
+    }
+
+    return {
+      wards,
+      leagueFreshness: null,
+      population: null,
+    };
+  }
+
   const normalizedDataset = canonicalDataset(dataset);
   const key = `workspace:data:v${wardDataVersion}:${JSON.stringify(normalizedDataset)}`;
 
@@ -91,6 +117,7 @@ export async function loadWardDataset(
         return {
           wards: parseWardRecords(cached.wards),
           leagueFreshness: cached.leagueFreshness ?? null,
+          population: cached.population ?? null,
         };
       }
     } catch (reason) {
@@ -125,8 +152,19 @@ export async function loadWardDataset(
     maximum_match_duration: dataset.maximumMatchDuration,
     minimum_ward_lifetime: dataset.minimumWardLifetime,
     maximum_ward_lifetime: dataset.maximumWardLifetime,
+    minimum_added_vision_seconds: dataset.minimumAddedVision,
+    maximum_added_vision_seconds: dataset.maximumAddedVision,
+    minimum_fresh_sightings: dataset.minimumFreshSightings,
+    maximum_fresh_sightings: dataset.maximumFreshSightings,
+    minimum_scouting_tracking_seconds: dataset.minimumScoutingTracking,
+    maximum_scouting_tracking_seconds: dataset.maximumScoutingTracking,
+    minimum_scouting_discovery_seconds: dataset.minimumScoutingDiscovery,
+    maximum_scouting_discovery_seconds: dataset.maximumScoutingDiscovery,
   };
-  const total = await fetchWardCount(filters, signal);
+  const [total, population] = await Promise.all([
+    fetchWardCount(filters, signal),
+    fetchWardPopulation(filters, signal),
+  ]);
 
   if (total > maximumWards) {
     throw new DatasetTooLargeError(total, maximumWards);
@@ -148,13 +186,14 @@ export async function loadWardDataset(
       settings: normalizedDataset,
       wards,
       leagueFreshness: freshness,
+      population,
     });
     await pruneAnalyses("dataset", datasetCacheLimit);
   } catch (reason) {
     console.warn("Unable to cache ward data", reason);
   }
 
-  return { wards, leagueFreshness: freshness };
+  return { wards, leagueFreshness: freshness, population };
 }
 
 export function withStorageVersion(
@@ -185,19 +224,68 @@ export async function persistWorkspace(
   });
 }
 
-export async function savedWorkspaceViews(): Promise<StoredAnalysis<WorkspaceSettings>[]> {
-  return (await listAnalyses("saved")).filter((view): view is StoredAnalysis<WorkspaceSettings> =>
-    isWorkspaceSettings(view.settings),
-  );
+export async function savedWorkspaceViews(): Promise<StoredAnalysis<ViewState>[]> {
+  return (await listAnalyses("saved")).flatMap((view) => {
+    const settings = normalizeSavedViewState(view.settings);
+
+    return settings ? [{ ...view, settings }] : [];
+  });
 }
 
 export async function renameWorkspaceView(
-  view: StoredAnalysis<WorkspaceSettings>,
+  view: StoredAnalysis<ViewState>,
   name: string,
-): Promise<StoredAnalysis<WorkspaceSettings>[]> {
+): Promise<StoredAnalysis<ViewState>[]> {
   await saveAnalysis({ ...view, name });
 
   return savedWorkspaceViews();
+}
+
+export async function restoreWorkspaceView(view: StoredAnalysis<ViewState>): Promise<void> {
+  await saveAnalysis(view);
+}
+
+export async function persistSavedView(
+  key: string,
+  name: string,
+  settings: ViewState,
+  wards: Ward[],
+  clusterSets: ClusterSets,
+  freshness?: LeagueFreshness,
+): Promise<void> {
+  await saveAnalysis({
+    key,
+    kind: "saved",
+    name,
+    savedAt: Date.now(),
+    leagueId:
+      settings.workspace.dataset.leagueIds.length === 1
+        ? settings.workspace.dataset.leagueIds[0]!
+        : null,
+    settings,
+    wards,
+    clusterSets,
+    ...(freshness ? { leagueFreshness: freshness } : {}),
+  });
+}
+
+export async function persistImportedView(
+  key: string,
+  name: string,
+  settings: ViewState,
+): Promise<void> {
+  await saveAnalysis({
+    key,
+    kind: "saved",
+    name,
+    savedAt: Date.now(),
+    leagueId:
+      settings.workspace.dataset.leagueIds.length === 1
+        ? settings.workspace.dataset.leagueIds[0]!
+        : null,
+    settings,
+    wards: [],
+  });
 }
 
 export async function deleteWorkspaceView(key: string): Promise<void> {

@@ -9,6 +9,7 @@ import type {
 } from "../types";
 import {
   effectiveLifetime,
+  meanAvailable,
   placingAdvantage,
   roundedMean,
   wardTimeline,
@@ -77,6 +78,8 @@ function sideData(wards: Ward[]): ClusterSideData | null {
     advantage: advantages.length ? roundedMean(advantages) : null,
     duration: roundedMean(wards.map(effectiveLifetime)),
     time_placed: roundedMean(wards.map((ward) => ward.time_placed)),
+    scouting_tracking_seconds: meanAvailable(wards.map((ward) => ward.scouting_tracking_seconds)),
+    scouting_discovery_seconds: meanAvailable(wards.map((ward) => ward.scouting_discovery_seconds)),
     players: playerSummaries(wards),
     graphs: {
       wards: {
@@ -89,6 +92,7 @@ function sideData(wards: Ward[]): ClusterSideData | null {
 
 function wardRecord(ward: Ward): ClusterWard {
   return {
+    measurement: ward.measurement,
     id: ward.id,
     match_id: ward.match_id,
     player_placed_id: ward.player_placed_id ?? 0,
@@ -100,6 +104,8 @@ function wardRecord(ward: Ward): ClusterWard {
     is_destroyed: ward.is_destroyed,
     time_placed: ward.time_placed,
     duration: effectiveLifetime(ward),
+    scouting_tracking_seconds: ward.scouting_tracking_seconds,
+    scouting_discovery_seconds: ward.scouting_discovery_seconds,
     x_pos: ward.x_pos,
     y_pos: ward.y_pos,
     z_pos: ward.z_pos,
@@ -114,6 +120,7 @@ function wardRecord(ward: Ward): ClusterWard {
 export function buildClusters(wards: Ward[], memberships: Map<number, number[]>): ClusterResult {
   const wardsById = new Map(wards.map((ward) => [ward.id, ward]));
   const clusters: Cluster[] = [];
+  let nextNoiseId = -2;
 
   for (const [clusterId, wardIds] of memberships) {
     if (clusterId < 0) {
@@ -127,7 +134,7 @@ export function buildClusters(wards: Ward[], memberships: Map<number, number[]>)
         const radiant = ward.is_radiant === true ? [ward] : [];
         const dire = ward.is_radiant === false ? [ward] : [];
         clusters.push({
-          cluster_id: -(ward.id + 2),
+          cluster_id: nextNoiseId--,
           unclustered: true,
           x_pos: ward.x_pos,
           y_pos: ward.y_pos,

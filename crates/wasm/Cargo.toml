@@ -16,8 +16,11 @@ default = ["console_error_panic_hook"]
 
 [dependencies]
 hdbscan-core = { path = "../hdbscan-core" }
+wardmap-parser = { git = "https://github.com/Rupas1k/wardmap-parser.git", rev = "057cc7ca9c62b1b48dd0e25615dd69dcd04f674b", default-features = false, features = ["all-maps"] }
 ndarray = "0.17"
 serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 wasm-bindgen = "0.2"
 console_error_panic_hook = { version = "0.1", optional = true }
+serde_json = "1.0"
+bzip2 = "0.6"
