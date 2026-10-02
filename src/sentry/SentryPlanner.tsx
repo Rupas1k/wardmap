@@ -3,17 +3,8 @@ import { BsPinAngle, BsPinAngleFill } from "react-icons/bs";
 import runSentryPlanner from "./runSentryPlanner";
 import { useMapStore } from "../state/mapState";
 import { useSentryPlannerState } from "./state";
-import type { SentryTimePreset } from "./state";
 import { useWorkspaceStore } from "../state/workspaceState";
 import { fieldControlClass, SwitchNav } from "../components/ui";
-
-const timePresets = {
-  all: { label: "Loaded time range", minimum: null, maximum: null },
-  pregame: { label: "Pregame (-1:30–0:00)", minimum: -90, maximum: 0 },
-  early: { label: "Early game (0–10)", minimum: 0, maximum: 10 * 60 },
-  mid: { label: "Mid game (10–25)", minimum: 10 * 60, maximum: 25 * 60 },
-  late: { label: "Late game (25+)", minimum: 25 * 60, maximum: null },
-} as const;
 
 export default function SentryPlanner() {
   const wards = useWorkspaceStore((state) => state.wards);
@@ -24,7 +15,6 @@ export default function SentryPlanner() {
     targetSide,
     sentryCount,
     minimumSpacing,
-    timePreset,
     placements,
     selectedRank,
     showAllRanges,
@@ -34,7 +24,6 @@ export default function SentryPlanner() {
     setTargetSide,
     setSentryCount,
     setMinimumSpacing,
-    setTimePreset,
     setPlacements,
     setSelectedRank,
     setShowAllRanges,
@@ -52,21 +41,10 @@ export default function SentryPlanner() {
         return;
       }
 
-      const time = timePresets[timePreset];
-
       setPlanning(true);
       setError(null);
 
-      void runSentryPlanner(
-        wards,
-        targetSide,
-        sentryCount,
-        minimumSpacing,
-        time.minimum,
-        time.maximum,
-        elevations,
-        signal,
-      )
+      void runSentryPlanner(wards, targetSide, sentryCount, minimumSpacing, elevations, signal)
         .then((nextPlacements) => {
           if (signal?.aborted) {
             return;
@@ -75,7 +53,7 @@ export default function SentryPlanner() {
           setPlacements(nextPlacements);
 
           if (nextPlacements.length === 0) {
-            setError("No observer wards match this side and timing.");
+            setError("No observer wards match this side.");
           }
         })
         .catch((reason: unknown) => {
@@ -99,7 +77,6 @@ export default function SentryPlanner() {
       setError,
       setPlacements,
       setPlanning,
-      timePreset,
       wards,
     ],
   );
@@ -155,21 +132,6 @@ export default function SentryPlanner() {
             onChange={setTargetSide}
           />
         </fieldset>
-
-        <label className="block text-xs text-slate-500">
-          Ward timing
-          <select
-            className={fieldControlClass}
-            value={timePreset}
-            onChange={(event) => setTimePreset(event.target.value as SentryTimePreset)}
-          >
-            {Object.entries(timePresets).map(([value, preset]) => (
-              <option key={value} value={value}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
-        </label>
 
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs text-slate-500">

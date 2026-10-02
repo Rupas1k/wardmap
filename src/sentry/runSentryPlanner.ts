@@ -11,16 +11,11 @@ export default function runSentryPlanner(
   targetSide: Exclude<Side, "all">,
   count: number,
   minimumSpacing: number,
-  minimumTime: number | null,
-  maximumTime: number | null,
   grid: number[][],
   signal?: AbortSignal,
 ): Promise<SentryPlacement[]> {
   const targetValues = wards.flatMap((ward) =>
-    ward.is_obs &&
-    ward.is_radiant === (targetSide === "radiant") &&
-    (minimumTime === null || ward.time_placed >= minimumTime) &&
-    (maximumTime === null || ward.time_placed < maximumTime)
+    ward.is_obs && ward.is_radiant === (targetSide === "radiant")
       ? [ward.match_id, ward.x_pos, ward.y_pos]
       : [],
   );
