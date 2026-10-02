@@ -8,7 +8,7 @@ interface PlannerResponse {
 
 export default function runSentryPlanner(
   wards: Ward[],
-  placingSide: Exclude<Side, "all">,
+  targetSide: Exclude<Side, "all">,
   count: number,
   minimumSpacing: number,
   minimumTime: number | null,
@@ -18,7 +18,7 @@ export default function runSentryPlanner(
 ): Promise<SentryPlacement[]> {
   const targetValues = wards.flatMap((ward) =>
     ward.is_obs &&
-    ward.is_radiant === (placingSide === "dire") &&
+    ward.is_radiant === (targetSide === "radiant") &&
     (minimumTime === null || ward.time_placed >= minimumTime) &&
     (maximumTime === null || ward.time_placed < maximumTime)
       ? [ward.match_id, ward.x_pos, ward.y_pos]

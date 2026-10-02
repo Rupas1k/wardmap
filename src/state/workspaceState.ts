@@ -13,7 +13,7 @@ import type { ManualLocation } from "../locations/manualLocations";
 import type { ViewState } from "../savedViews/viewState";
 import { readDatasetPreference, writeDatasetPreference } from "../workspace/datasetPreference";
 
-export type InspectorTab = "overview" | "locations" | "sentries" | "details";
+export type InspectorTab = "overview" | "locations" | "details";
 export type InspectorReturnTab = Exclude<InspectorTab, "details">;
 export type LocationSort =
   "wards" | "matches" | "removals" | "placement" | "lifetime" | "added-vision" | "fresh-sightings";

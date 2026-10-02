@@ -6,7 +6,8 @@ import type { Side } from "../types";
 export type SentryTimePreset = "all" | "pregame" | "early" | "mid" | "late";
 
 interface SentryState {
-  placingSide: Exclude<Side, "all">;
+  open: boolean;
+  targetSide: Exclude<Side, "all">;
   sentryCount: number;
   minimumSpacing: number;
   timePreset: SentryTimePreset;
@@ -15,7 +16,8 @@ interface SentryState {
   showAllRanges: boolean;
   planning: boolean;
   error: string | null;
-  setPlacingSide: (side: Exclude<Side, "all">) => void;
+  setOpen: (open: boolean) => void;
+  setTargetSide: (side: Exclude<Side, "all">) => void;
   setSentryCount: (count: number) => void;
   setMinimumSpacing: (spacing: number) => void;
   setTimePreset: (preset: SentryTimePreset) => void;
@@ -28,7 +30,8 @@ interface SentryState {
 }
 
 export const useSentryStore = create<SentryState>((set) => ({
-  placingSide: "radiant",
+  open: false,
+  targetSide: "radiant",
   sentryCount: 5,
   minimumSpacing: 1000,
   timePreset: "all",
@@ -37,8 +40,9 @@ export const useSentryStore = create<SentryState>((set) => ({
   showAllRanges: false,
   planning: false,
   error: null,
-  setPlacingSide: (placingSide) =>
-    set({ placingSide, placements: [], selectedRank: null, error: null }),
+  setOpen: (open) => set({ open }),
+  setTargetSide: (targetSide) =>
+    set({ targetSide, placements: [], selectedRank: null, error: null }),
   setSentryCount: (sentryCount) =>
     set({ sentryCount, placements: [], selectedRank: null, error: null }),
   setMinimumSpacing: (minimumSpacing) =>
@@ -56,7 +60,7 @@ export const useSentryStore = create<SentryState>((set) => ({
 export function useSentryPlannerState() {
   return useSentryStore(
     useShallow((state) => ({
-      placingSide: state.placingSide,
+      targetSide: state.targetSide,
       sentryCount: state.sentryCount,
       minimumSpacing: state.minimumSpacing,
       timePreset: state.timePreset,
@@ -65,7 +69,7 @@ export function useSentryPlannerState() {
       showAllRanges: state.showAllRanges,
       planning: state.planning,
       error: state.error,
-      setPlacingSide: state.setPlacingSide,
+      setTargetSide: state.setTargetSide,
       setSentryCount: state.setSentryCount,
       setMinimumSpacing: state.setMinimumSpacing,
       setTimePreset: state.setTimePreset,

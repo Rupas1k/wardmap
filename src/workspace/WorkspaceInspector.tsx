@@ -22,7 +22,6 @@ import { selectDisplayedClusterSets } from "../state/workspaceSelectors";
 import { contextIds } from "../state/analysisContext";
 import type { InspectorTab } from "../state/workspaceState";
 import { inspectorTabs } from "../inspector/tabs";
-import SentryPlanner from "../sentry/SentryPlanner";
 import {
   locationKey,
   locationName,
@@ -37,7 +36,6 @@ export default function WorkspaceInspector() {
   const scrollPositions = useRef<Record<InspectorTab, number>>({
     overview: 0,
     locations: 0,
-    sentries: 0,
     details: 0,
   });
   const currentSide = useMapStore((state) => state.currentSide);
@@ -475,7 +473,6 @@ export default function WorkspaceInspector() {
         side={currentSide}
       />
     ),
-    sentries: <SentryPlanner />,
     details: detailsContent,
   };
 
@@ -492,9 +489,7 @@ export default function WorkspaceInspector() {
           <p className="shrink-0 text-sm font-medium text-slate-100">Inspector</p>
           <div className="flex min-w-0 items-center justify-end gap-1.5 text-xs text-slate-400">
             <span className="shrink-0">Showing:</span>
-            {inspectorTab === "sentries" ? (
-              <span className="truncate text-slate-300">Loaded dataset</span>
-            ) : contextLabels ? (
+            {contextLabels ? (
               <>
                 {contextLabels.refinement ? (
                   <button

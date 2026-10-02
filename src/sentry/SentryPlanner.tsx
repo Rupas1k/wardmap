@@ -19,7 +19,7 @@ export default function SentryPlanner() {
   const elevations = useMapStore((state) => state.elevations);
   const centerMapAt = useMapStore((state) => state.centerMapAt);
   const {
-    placingSide,
+    targetSide,
     sentryCount,
     minimumSpacing,
     timePreset,
@@ -28,7 +28,7 @@ export default function SentryPlanner() {
     showAllRanges,
     planning,
     error,
-    setPlacingSide,
+    setTargetSide,
     setSentryCount,
     setMinimumSpacing,
     setTimePreset,
@@ -39,7 +39,7 @@ export default function SentryPlanner() {
     setError,
   } = useSentryPlannerState();
   const result = placements.at(-1);
-  const selected = placements.find((placement) => placement.rank === selectedRank) ?? null;
+  const waitingForData = wards.length === 0 || !elevations;
 
   const generate = useCallback(
     (signal?: AbortSignal) => {
@@ -56,7 +56,7 @@ export default function SentryPlanner() {
 
       void runSentryPlanner(
         wards,
-        placingSide,
+        targetSide,
         sentryCount,
         minimumSpacing,
         time.minimum,
@@ -72,7 +72,7 @@ export default function SentryPlanner() {
           setPlacements(nextPlacements);
 
           if (nextPlacements.length === 0) {
-            setError("No opposing observer wards match these settings.");
+            setError("No observer wards match this side and timing.");
           }
         })
         .catch((reason: unknown) => {
@@ -91,7 +91,7 @@ export default function SentryPlanner() {
     [
       elevations,
       minimumSpacing,
-      placingSide,
+      targetSide,
       sentryCount,
       setError,
       setPlacements,
@@ -119,23 +119,28 @@ export default function SentryPlanner() {
   }, [elevations, generate, setPlanning, wards.length]);
 
   return (
-    <div>
-      <div className="space-y-3">
+    <div className="text-xs">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-medium text-slate-100">Sentry planner</h2>
+        {planning && result ? <span className="text-slate-500">Updating…</span> : null}
+      </div>
+
+      <div className="mt-4 space-y-3">
         <fieldset>
-          <legend className="text-[11px] text-slate-500">Recommend sentries for</legend>
+          <legend className="text-xs text-slate-500">Observer side</legend>
           <SwitchNav
-            className="mt-1 capitalize"
+            className="mt-1"
             options={[
               { value: "radiant", label: "Radiant" },
               { value: "dire", label: "Dire" },
             ]}
-            value={placingSide}
-            onChange={setPlacingSide}
+            value={targetSide}
+            onChange={setTargetSide}
           />
         </fieldset>
 
-        <label className="block text-[11px] text-slate-500">
-          Enemy ward timing
+        <label className="block text-xs text-slate-500">
+          Ward timing
           <select
             className={fieldControlClass}
             value={timePreset}
@@ -150,8 +155,8 @@ export default function SentryPlanner() {
         </label>
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-[11px] text-slate-500">
-            Number of sentries
+          <label className="text-xs text-slate-500">
+            Sentries
             <input
               className={fieldControlClass}
               max="50"
@@ -163,8 +168,8 @@ export default function SentryPlanner() {
               }
             />
           </label>
-          <label className="text-[11px] text-slate-500">
-            Keep placements apart
+          <label className="text-xs text-slate-500">
+            Minimum spacing
             <select
               className={fieldControlClass}
               value={minimumSpacing}
@@ -180,64 +185,56 @@ export default function SentryPlanner() {
         </div>
       </div>
 
-      {error ? <p className="mt-3 text-xs text-rose-300">{error}</p> : null}
+      {error ? (
+        <p aria-live="polite" className="mt-3 text-rose-300">
+          {error}
+        </p>
+      ) : null}
+
+      {!error && waitingForData ? (
+        <p className="mt-4 border-t border-white/10 pt-4 text-slate-500">
+          {wards.length === 0 ? "Load ward data to create a plan." : "Map data is still loading…"}
+        </p>
+      ) : null}
+
+      {!error && planning && !result ? (
+        <p aria-live="polite" className="mt-4 border-t border-white/10 pt-4 text-slate-500">
+          Finding placements…
+        </p>
+      ) : null}
 
       {result ? (
-        <>
-          <div className="mt-4 border-t border-white/10 pt-3" aria-busy={planning}>
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="text-xs font-medium text-slate-300">Coverage</p>
-              <div className="flex items-center gap-2">
-                {planning ? <span className="text-[10px] text-slate-600">Updating…</span> : null}
-                <span className="font-mono text-xs text-cyan-300">
-                  {(result.coverage * 100).toFixed(1)}%
-                </span>
-              </div>
-            </div>
-            <p className="mt-1 text-[11px] text-slate-500">
-              {result.coveredWards.toLocaleString()} of {result.totalWards.toLocaleString()} wards ·{" "}
-              {result.relevantMatches.toLocaleString()} matches
-            </p>
-            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
-              <input
-                checked={showAllRanges}
-                className="accent-cyan-400"
-                type="checkbox"
-                onChange={(event) => setShowAllRanges(event.target.checked)}
-              />
-              Show all detection ranges
-            </label>
-          </div>
+        <div
+          className={`mt-4 border-t border-white/10 pt-4 ${planning ? "opacity-70" : ""}`}
+          aria-busy={planning}
+        >
+          <p className="text-slate-500">
+            <span className="text-cyan-300 tabular-nums">
+              {(result.coverage * 100).toFixed(1)}%
+            </span>{" "}
+            coverage, {result.coveredWards.toLocaleString()} of {result.totalWards.toLocaleString()}{" "}
+            wards across {result.relevantMatches.toLocaleString()} matches
+          </p>
 
-          {selected ? (
-            <div className="mt-4 border-t border-white/10 pt-3">
-              <p className="text-xs font-medium text-slate-300">
-                Selected placement {selected.rank}
-              </p>
-              <dl className="mt-2 grid grid-cols-[1fr_auto] gap-y-1 text-[11px]">
-                <dt className="text-slate-500">Additional wards</dt>
-                <dd className="font-mono text-slate-300">
-                  {selected.additionalWards.toLocaleString()}
-                </dd>
-                <dt className="text-slate-500">Expected per match</dt>
-                <dd className="font-mono text-slate-300">{selected.expectedPerMatch.toFixed(2)}</dd>
-                <dt className="text-slate-500">Cumulative coverage</dt>
-                <dd className="font-mono text-slate-300">
-                  {(selected.coverage * 100).toFixed(1)}%
-                </dd>
-              </dl>
-            </div>
-          ) : null}
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-slate-400">
+            <input
+              checked={showAllRanges}
+              className="accent-cyan-400"
+              type="checkbox"
+              onChange={(event) => setShowAllRanges(event.target.checked)}
+            />
+            Show all ranges
+          </label>
 
-          <div className="mt-4 border-t border-white/10 pt-3">
-            <p className="mb-2 text-xs font-medium text-slate-300">Recommended placements</p>
-            <div className="space-y-1">
+          <section className="mt-3 border-t border-white/10 pt-3">
+            <div className="space-y-px">
               {placements.map((placement) => (
                 <button
-                  className={`grid w-full grid-cols-[1.5rem_1fr_auto] items-center rounded-sm px-2 py-2 text-left text-xs transition ${
+                  aria-pressed={placement.rank === selectedRank}
+                  className={`grid min-h-10 w-full grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-sm px-2 text-left transition ${
                     placement.rank === selectedRank
-                      ? "bg-cyan-400/10 text-slate-200 ring-1 ring-inset ring-cyan-300/30"
-                      : "text-slate-500 hover:bg-white/4 hover:text-slate-300"
+                      ? "bg-cyan-400/8 text-slate-200 ring-1 ring-inset ring-cyan-300/35"
+                      : "text-slate-400 hover:bg-white/4 hover:text-slate-200"
                   }`}
                   key={placement.rank}
                   type="button"
@@ -246,14 +243,18 @@ export default function SentryPlanner() {
                     centerMapAt(placement.x, placement.y);
                   }}
                 >
-                  <span className="font-semibold text-cyan-300">{placement.rank}</span>
-                  <span>+{placement.additionalWards.toLocaleString()} wards</span>
-                  <span className="font-mono">{placement.expectedPerMatch.toFixed(2)}/match</span>
+                  <span className="font-medium text-cyan-300 tabular-nums">{placement.rank}</span>
+                  <span className="truncate">
+                    +{placement.additionalWards.toLocaleString()} wards
+                  </span>
+                  <span className="text-slate-500 tabular-nums">
+                    {placement.expectedPerMatch.toFixed(2)}/match
+                  </span>
                 </button>
               ))}
             </div>
-          </div>
-        </>
+          </section>
+        </div>
       ) : null}
     </div>
   );

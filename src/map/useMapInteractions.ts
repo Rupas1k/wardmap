@@ -77,7 +77,7 @@ export default function useMapInteractions({
       const workspaceState = useWorkspaceStore.getState();
       const currentContext = workspaceState.analysisContext;
 
-      if (workspaceState.inspectorTab === "sentries") {
+      if (useSentryStore.getState().open) {
         useSentryStore.getState().setSelectedRank(null);
 
         return;
@@ -275,8 +275,6 @@ export default function useMapInteractions({
 
       if (sentryRank !== null) {
         useSentryStore.getState().setSelectedRank(sentryRank);
-        useWorkspaceStore.getState().setInspectorOpen(true);
-        setInspectorTab("sentries");
 
         return;
       }
