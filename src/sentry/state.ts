@@ -7,6 +7,7 @@ export type SentryTimePreset = "all" | "pregame" | "early" | "mid" | "late";
 
 interface SentryState {
   open: boolean;
+  pinned: boolean;
   targetSide: Exclude<Side, "all">;
   sentryCount: number;
   minimumSpacing: number;
@@ -17,6 +18,7 @@ interface SentryState {
   planning: boolean;
   error: string | null;
   setOpen: (open: boolean) => void;
+  setPinned: (pinned: boolean) => void;
   setTargetSide: (side: Exclude<Side, "all">) => void;
   setSentryCount: (count: number) => void;
   setMinimumSpacing: (spacing: number) => void;
@@ -31,6 +33,7 @@ interface SentryState {
 
 export const useSentryStore = create<SentryState>((set) => ({
   open: false,
+  pinned: false,
   targetSide: "radiant",
   sentryCount: 5,
   minimumSpacing: 1000,
@@ -41,6 +44,7 @@ export const useSentryStore = create<SentryState>((set) => ({
   planning: false,
   error: null,
   setOpen: (open) => set({ open }),
+  setPinned: (pinned) => set({ pinned }),
   setTargetSide: (targetSide) =>
     set({ targetSide, placements: [], selectedRank: null, error: null }),
   setSentryCount: (sentryCount) =>
@@ -60,12 +64,14 @@ export const useSentryStore = create<SentryState>((set) => ({
   setShowAllRanges: (showAllRanges) => set({ showAllRanges }),
   setPlanning: (planning) => set({ planning }),
   setError: (error) => set({ error }),
-  clearPlan: () => set({ placements: [], selectedRank: null, planning: false, error: null }),
+  clearPlan: () =>
+    set({ pinned: false, placements: [], selectedRank: null, planning: false, error: null }),
 }));
 
 export function useSentryPlannerState() {
   return useSentryStore(
     useShallow((state) => ({
+      pinned: state.pinned,
       targetSide: state.targetSide,
       sentryCount: state.sentryCount,
       minimumSpacing: state.minimumSpacing,
@@ -75,6 +81,7 @@ export function useSentryPlannerState() {
       showAllRanges: state.showAllRanges,
       planning: state.planning,
       error: state.error,
+      setPinned: state.setPinned,
       setTargetSide: state.setTargetSide,
       setSentryCount: state.setSentryCount,
       setMinimumSpacing: state.setMinimumSpacing,

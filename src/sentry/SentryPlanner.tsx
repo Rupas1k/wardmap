@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { BsPinAngle, BsPinAngleFill } from "react-icons/bs";
 import runSentryPlanner from "./runSentryPlanner";
 import { useMapStore } from "../state/mapState";
 import { useSentryPlannerState } from "./state";
@@ -19,6 +20,7 @@ export default function SentryPlanner() {
   const elevations = useMapStore((state) => state.elevations);
   const centerMapAt = useMapStore((state) => state.centerMapAt);
   const {
+    pinned,
     targetSide,
     sentryCount,
     minimumSpacing,
@@ -28,6 +30,7 @@ export default function SentryPlanner() {
     showAllRanges,
     planning,
     error,
+    setPinned,
     setTargetSide,
     setSentryCount,
     setMinimumSpacing,
@@ -120,9 +123,23 @@ export default function SentryPlanner() {
 
   return (
     <div className="text-xs">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-medium text-slate-100">Sentry planner</h2>
-        {planning && result ? <span className="text-slate-500">Updating…</span> : null}
+        <div className="flex items-center gap-2">
+          {planning && result ? <span className="text-slate-500">Updating…</span> : null}
+          <button
+            aria-label={pinned ? "Unpin sentry placements" : "Keep sentry placements on map"}
+            aria-pressed={pinned}
+            className={`grid size-7 place-items-center rounded-sm text-sm transition hover:bg-white/5 hover:text-slate-200 ${
+              pinned ? "text-cyan-300" : "text-slate-500"
+            }`}
+            title={pinned ? "Hide when planner closes" : "Keep on map"}
+            type="button"
+            onClick={() => setPinned(!pinned)}
+          >
+            {pinned ? <BsPinAngleFill /> : <BsPinAngle />}
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 space-y-3">

@@ -66,6 +66,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const sentryPlacements = useSentryStore((state) => state.placements);
   const selectedSentryRank = useSentryStore((state) => state.selectedRank);
   const showAllSentryRanges = useSentryStore((state) => state.showAllRanges);
+  const sentryPlanOpen = useSentryStore((state) => state.open);
+  const sentryPlanPinned = useSentryStore((state) => state.pinned);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
   const visibleClusterSets = useMemo(
@@ -191,7 +193,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     sentryPlacements,
     selectedSentryRank,
     showAllSentryRanges,
-    sentryPlacements.length > 0,
+    sentryPlacements.length > 0 && (sentryPlanOpen || sentryPlanPinned),
   );
   useSightingLayer(sightingPosition, sightingRoutes);
   useHiddenLocationPreviewLayer(hiddenLocationPreview);
