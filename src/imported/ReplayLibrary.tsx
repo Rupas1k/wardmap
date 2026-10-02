@@ -3,6 +3,7 @@ import {
   BsArrowDown,
   BsArrowUp,
   BsFunnel,
+  BsMap,
   BsPlus,
   BsSearch,
   BsThreeDots,
@@ -130,6 +131,29 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
     updateCollection,
   } = props;
 
+  const filtersActive =
+    search.trim().length > 0 ||
+    collectionFilter !== "all" ||
+    resultFilter !== "all" ||
+    importedWithinDays !== "all" ||
+    versionFilter !== mapVersion ||
+    onlyMine;
+
+  function toggleMatch(matchId: number) {
+    setSelected((current) =>
+      current.includes(matchId) ? current.filter((id) => id !== matchId) : [...current, matchId],
+    );
+  }
+
+  function clearFilters() {
+    setSearch("");
+    setCollectionFilter("all");
+    setResultFilter("all");
+    setImportedWithinDays("all");
+    setVersionFilter(mapVersion);
+    setOnlyMine(false);
+  }
+
   return (
     <div>
       <div className="flex items-center gap-2">
@@ -147,7 +171,14 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
           align="right"
           ariaLabel="Filter replays"
           trigger={<BsFunnel />}
-          triggerClassName="grid size-9 place-items-center rounded-sm border border-white/10 text-slate-500 hover:border-white/20 hover:text-white"
+          triggerClassName={`grid size-9 place-items-center rounded-sm border hover:border-white/20 hover:text-white ${
+            versionFilter !== mapVersion ||
+            resultFilter !== "all" ||
+            importedWithinDays !== "all" ||
+            onlyMine
+              ? "border-cyan-400/40 bg-cyan-400/5 text-cyan-300"
+              : "border-white/10 text-slate-500"
+          }`}
           width="wide"
         >
           {() => (
@@ -360,6 +391,23 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
         </Popup>
       </div>
 
+      <div className="mt-2 flex min-h-6 items-center justify-between gap-3 text-[11px]">
+        <span className="text-slate-500">
+          {visibleMatches.length === library.matches.length && !filtersActive
+            ? `${library.matches.length} ${library.matches.length === 1 ? "replay" : "replays"}`
+            : `${visibleMatches.length} of ${library.matches.length} replays`}
+        </span>
+        {filtersActive ? (
+          <button
+            className="text-slate-500 hover:text-slate-200"
+            type="button"
+            onClick={clearFilters}
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </div>
+
       {selected.length ? (
         <div className="mt-2 flex flex-wrap items-center gap-1 bg-cyan-400/5 px-2 py-1.5 text-xs">
           <span className="mr-1 text-slate-300">{selected.length} selected</span>
@@ -368,7 +416,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
             type="button"
             onClick={() => showMatches(selected)}
           >
-            Show
+            Show on map
           </button>
           <select
             aria-label="Bulk collection"
@@ -422,7 +470,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
       ) : null}
 
       <div className="mt-2">
-        <div className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_5.5rem_2rem] items-center gap-2 border-b border-white/10 px-1 text-[11px] text-slate-600 sm:grid-cols-[1rem_minmax(9rem,1fr)_8rem_5.5rem_3.5rem_2.5rem_2rem]">
+        <div className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_5.5rem_4rem] items-center gap-2 border-b border-white/10 px-1 text-[11px] text-slate-600 sm:grid-cols-[1rem_minmax(9rem,1fr)_8rem_5.5rem_3.5rem_2.5rem_4rem]">
           <input
             ref={selectAllInput}
             aria-label="Select all visible replays"
@@ -442,7 +490,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
           <span>Map</span>
           <span className="hidden sm:block">Result</span>
           <span className="hidden text-right sm:block">Wards</span>
-          <span />
+          <span className="text-right">Actions</span>
         </div>
 
         {!visibleMatches.length ? (
@@ -463,23 +511,20 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
               return (
                 <article
                   className={
-                    "grid min-h-10 grid-cols-[1rem_minmax(0,1fr)_5.5rem_2rem] items-center gap-2 rounded-sm px-1 text-xs transition sm:grid-cols-[1rem_minmax(9rem,1fr)_8rem_5.5rem_3.5rem_2.5rem_2rem] " +
+                    "grid min-h-11 grid-cols-[1rem_minmax(0,1fr)_5.5rem_4rem] items-center gap-2 rounded-sm px-1 text-xs transition sm:grid-cols-[1rem_minmax(9rem,1fr)_8rem_5.5rem_3.5rem_2.5rem_4rem] " +
                     (selected.includes(match.matchId)
-                      ? "bg-cyan-400/[0.07]"
+                      ? "cursor-pointer bg-cyan-400/[0.07]"
                       : supported
                         ? "cursor-pointer hover:bg-white/[0.025]"
                         : "text-slate-600")
                   }
                   key={match.fileHash}
                   onClick={(event) => {
-                    if (
-                      !supported ||
-                      (event.target instanceof Element && event.target.closest("button, input"))
-                    ) {
+                    if (event.target instanceof Element && event.target.closest("button, input")) {
                       return;
                     }
 
-                    showMatches([match.matchId]);
+                    toggleMatch(match.matchId);
                   }}
                 >
                   <input
@@ -487,13 +532,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
                     checked={selected.includes(match.matchId)}
                     className="accent-cyan-400"
                     type="checkbox"
-                    onChange={() =>
-                      setSelected((current) =>
-                        current.includes(match.matchId)
-                          ? current.filter((id) => id !== match.matchId)
-                          : [...current, match.matchId],
-                      )
-                    }
+                    onChange={() => toggleMatch(match.matchId)}
                   />
                   <span className="truncate text-slate-200">{replayName}</span>
                   <span className="hidden truncate text-slate-500 sm:block">
@@ -513,14 +552,28 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
                   <span className="hidden text-right text-slate-400 sm:block">
                     {match.wards.length}
                   </span>
-                  <button
-                    aria-label={"Delete match " + match.matchId}
-                    className="grid size-8 place-items-center text-slate-700 hover:text-rose-300"
-                    type="button"
-                    onClick={() => void removeMatches([match.matchId])}
-                  >
-                    <BsTrash />
-                  </button>
+                  <div className="ml-auto flex items-center">
+                    {supported ? (
+                      <button
+                        aria-label={"Show match " + match.matchId + " on map"}
+                        className="grid size-8 place-items-center rounded-sm text-cyan-300 hover:bg-white/5 hover:text-cyan-200"
+                        title="Show on map"
+                        type="button"
+                        onClick={() => showMatches([match.matchId])}
+                      >
+                        <BsMap />
+                      </button>
+                    ) : null}
+                    <button
+                      aria-label={"Delete match " + match.matchId}
+                      className="grid size-8 place-items-center rounded-sm text-slate-700 hover:bg-white/5 hover:text-rose-300"
+                      title="Delete replay"
+                      type="button"
+                      onClick={() => void removeMatches([match.matchId])}
+                    >
+                      <BsTrash />
+                    </button>
+                  </div>
                 </article>
               );
             })}
