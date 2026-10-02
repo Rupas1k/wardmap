@@ -2,7 +2,7 @@ import { BsChevronLeft, BsDashCircle, BsGeoAlt, BsGeoAltFill } from "react-icons
 import { useEffect, useMemo, useState } from "react";
 import { fetchWardEvidence } from "../api/fetchWardEvidence";
 import { wardOutcomeTextClass } from "../colors";
-import { formatHeroName } from "../heroes";
+import HeroName from "../components/HeroName";
 import { formatGameTime, formatWardOutcome } from "../metrics/wardMetrics";
 import { groupWardsByMatch, groupWardsByPlayer, sortWards } from "../metrics/groupWards";
 import { useMapStore } from "../state/mapState";
@@ -352,7 +352,6 @@ function WardReport({
                       const playerName =
                         event.target_player_name ??
                         (targetId === null ? null : playerNames.get(targetId));
-                      const targetHero = formatHeroName(event.target_hero_name);
                       const combinedRoutes = event.segments
                         .map((segment) => segment.route.map((point) => point.position))
                         .filter((route) => route.length > 1);
@@ -381,8 +380,12 @@ function WardReport({
                             <p className="truncate text-sm font-medium text-slate-200">
                               {playerName ?? fallbackName}
                             </p>
-                            {targetHero ? (
-                              <p className="truncate text-xs text-slate-500">{targetHero}</p>
+                            {event.target_hero_name ? (
+                              <HeroName
+                                className="mt-0.5 text-xs text-slate-500"
+                                iconClassName="size-4"
+                                value={event.target_hero_name}
+                              />
                             ) : null}
                             <div className="mt-2 space-y-1">
                               {fullRoutePosition && combinedRoutes.length > 1 ? (

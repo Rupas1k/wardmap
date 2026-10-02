@@ -132,6 +132,10 @@ const compactHeroNames = new Map(
   Object.entries(heroNames).map(([name, displayName]) => [name.replaceAll("_", ""), displayName]),
 );
 
+const internalNamesByDisplayName = new Map(
+  Object.entries(heroNames).map(([name, displayName]) => [displayName.toLowerCase(), name]),
+);
+
 function internalHeroName(value: string): string {
   return value
     .replace(/^CDOTA_Unit_Hero_/, "")
@@ -161,4 +165,20 @@ export function formatHeroName(value: string | null): string | null {
     compactHeroNames.get(internalName.replaceAll("_", "")) ??
     fallbackHeroName(internalName)
   );
+}
+
+export function heroIconUrl(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const internalName = /\s/.test(value)
+    ? internalNamesByDisplayName.get(value.toLowerCase())
+    : internalHeroName(value);
+
+  if (!internalName || !heroNames[internalName]) {
+    return null;
+  }
+
+  return `https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/icons/${internalName}.png`;
 }

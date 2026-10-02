@@ -10,8 +10,8 @@ import {
   BsTrash,
 } from "react-icons/bs";
 import Popup from "../components/Popup";
+import HeroName from "../components/HeroName";
 import { formControlClass } from "../components/ui";
-import { formatHeroName } from "../heroes";
 import { mapPatchLabel, mapPatchLabels } from "../map/versions";
 import type { ImportedCollection, ImportedLibrary, ImportedMatch } from "./model";
 
@@ -502,11 +502,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
               const won =
                 me && match.radiantWon !== null ? me.isRadiant === match.radiantWon : null;
               const supported = match.mapVersion === mapVersion;
-              const replayName = me
-                ? (playerNames.get(me.id) ?? me.name) +
-                  ", " +
-                  (formatHeroName(me.hero) ?? "Unknown hero")
-                : match.fileName;
+              const playerName = me ? (playerNames.get(me.id) ?? me.name) : null;
 
               return (
                 <article
@@ -534,7 +530,18 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
                     type="checkbox"
                     onChange={() => toggleMatch(match.matchId)}
                   />
-                  <span className="truncate text-slate-200">{replayName}</span>
+                  {me && playerName ? (
+                    <span className="flex min-w-0 items-center gap-1.5 text-slate-200">
+                      <span className="truncate">{playerName},</span>
+                      {me.hero ? (
+                        <HeroName className="shrink min-w-0" value={me.hero} />
+                      ) : (
+                        <span className="truncate text-slate-500">Unknown hero</span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="truncate text-slate-200">{match.fileName}</span>
+                  )}
                   <span className="hidden truncate text-slate-500 sm:block">
                     {matchDate(match)}, {duration(match.duration)}
                   </span>
