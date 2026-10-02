@@ -602,24 +602,22 @@ export default function ImportedMatches({
         className="flex max-h-[min(46rem,calc(100vh-2rem))] w-full max-w-[40rem] flex-col overflow-hidden rounded-sm border border-white/10 bg-slate-900 text-slate-200 shadow-xl"
         role="dialog"
       >
-        <header className="shrink-0 px-3 pt-3">
-          <div className="flex items-center justify-between gap-4">
-            <h3 className="text-sm font-semibold text-slate-100">Replay library</h3>
-            <button
-              aria-label="Close replay library"
-              className="-mr-1 grid size-8 place-items-center text-xl text-slate-500 hover:text-white"
-              type="button"
-              onClick={() => setOpen(false)}
-            >
-              <BsX />
-            </button>
-          </div>
+        <header className="flex shrink-0 items-center gap-2 px-3">
+          <h3 className="sr-only">Replay library</h3>
           <SwitchNav
-            className="mt-3"
+            className="min-w-0 flex-1"
             options={tabs.map(({ id, label }) => ({ value: id, label }))}
             value={tab}
             onChange={setTab}
           />
+          <button
+            aria-label="Close replay library"
+            className="-mr-1 grid size-8 shrink-0 place-items-center text-xl text-slate-500 hover:text-white"
+            type="button"
+            onClick={() => setOpen(false)}
+          >
+            <BsX />
+          </button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
