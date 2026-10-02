@@ -510,6 +510,7 @@ export default function Workspace({
             <Popup
               align="right"
               ariaLabel="Open sentry planner"
+              closeOnOutsidePointerDown={false}
               groupName="map-tools"
               open={sentryPlanOpen}
               panelClassName="max-h-[calc(100vh-5rem)] overflow-y-auto"

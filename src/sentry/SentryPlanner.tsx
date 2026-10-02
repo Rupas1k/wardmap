@@ -102,7 +102,7 @@ export default function SentryPlanner() {
   );
 
   useEffect(() => {
-    if (wards.length === 0 || !elevations) {
+    if (wards.length === 0 || !elevations || placements.length > 0) {
       setPlanning(false);
 
       return;
@@ -116,7 +116,7 @@ export default function SentryPlanner() {
       controller.abort();
       setPlanning(false);
     };
-  }, [elevations, generate, setPlanning, wards.length]);
+  }, [elevations, generate, placements.length, setPlanning, wards.length]);
 
   return (
     <div className="text-xs">

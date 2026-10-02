@@ -49,7 +49,13 @@ export const useSentryStore = create<SentryState>((set) => ({
     set({ minimumSpacing, placements: [], selectedRank: null, error: null }),
   setTimePreset: (timePreset) =>
     set({ timePreset, placements: [], selectedRank: null, error: null }),
-  setPlacements: (placements) => set({ placements, selectedRank: placements[0]?.rank ?? null }),
+  setPlacements: (placements) =>
+    set((state) => ({
+      placements,
+      selectedRank: placements.some((placement) => placement.rank === state.selectedRank)
+        ? state.selectedRank
+        : (placements[0]?.rank ?? null),
+    })),
   setSelectedRank: (selectedRank) => set({ selectedRank }),
   setShowAllRanges: (showAllRanges) => set({ showAllRanges }),
   setPlanning: (planning) => set({ planning }),

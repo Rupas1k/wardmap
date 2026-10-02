@@ -7,6 +7,7 @@ interface PopupProps {
   ariaLabel?: string;
   children: (controls: { close: () => void }) => ReactNode;
   className?: string;
+  closeOnOutsidePointerDown?: boolean;
   disabled?: boolean;
   groupName?: string;
   onOpenChange?: (open: boolean) => void;
@@ -24,6 +25,7 @@ export default function Popup({
   ariaLabel,
   children,
   className = "",
+  closeOnOutsidePointerDown = true,
   disabled = false,
   groupName,
   onOpenChange,
@@ -48,13 +50,18 @@ export default function Popup({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && details.current?.open) {
+        event.stopPropagation();
         close();
       }
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (details.current?.open && !details.current.contains(event.target as Node)) {
+      if (
+        closeOnOutsidePointerDown &&
+        details.current?.open &&
+        !details.current.contains(event.target as Node)
+      ) {
         close();
       }
     };
@@ -66,7 +73,7 @@ export default function Popup({
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
     };
-  }, [onOpenChange]);
+  }, [closeOnOutsidePointerDown, onOpenChange]);
 
   const position = placement === "top" ? "bottom-full mb-2" : "top-full mt-2";
   const alignment = align === "right" ? "right-0" : "left-0";
