@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useMemo } from "react";
 import { contextIds } from "../state/analysisContext";
 import { useMapViewState } from "../state/mapSelectors";
 import { useWorkspaceStore } from "../state/workspaceState";
+import { useSentryStore } from "../sentry/state";
 import type { ClusterSets } from "../types";
 import exportMapImage from "./exportMapImage";
 import { ClusterTooltip, WardTooltip } from "./MapTooltips";
@@ -10,6 +11,7 @@ import {
   useHiddenLocationPreviewLayer,
   useMapHoverState,
   useMapFocus,
+  useSentryPlanLayer,
   useSightingLayer,
   useVisionLayer,
   useWardDetailLayer,
@@ -61,6 +63,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const context = useWorkspaceStore((state) => state.analysisContext);
   const setContextOrigin = useWorkspaceStore((state) => state.setContextOrigin);
   const setContextRefinement = useWorkspaceStore((state) => state.setContextRefinement);
+  const sentryPlacements = useSentryStore((state) => state.placements);
+  const selectedSentryRank = useSentryStore((state) => state.selectedRank);
+  const showAllSentryRanges = useSentryStore((state) => state.showAllRanges);
+  const sentryPlanOpen = useSentryStore((state) => state.open);
+  const sentryPlanPinned = useSentryStore((state) => state.pinned);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
   const visibleClusterSets = useMemo(
@@ -182,6 +189,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   });
   useMapHoverState(hoveredClusterId, hoveredWardId);
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
+  useSentryPlanLayer(
+    sentryPlacements,
+    selectedSentryRank,
+    showAllSentryRanges,
+    sentryPlacements.length > 0 && (sentryPlanOpen || sentryPlanPinned),
+  );
   useSightingLayer(sightingPosition, sightingRoutes);
   useHiddenLocationPreviewLayer(hiddenLocationPreview);
   useVisionLayer({ elevations, selectedCluster, selectedWardId, visionTechnique });

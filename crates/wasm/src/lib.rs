@@ -1,10 +1,12 @@
 mod clustering;
 mod replay;
+mod sentry;
 mod utils;
 
 use wasm_bindgen::prelude::*;
 
 pub use clustering::{dbscan, hdbscan, st_dbscan};
+pub use sentry::plan_sentries;
 #[wasm_bindgen]
 pub fn elevation_data(map_version: u8) -> Result<Vec<u8>, JsError> {
     wardmap_parser::elevation_data(map_version)

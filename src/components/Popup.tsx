@@ -7,8 +7,11 @@ interface PopupProps {
   ariaLabel?: string;
   children: (controls: { close: () => void }) => ReactNode;
   className?: string;
+  closeOnOutsidePointerDown?: boolean;
   disabled?: boolean;
   groupName?: string;
+  onOpenChange?: (open: boolean) => void;
+  open?: boolean;
   panelClassName?: string;
   placement?: "top" | "bottom";
   trigger: ReactNode;
@@ -22,8 +25,11 @@ export default function Popup({
   ariaLabel,
   children,
   className = "",
+  closeOnOutsidePointerDown = true,
   disabled = false,
   groupName,
+  onOpenChange,
+  open,
   panelClassName = "",
   placement = "bottom",
   trigger,
@@ -32,17 +38,30 @@ export default function Popup({
   width = "default",
 }: PopupProps) {
   const details = useRef<HTMLDetailsElement>(null);
-  const close = () => details.current?.removeAttribute("open");
+  const close = () => {
+    if (onOpenChange) {
+      onOpenChange(false);
+
+      return;
+    }
+
+    details.current?.removeAttribute("open");
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && details.current?.open) {
+        event.stopPropagation();
         close();
       }
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (details.current?.open && !details.current.contains(event.target as Node)) {
+      if (
+        closeOnOutsidePointerDown &&
+        details.current?.open &&
+        !details.current.contains(event.target as Node)
+      ) {
         close();
       }
     };
@@ -54,7 +73,7 @@ export default function Popup({
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("pointerdown", handlePointerDown);
     };
-  }, []);
+  }, [closeOnOutsidePointerDown, onOpenChange]);
 
   const position = placement === "top" ? "bottom-full mb-2" : "top-full mt-2";
   const alignment = align === "right" ? "right-0" : "left-0";
@@ -62,7 +81,13 @@ export default function Popup({
     width === "wide" ? "w-[min(21rem,calc(100vw-2rem))]" : "w-[min(16rem,calc(100vw-2rem))]";
 
   return (
-    <details ref={details} className={`group relative w-fit ${className}`} name={groupName}>
+    <details
+      ref={details}
+      className={`group relative w-fit ${className}`}
+      name={groupName}
+      open={open}
+      onToggle={(event) => onOpenChange?.(event.currentTarget.open)}
+    >
       <summary
         aria-label={ariaLabel}
         aria-disabled={disabled}

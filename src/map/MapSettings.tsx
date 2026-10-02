@@ -48,6 +48,7 @@ export default function MapSettings({
 
   useEffect(() => {
     layers.wards.changed();
+    layers.wardDetails.changed();
   }, [clusterMarkerSize]);
 
   useEffect(() => {

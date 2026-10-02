@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { BsGithub, BsLayoutSidebarInsetReverse, BsSliders } from "react-icons/bs";
+import { BsGeoAlt, BsGithub, BsLayoutSidebarInsetReverse, BsSliders } from "react-icons/bs";
 import AccessKey from "../components/AccessKey";
+import Popup from "../components/Popup";
 import DatasetControls from "../dataset/DatasetControls";
 import MapSettings from "../map/MapSettings";
 import { DownloadMapButton, SavedViewsMenu } from "../map/MapActions";
 import MapView from "../map/MapView";
 import type { MapViewHandle } from "../map/MapView";
-import { FloatingIconButton, SwitchNav } from "../components/ui";
+import { FloatingIconButton, floatingIconControlClass, SwitchNav } from "../components/ui";
 import { defaultDataset } from "../dataset/model";
 import useWorkspaceController from "./useWorkspaceController";
 import SavedViewControls from "../savedViews/SavedViewControls";
@@ -14,6 +15,8 @@ import GroupingControls from "../clustering/GroupingControls";
 import { buildEmptyClusterSets } from "../clustering/buildClusters";
 import { defaultClusteringSettings, useMapStore } from "../state/mapState";
 import { useWorkspaceStore } from "../state/workspaceState";
+import { useSentryStore } from "../sentry/state";
+import SentryPlanner from "../sentry/SentryPlanner";
 import { fallbackMapVersion } from "../map/constants";
 
 const WorkspaceInspector = lazy(() => import("./WorkspaceInspector"));
@@ -40,6 +43,9 @@ export default function Workspace({
   const [controlTab, setControlTab] = useState<ControlTab>("filters");
   const [mapHandoff, setMapHandoff] = useState<string | null>(null);
   const currentSide = useMapStore((state) => state.currentSide);
+  const clearSentryPlan = useSentryStore((state) => state.clearPlan);
+  const sentryPlanOpen = useSentryStore((state) => state.open);
+  const setSentryPlanOpen = useSentryStore((state) => state.setOpen);
   const {
     data: {
       leagues,
@@ -158,6 +164,10 @@ export default function Workspace({
       : (mapLeague?.version ?? fallbackMapVersion);
   const competitiveLeagueError = draftDataset.source === "competitive" ? leagueError : null;
   const displayedError = competitiveLeagueError ?? error;
+
+  useEffect(() => {
+    clearSentryPlan();
+  }, [clearSentryPlan, wards]);
 
   useEffect(() => {
     const undoLocationChange = (event: KeyboardEvent) => {
@@ -488,14 +498,33 @@ export default function Workspace({
               </p>
             </div>
           ) : null}
-          <FloatingIconButton
-            aria-label="Toggle inspector"
-            className={`absolute top-3 right-3 z-30 ${inspectorOpen ? "bg-slate-800 text-slate-100" : ""}`}
-            title={inspectorOpen ? "Hide inspector" : "Show inspector"}
-            onClick={() => setInspectorOpen(!inspectorOpen)}
-          >
-            <BsLayoutSidebarInsetReverse />
-          </FloatingIconButton>
+          <div className="absolute top-3 right-3 z-30 flex flex-col items-end gap-1">
+            <FloatingIconButton
+              aria-label="Toggle inspector"
+              className={inspectorOpen ? "bg-slate-800 text-slate-100" : ""}
+              title={inspectorOpen ? "Hide inspector" : "Show inspector"}
+              onClick={() => setInspectorOpen(!inspectorOpen)}
+            >
+              <BsLayoutSidebarInsetReverse />
+            </FloatingIconButton>
+            <Popup
+              align="right"
+              ariaLabel="Open sentry planner"
+              closeOnOutsidePointerDown={false}
+              groupName="map-tools"
+              open={sentryPlanOpen}
+              panelClassName="max-h-[calc(100vh-5rem)] overflow-y-auto"
+              trigger={<BsGeoAlt />}
+              triggerClassName={`${floatingIconControlClass} ${
+                sentryPlanOpen ? "bg-slate-800 text-cyan-300" : ""
+              }`}
+              triggerTitle="Sentry planner"
+              width="wide"
+              onOpenChange={setSentryPlanOpen}
+            >
+              {() => (sentryPlanOpen ? <SentryPlanner /> : null)}
+            </Popup>
+          </div>
         </section>
 
         {inspectorOpen ? (
