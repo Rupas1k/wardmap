@@ -543,7 +543,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
                     {matchDate(match)}, {duration(match.duration)}
                   </span>
                   <span className={supported ? "text-slate-500" : "text-amber-300"}>
-                    {mapPatchLabel(match.mapVersion)}
+                    {mapPatchLabel(match.mapVersion).replace(/ map$/i, "")}
                   </span>
                   <span
                     className={
