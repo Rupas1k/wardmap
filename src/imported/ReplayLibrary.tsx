@@ -28,7 +28,6 @@ export interface ReplayLibraryProps {
   library: ImportedLibrary;
   mapVersion: number;
   onlyMine: boolean;
-  playerNames: ReadonlyMap<number, string>;
   resultFilter: "all" | "won" | "lost";
   search: string;
   selectAllInput: RefObject<HTMLInputElement | null>;
@@ -100,7 +99,6 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
     library,
     mapVersion,
     onlyMine,
-    playerNames,
     resultFilter,
     search,
     selectAllInput,
@@ -485,7 +483,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
               )
             }
           />
-          <span>Replay</span>
+          <span>Match ID</span>
           <span>Hero</span>
           <span className="hidden sm:block">Played</span>
           <span>Map</span>
@@ -503,7 +501,6 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
               const won =
                 me && match.radiantWon !== null ? me.isRadiant === match.radiantWon : null;
               const supported = match.mapVersion === mapVersion;
-              const playerName = me ? (playerNames.get(me.id) ?? me.name) : null;
 
               return (
                 <article
@@ -531,9 +528,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
                     type="checkbox"
                     onChange={() => toggleMatch(match.matchId)}
                   />
-                  <span className="truncate text-slate-200">
-                    {me && playerName ? playerName : match.fileName}
-                  </span>
+                  <span className="truncate text-slate-200 tabular-nums">{match.matchId}</span>
                   {me?.hero ? (
                     <HeroName className="text-slate-300" value={me.hero} />
                   ) : (

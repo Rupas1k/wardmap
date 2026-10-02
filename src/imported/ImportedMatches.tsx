@@ -637,7 +637,6 @@ export default function ImportedMatches({
               library={library}
               mapVersion={mapVersion}
               onlyMine={onlyMine}
-              playerNames={playerNames}
               resultFilter={resultFilter}
               search={search}
               selectAllInput={selectAllInput}
