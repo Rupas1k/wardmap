@@ -30,6 +30,10 @@ export function DownloadMapButton({ download }: { download: () => Promise<void> 
         disabled={downloading}
         title={downloading ? "Preparing image…" : "Download current map"}
         onClick={() => {
+          if (!window.confirm("Download the current map as an image?")) {
+            return;
+          }
+
           setError(false);
           setDownloading(true);
           void download()
