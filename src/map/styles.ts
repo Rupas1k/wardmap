@@ -80,7 +80,8 @@ export default function mainStyle(
     const selected = Boolean(feature.get("selected"));
     const multiSelection = feature.get("multiSelection") as "full" | "partial" | null;
     const dimmed = Boolean(feature.get("dimmed"));
-    const radius = unclustered ? 3.5 : sideData ? pointRadius(feature, side, markerSize) : 4;
+    const radius =
+      unclustered || !sideData ? markerSize.minimum : pointRadius(feature, side, markerSize);
     const color = pointColor(feature);
     const marker = new Style({
       image: new Circle({
