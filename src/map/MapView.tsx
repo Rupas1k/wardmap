@@ -66,7 +66,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const sentryPlacements = useSentryStore((state) => state.placements);
   const selectedSentryRank = useSentryStore((state) => state.selectedRank);
   const showAllSentryRanges = useSentryStore((state) => state.showAllRanges);
-  const sentryPlanOpen = useSentryStore((state) => state.open);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const selectedWardIds = useWorkspaceStore((state) => state.selectedWardIds);
   const visibleClusterSets = useMemo(
@@ -188,7 +187,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   });
   useMapHoverState(hoveredClusterId, hoveredWardId);
   useMapFocus({ centerMapAt, clearFocusRequest, focusRequest, selectMapLocation });
-  useSentryPlanLayer(sentryPlacements, selectedSentryRank, showAllSentryRanges, sentryPlanOpen);
+  useSentryPlanLayer(
+    sentryPlacements,
+    selectedSentryRank,
+    showAllSentryRanges,
+    sentryPlacements.length > 0,
+  );
   useSightingLayer(sightingPosition, sightingRoutes);
   useHiddenLocationPreviewLayer(hiddenLocationPreview);
   useVisionLayer({ elevations, selectedCluster, selectedWardId, visionTechnique });

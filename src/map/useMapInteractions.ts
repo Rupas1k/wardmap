@@ -274,7 +274,10 @@ export default function useMapInteractions({
       );
 
       if (sentryRank !== null) {
-        useSentryStore.getState().setSelectedRank(sentryRank);
+        const sentryStore = useSentryStore.getState();
+
+        sentryStore.setSelectedRank(sentryRank);
+        sentryStore.setOpen(true);
 
         return;
       }
