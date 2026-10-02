@@ -470,7 +470,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
       ) : null}
 
       <div className="mt-2">
-        <div className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_5.5rem_4rem] items-center gap-2 border-b border-white/10 px-1 text-[11px] text-slate-600 sm:grid-cols-[1rem_minmax(9rem,1fr)_8rem_5.5rem_3.5rem_2.5rem_4rem]">
+        <div className="grid min-h-8 grid-cols-[1rem_minmax(0,1fr)_minmax(6rem,1fr)_3.5rem_4rem] items-center gap-2 border-b border-white/10 px-1 text-[11px] text-slate-600 sm:grid-cols-[1rem_minmax(6rem,1fr)_7rem_6.5rem_4.25rem_3.25rem_2rem_4rem]">
           <input
             ref={selectAllInput}
             aria-label="Select all visible replays"
@@ -486,6 +486,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
             }
           />
           <span>Replay</span>
+          <span>Hero</span>
           <span className="hidden sm:block">Played</span>
           <span>Map</span>
           <span className="hidden sm:block">Result</span>
@@ -507,7 +508,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
               return (
                 <article
                   className={
-                    "grid min-h-11 grid-cols-[1rem_minmax(0,1fr)_5.5rem_4rem] items-center gap-2 rounded-sm px-1 text-xs transition sm:grid-cols-[1rem_minmax(9rem,1fr)_8rem_5.5rem_3.5rem_2.5rem_4rem] " +
+                    "grid min-h-11 grid-cols-[1rem_minmax(0,1fr)_minmax(6rem,1fr)_3.5rem_4rem] items-center gap-2 rounded-sm px-1 text-xs transition sm:grid-cols-[1rem_minmax(6rem,1fr)_7rem_6.5rem_4.25rem_3.25rem_2rem_4rem] " +
                     (selected.includes(match.matchId)
                       ? "cursor-pointer bg-cyan-400/[0.07]"
                       : supported
@@ -530,17 +531,13 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
                     type="checkbox"
                     onChange={() => toggleMatch(match.matchId)}
                   />
-                  {me && playerName ? (
-                    <span className="flex min-w-0 items-center gap-1.5 text-slate-200">
-                      <span className="truncate">{playerName},</span>
-                      {me.hero ? (
-                        <HeroName className="shrink min-w-0" value={me.hero} />
-                      ) : (
-                        <span className="truncate text-slate-500">Unknown hero</span>
-                      )}
-                    </span>
+                  <span className="truncate text-slate-200">
+                    {me && playerName ? playerName : match.fileName}
+                  </span>
+                  {me?.hero ? (
+                    <HeroName className="text-slate-300" value={me.hero} />
                   ) : (
-                    <span className="truncate text-slate-200">{match.fileName}</span>
+                    <span className="truncate text-slate-600">Unknown</span>
                   )}
                   <span className="hidden truncate text-slate-500 sm:block">
                     {matchDate(match)}, {duration(match.duration)}
