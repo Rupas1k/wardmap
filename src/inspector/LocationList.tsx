@@ -45,12 +45,13 @@ function measurementMean(
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null;
 }
 
-function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side: Side }) {
+function LocationChanges({ clusters, side }: { clusters: Cluster[]; side: Side }) {
   const excludedWardIds = useWorkspaceStore((state) => state.excludedWardIds);
   const hiddenLocationFingerprints = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
   const wards = useWorkspaceStore((state) => state.wards);
+  const context = useWorkspaceStore((state) => state.analysisContext);
   const restoreWard = useWorkspaceStore((state) => state.restoreWard);
   const restoreWards = useWorkspaceStore((state) => state.restoreWards);
   const restoreLocation = useWorkspaceStore((state) => state.restoreLocation);
@@ -64,20 +65,35 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
   const showHiddenLocationAt = useMapStore((state) => state.showHiddenLocationAt);
   const clearHiddenLocationPreview = useMapStore((state) => state.clearHiddenLocationPreview);
   const excluded = useMemo(() => {
-    const wardsById = new Map(wards.map((ward) => [ward.id, ward]));
-
-    return excludedWardIds.map((id) => ({ id, ward: wardsById.get(id) }));
-  }, [excludedWardIds, wards]);
-  const hidden = useMemo(() => {
-    const clustersByFingerprint = new Map(
-      baseClusters.map((cluster) => [locationKey(cluster, side), cluster]),
+    const { playerId, matchId } = contextIds(context);
+    const wardsById = new Map(
+      wards
+        .filter(
+          (ward) =>
+            (side === "all" || ward.is_radiant === (side === "radiant")) &&
+            (playerId === null || ward.player_placed_id === playerId) &&
+            (matchId === null || ward.match_id === matchId),
+        )
+        .map((ward) => [ward.id, ward]),
     );
 
-    return hiddenLocationFingerprints.map((fingerprint) => ({
-      fingerprint,
-      cluster: clustersByFingerprint.get(fingerprint),
-    }));
-  }, [baseClusters, hiddenLocationFingerprints, side]);
+    return excludedWardIds.flatMap((id) => {
+      const ward = wardsById.get(id);
+
+      return ward ? [{ id, ward }] : [];
+    });
+  }, [context, excludedWardIds, side, wards]);
+  const hidden = useMemo(() => {
+    const clustersByFingerprint = new Map(
+      clusters.map((cluster) => [locationKey(cluster, side), cluster]),
+    );
+
+    return hiddenLocationFingerprints.flatMap((fingerprint) => {
+      const cluster = clustersByFingerprint.get(fingerprint);
+
+      return cluster ? [{ fingerprint, cluster }] : [];
+    });
+  }, [clusters, hiddenLocationFingerprints, side]);
 
   if (excluded.length === 0 && hidden.length === 0) {
     return null;
@@ -121,17 +137,19 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                   className="text-slate-500 hover:text-slate-200"
                   type="button"
                   onClick={() => {
+                    const ids = excluded.map(({ id }) => id);
+
                     clearSelection();
                     clearExpandedClusters();
                     clearHiddenLocationPreview();
                     setPendingLocationReselection({
-                      changedWardIds: excludedWardIds,
+                      changedWardIds: ids,
                       kind: "restore",
                       sourceFingerprint: null,
-                      wardIds: excludedWardIds,
+                      wardIds: ids,
                     });
 
-                    restoreWards(excludedWardIds);
+                    restoreWards(ids);
                   }}
                 >
                   Restore all
@@ -146,30 +164,27 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                     <BsDashCircle className="shrink-0 text-slate-600" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-slate-300">
-                        {ward?.player_name ?? "Unknown player"}
+                        {ward.player_name ?? "Unknown player"}
                       </span>
                       <span className="mt-0.5 block truncate text-slate-500 tabular-nums">
-                        Match {ward?.match_id ?? id}
-                        {ward ? ` at ${formatGameTime(ward.time_placed, true)}` : ""}
+                        Match {ward.match_id} at {formatGameTime(ward.time_placed, true)}
                       </span>
                     </span>
-                    {ward ? (
-                      <button
-                        aria-label={`Show ward by ${ward.player_name ?? "unknown player"} on map`}
-                        className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
-                          previewing([ward.x_pos, ward.y_pos, ward.z_pos])
-                            ? "text-cyan-300"
-                            : "text-slate-600"
-                        }`}
-                        title="Show on map"
-                        type="button"
-                        onClick={() => togglePreview([ward.x_pos, ward.y_pos, ward.z_pos])}
-                      >
-                        <BsGeoAlt />
-                      </button>
-                    ) : null}
                     <button
-                      aria-label={`Restore ward by ${ward?.player_name ?? "unknown player"}`}
+                      aria-label={`Show ward by ${ward.player_name ?? "unknown player"} on map`}
+                      className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
+                        previewing([ward.x_pos, ward.y_pos, ward.z_pos])
+                          ? "text-cyan-300"
+                          : "text-slate-600"
+                      }`}
+                      title="Show on map"
+                      type="button"
+                      onClick={() => togglePreview([ward.x_pos, ward.y_pos, ward.z_pos])}
+                    >
+                      <BsGeoAlt />
+                    </button>
+                    <button
+                      aria-label={`Restore ward by ${ward.player_name ?? "unknown player"}`}
                       className="shrink-0 rounded-sm p-1.5 text-sm text-slate-500 hover:bg-white/5 hover:text-white"
                       title="Restore"
                       type="button"
@@ -218,30 +233,26 @@ function LocationChanges({ baseClusters, side }: { baseClusters: Cluster[]; side
                     <BsEyeSlash className="shrink-0 text-slate-600" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-slate-300">
-                        {cluster
-                          ? (locationName(cluster, side, locationNames, manualLocations) ??
-                            "Unnamed location")
-                          : "Unnamed location"}
+                        {locationName(cluster, side, locationNames, manualLocations) ??
+                          "Unnamed location"}
                       </span>
                       <span className="mt-0.5 block truncate text-slate-500">
-                        {cluster?.[side]?.amount.toLocaleString() ?? "Unknown"} wards
+                        {cluster[side]?.amount.toLocaleString() ?? 0} wards
                       </span>
                     </span>
-                    {cluster ? (
-                      <button
-                        aria-label="Show hidden location on map"
-                        className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
-                          previewing([cluster.x_pos, cluster.y_pos, cluster.z_pos])
-                            ? "text-cyan-300"
-                            : "text-slate-600"
-                        }`}
-                        title="Show on map"
-                        type="button"
-                        onClick={() => togglePreview([cluster.x_pos, cluster.y_pos, cluster.z_pos])}
-                      >
-                        <BsGeoAlt />
-                      </button>
-                    ) : null}
+                    <button
+                      aria-label="Show hidden location on map"
+                      className={`rounded-sm p-1.5 text-sm hover:bg-white/5 hover:text-white ${
+                        previewing([cluster.x_pos, cluster.y_pos, cluster.z_pos])
+                          ? "text-cyan-300"
+                          : "text-slate-600"
+                      }`}
+                      title="Show on map"
+                      type="button"
+                      onClick={() => togglePreview([cluster.x_pos, cluster.y_pos, cluster.z_pos])}
+                    >
+                      <BsGeoAlt />
+                    </button>
                     <button
                       aria-label="Restore hidden location"
                       className="shrink-0 rounded-sm p-1.5 text-sm text-slate-500 hover:bg-white/5 hover:text-white"
@@ -360,12 +371,14 @@ function groupSortSummary(
 export default function LocationList({
   baseClusters,
   clusters,
+  contextClusters,
   clusteringEnabled,
   showUnclustered,
   side,
 }: {
   baseClusters: Cluster[];
   clusters: Cluster[];
+  contextClusters: Cluster[];
   clusteringEnabled: boolean;
   showUnclustered: boolean;
   side: Side;
@@ -575,7 +588,7 @@ export default function LocationList({
       <div>
         <div className="mb-3 flex items-center justify-between gap-3">
           <p className="text-sm font-medium text-slate-300">Locations</p>
-          <LocationChanges baseClusters={baseClusters} side={side} />
+          <LocationChanges clusters={contextClusters} side={side} />
         </div>
         <EmptyState className="py-10">
           {clusteringEnabled && !showUnclustered
@@ -590,7 +603,7 @@ export default function LocationList({
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm font-medium text-slate-300">Locations</p>
-        <LocationChanges baseClusters={baseClusters} side={side} />
+        <LocationChanges clusters={contextClusters} side={side} />
       </div>
 
       <div className="mb-3 flex items-center justify-between gap-3">

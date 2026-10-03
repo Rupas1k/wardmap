@@ -468,6 +468,7 @@ export default function WorkspaceInspector() {
           currentSide,
           hiddenLocationFingerprints,
         )}
+        contextClusters={displayClusterSets?.[currentSide] ?? []}
         clusteringEnabled={clusteringEnabled}
         showUnclustered={showUnclustered}
         side={currentSide}
