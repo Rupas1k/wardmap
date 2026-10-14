@@ -7,6 +7,7 @@ import {
   automaticMergeDistance,
   automaticMinClusterSize,
   automaticMinSamples,
+  automaticRepresentative,
   shouldClusterAutomatically,
 } from "./automatic";
 import { buildClusters, buildEmptyClusterSets } from "./buildClusters";
@@ -17,6 +18,7 @@ function manualParameters(settings: ClusteringSettings): ClusterParameters {
   if (settings.algorithm === "time_weighted_hdbscan") {
     return {
       algorithm: "time_weighted_hdbscan",
+      maximumSpan: settings.maximumSpan ?? null,
       minClusterSize: settings.minClusterSize,
       minSamples: settings.minSamples,
       epsilon: settings.selectionEpsilon,
@@ -28,6 +30,7 @@ function manualParameters(settings: ClusteringSettings): ClusterParameters {
   if (settings.algorithm === "hdbscan") {
     return {
       algorithm: "hdbscan",
+      maximumSpan: settings.maximumSpan ?? null,
       minClusterSize: settings.minClusterSize,
       minSamples: settings.minSamples,
       epsilon: settings.selectionEpsilon,
@@ -125,7 +128,7 @@ async function clusterWardType(
   signal?: AbortSignal,
 ): Promise<ClusterResult> {
   if (settings.algorithm === "auto" && !shouldClusterAutomatically(wards.length)) {
-    return buildClusters(wards, new Map(wards.map((ward, index) => [index, [ward.id]])));
+    return buildClusters(wards, new Map([[-1, wards.map((ward) => ward.id)]]));
   }
 
   if (settings.algorithm !== "auto") {
@@ -137,16 +140,29 @@ async function clusterWardType(
   const memberships = await runWasm(
     {
       algorithm: "hdbscan",
+      automatic: true,
       minClusterSize: automaticMinClusterSize(wards.length),
       minSamples: automaticMinSamples(wards.length),
-      epsilon: automaticMergeDistance(wards.length),
+      epsilon: automaticMergeDistance(),
       selectionMethod: "leaf",
     },
     wards,
     signal,
   );
 
-  return buildClusters(wards, memberships);
+  const result = buildClusters(wards, memberships);
+
+  for (const cluster of result.clusters) {
+    const representative = automaticRepresentative(cluster.wards ?? []);
+
+    if (representative) {
+      cluster.x_pos = representative.x_pos;
+      cluster.y_pos = representative.y_pos;
+      cluster.z_pos = representative.z_pos;
+    }
+  }
+
+  return result;
 }
 
 async function clusteredLocations(
@@ -159,22 +175,6 @@ async function clusteredLocations(
   );
 
   return mergeTypeResults(wards, results);
-}
-
-function applyAutomaticFallback(
-  wards: Ward[],
-  settings: ClusteringSettings,
-  result: ClusterResult,
-): ClusterResult {
-  if (
-    settings.algorithm !== "auto" ||
-    wards.length === 0 ||
-    result.clusters.some((cluster) => cluster.unclustered !== true)
-  ) {
-    return result;
-  }
-
-  return unclusteredLocations(wards, false);
 }
 
 function appendManualLocations(
@@ -234,11 +234,7 @@ async function clusterSet(
   const manualWardIds = new Set(activeLocations.flatMap((location) => location.wardIds));
   const automaticWards = wards.filter((ward) => !manualWardIds.has(ward.id));
   const automatic = enabled
-    ? applyAutomaticFallback(
-        automaticWards,
-        settings,
-        await clusteredLocations(automaticWards, settings, signal),
-      )
+    ? await clusteredLocations(automaticWards, settings, signal)
     : unclusteredLocations(automaticWards, groupByGridCell);
 
   return appendManualLocations(automatic, wards, activeLocations);

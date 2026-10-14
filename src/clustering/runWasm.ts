@@ -5,6 +5,8 @@ export type ClusterParameters =
   | { algorithm: "st_dbscan"; radius: number; timeWindow: number; minSamples: number }
   | {
       algorithm: "hdbscan";
+      automatic?: boolean;
+      maximumSpan?: number | null;
       minClusterSize: number;
       minSamples: number;
       epsilon: number;
@@ -12,6 +14,7 @@ export type ClusterParameters =
     }
   | {
       algorithm: "time_weighted_hdbscan";
+      maximumSpan?: number | null;
       minClusterSize: number;
       minSamples: number;
       epsilon: number;

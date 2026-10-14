@@ -2,10 +2,24 @@ import type { ReactNode } from "react";
 import type { ClusteringSettings } from "../state/mapState";
 import type { ClusterSets, Side } from "../types";
 import { formControlClass } from "../components/ui";
-import { automaticMergeDistance, automaticMinClusterSize, automaticMinSamples } from "./automatic";
+import {
+  automaticMaximumDiameter,
+  automaticMergeDistance,
+  automaticMinClusterSize,
+  automaticMinSamples,
+} from "./automatic";
 import { useMapStore } from "../state/mapState";
+import { useWorkspaceStore } from "../state/workspaceState";
+import { visibleClusters } from "../locations/locationIdentity";
 
 type GroupingMode = ClusteringSettings["algorithm"] | "grid-cell" | "individual";
+
+function parameterRange(values: number[]): string {
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+
+  return minimum === maximum ? String(minimum) : `${minimum}–${maximum}`;
+}
 
 function GroupingField({ children, label }: { children: ReactNode; label: string }) {
   return (
@@ -42,6 +56,7 @@ export default function GroupingControls({
   updateUnclusteredVisibility: (show: boolean) => void;
 }) {
   const clearExpandedClusters = useMapStore((state) => state.clearExpandedClusters);
+  const hiddenLocations = useWorkspaceStore((state) => state.hiddenLocationFingerprints);
   const mode: GroupingMode = clusteringEnabled
     ? settings.algorithm
     : groupByGridCell
@@ -50,7 +65,22 @@ export default function GroupingControls({
   const usesClustering = clusteringEnabled;
   const usesFixedRadius = ["dbscan", "st_dbscan"].includes(settings.algorithm);
   const locations = clusterSets?.[currentSide] ?? [];
-  const wardCount = locations.reduce((total, location) => total + (location.wards?.length ?? 0), 0);
+  const automaticWardCounts = [true, false]
+    .map((observer) =>
+      locations.reduce(
+        (total, location) =>
+          total +
+          (location.manual_location_id
+            ? 0
+            : (location.wards?.filter((ward) => ward.is_obs === observer).length ?? 0)),
+        0,
+      ),
+    )
+    .filter((count) => count > 0);
+  const parameterCounts = automaticWardCounts.length ? automaticWardCounts : [0];
+  const visibleLocations = visibleClusters(locations, currentSide, hiddenLocations).filter(
+    (location) => showUnclustered || !location.unclustered,
+  );
   function setMode(next: GroupingMode) {
     clearExpandedClusters();
 
@@ -97,16 +127,16 @@ export default function GroupingControls({
             <input
               className={`${formControlClass} disabled:opacity-50`}
               disabled
-              type="number"
-              value={automaticMinClusterSize(wardCount)}
+              type="text"
+              value={parameterRange(parameterCounts.map(automaticMinClusterSize))}
             />
           </GroupingField>
           <GroupingField label="Wards nearby">
             <input
               className={`${formControlClass} disabled:opacity-50`}
               disabled
-              type="number"
-              value={automaticMinSamples(wardCount)}
+              type="text"
+              value={parameterRange(parameterCounts.map(automaticMinSamples))}
             />
           </GroupingField>
           <GroupingField label="Merge distance">
@@ -114,7 +144,15 @@ export default function GroupingControls({
               className={`${formControlClass} disabled:opacity-50`}
               disabled
               type="number"
-              value={automaticMergeDistance(wardCount)}
+              value={automaticMergeDistance()}
+            />
+          </GroupingField>
+          <GroupingField label="Maximum span">
+            <input
+              className={`${formControlClass} disabled:opacity-50`}
+              disabled
+              type="number"
+              value={automaticMaximumDiameter}
             />
           </GroupingField>
           <GroupingField label="Selection">
@@ -197,6 +235,24 @@ export default function GroupingControls({
           </GroupingField>
 
           {!usesFixedRadius ? (
+            <GroupingField label="Maximum span">
+              <input
+                className={formControlClass}
+                min="1"
+                placeholder="No limit"
+                type="number"
+                value={settings.maximumSpan ?? ""}
+                onChange={(event) =>
+                  update(
+                    "maximumSpan",
+                    event.target.value === "" ? null : Math.max(1, Number(event.target.value)),
+                  )
+                }
+              />
+            </GroupingField>
+          ) : null}
+
+          {!usesFixedRadius ? (
             <GroupingField label="Merge distance">
               <input
                 className={formControlClass}
@@ -243,7 +299,7 @@ export default function GroupingControls({
         {clustering
           ? "Updating map…"
           : clusterSets
-            ? `${locations.length.toLocaleString()} locations`
+            ? `${visibleLocations.length.toLocaleString()} locations`
             : null}
       </p>
     </section>

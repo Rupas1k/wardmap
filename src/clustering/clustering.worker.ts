@@ -3,6 +3,7 @@
 import init, { dbscan, hdbscan, st_dbscan } from "../../wasm/pkg/wardmap_wasm";
 import type { ClusterParameters } from "./runWasm";
 import type { Ward } from "../types";
+import { constrainAutomaticMemberships, constrainMemberships } from "./automatic";
 
 interface ClusterRequest {
   parameters: ClusterParameters;
@@ -48,6 +49,18 @@ async function cluster({ parameters, wards }: ClusterRequest): Promise<void> {
           : {}),
         wards: points,
       }) as Map<number, number[]>;
+    }
+
+    if (parameters.algorithm === "hdbscan" && parameters.automatic) {
+      result = constrainAutomaticMemberships(wards, result);
+    } else if (
+      (parameters.algorithm === "hdbscan" || parameters.algorithm === "time_weighted_hdbscan") &&
+      typeof parameters.maximumSpan === "number"
+    ) {
+      result = constrainMemberships(wards, result, {
+        maximumSpan: parameters.maximumSpan,
+        minimumGroupSize: parameters.minClusterSize,
+      });
     }
 
     self.postMessage({ result: [...result.entries()] });

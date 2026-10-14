@@ -392,6 +392,8 @@ export default function LocationList({
   const sortDirection = useWorkspaceStore((state) => state.locationSortDirection);
   const setSortDirection = useWorkspaceStore((state) => state.setLocationSortDirection);
   const minimumWards = useWorkspaceStore((state) => state.locationMinimumWards);
+  const algorithm = useMapStore((state) => state.clusteringSettings.algorithm);
+  const individualEntries = !clusteringEnabled || algorithm === "auto";
   const setMinimumWards = useWorkspaceStore((state) => state.setLocationMinimumWards);
   const locationNames = useWorkspaceStore((state) => state.locationNames);
   const manualLocations = useWorkspaceStore((state) => state.manualLocations);
@@ -433,8 +435,12 @@ export default function LocationList({
     [showUnclustered, side, sort, sortDirection, visibleBaseClusters],
   );
   const visibleLocations = useMemo(
-    () => locations.filter((entry) => entry.data.amount >= minimumWards),
-    [locations, minimumWards],
+    () =>
+      locations.filter(
+        (entry) =>
+          entry.data.amount >= minimumWards || (individualEntries && entry.data.amount === 1),
+      ),
+    [individualEntries, locations, minimumWards],
   );
   const groupBaseLocations = useMemo(
     () =>
@@ -649,7 +655,9 @@ export default function LocationList({
           </span>
         </label>
         <label className="flex items-center justify-between gap-3 text-xs text-slate-500">
-          <span className="shrink-0">Min wards</span>
+          <span className="shrink-0">
+            {view === "locations" && individualEntries ? "Min grouped wards" : "Min wards"}
+          </span>
           <span className="w-[13.5rem] shrink-0">
             <input
               aria-label="Minimum wards"

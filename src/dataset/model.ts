@@ -201,7 +201,10 @@ export function isClusteringSettings(value: unknown): value is ClusteringSetting
     Number.isFinite(candidate.timeScaleSeconds) &&
     Number.isFinite(candidate.minSamples) &&
     Number.isFinite(candidate.minClusterSize) &&
-    Number.isFinite(candidate.selectionEpsilon),
+    Number.isFinite(candidate.selectionEpsilon) &&
+    (candidate.maximumSpan === undefined ||
+      candidate.maximumSpan === null ||
+      (Number.isFinite(candidate.maximumSpan) && candidate.maximumSpan > 0)),
   );
 }
 
@@ -220,6 +223,7 @@ export function normalizeClusteringSettings(value: unknown): ClusteringSettings 
           ? "time_weighted_hdbscan"
           : legacy.algorithm,
     timeScaleSeconds: legacy.timeScaleSeconds ?? legacy.adaptiveTimeScale ?? 180,
+    maximumSpan: legacy.maximumSpan ?? null,
   };
 
   delete candidate.adaptiveTimeScale;

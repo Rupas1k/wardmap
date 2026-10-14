@@ -22,7 +22,7 @@ import { defaultDataset, numericIds } from "./model";
 import type { DatasetSettings, WorkspaceSettings } from "./model";
 import { loadImportedWardDataset } from "../imported/loadImportedDataset";
 
-export const clusterDataVersion = 17;
+export const clusterDataVersion = 21;
 export const wardDataVersion = 8;
 const datasetCacheLimit = 8;
 

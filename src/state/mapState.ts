@@ -11,6 +11,7 @@ export interface ClusteringSettings {
   minSamples: number;
   minClusterSize: number;
   selectionEpsilon: number;
+  maximumSpan?: number | null;
 }
 
 export type VisionTechnique = "polygon" | "gridnav";
@@ -69,6 +70,7 @@ export const defaultClusteringSettings: ClusteringSettings = {
   minSamples: 10,
   minClusterSize: 10,
   selectionEpsilon: 64,
+  maximumSpan: null,
 };
 
 interface MapState {
