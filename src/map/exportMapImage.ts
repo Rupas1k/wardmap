@@ -82,7 +82,7 @@ function composeMap(map: Map, width: number, height: number, scale: number): HTM
   context.imageSmoothingQuality = "high";
 
   const canvases = map
-    .getViewport()
+    .getViewport()!
     .querySelectorAll<HTMLCanvasElement>(".ol-layer canvas, canvas.ol-layer");
 
   for (const canvas of canvases) {

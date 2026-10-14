@@ -252,12 +252,12 @@ function downloadElevation(): void {
 }
 
 map.on("pointermove", (event) => showCell(event.coordinate));
-map.getViewport().addEventListener("pointermove", (event) => {
+map.getViewport()!.addEventListener("pointermove", (event) => {
   if (activeStroke) {
     applyCellAt(map.getEventCoordinate(event));
   }
 });
-map.getViewport().addEventListener("pointerdown", (event) => {
+map.getViewport()!.addEventListener("pointerdown", (event) => {
   if (mode === "pan") {
     return;
   }

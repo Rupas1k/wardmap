@@ -1,5 +1,6 @@
 import type MapBrowserEvent from "ol/MapBrowserEvent";
 import DragBox from "ol/interaction/DragBox";
+import type { DragBoxEvent } from "ol/interaction/DragBox";
 import { useEffect, useRef, useState } from "react";
 import { contextIds } from "../state/analysisContext";
 import type { AnalysisScope } from "../state/analysisContext";
@@ -440,7 +441,11 @@ export default function useMapInteractions({
       useMapStore.getState().setCamera({ center: [center[0]!, center[1]!], zoom });
     }
 
-    function selectWardsInBox(event: { mapBrowserEvent: MapBrowserEvent }) {
+    function selectWardsInBox(event: DragBoxEvent) {
+      if (!event.mapBrowserEvent) {
+        return;
+      }
+
       const extent = wardSelectionBox.getGeometry().getExtent();
       const mapState = useMapStore.getState();
       const workspaceState = useWorkspaceStore.getState();
