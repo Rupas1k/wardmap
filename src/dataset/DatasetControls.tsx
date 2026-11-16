@@ -162,7 +162,7 @@ export default function DatasetControls({
           }
         >
           <option value="competitive">Competitive</option>
-          <option value="imported">Imported</option>
+          <option value="imported">My matches</option>
         </CompactSelect>
 
         {settings.source === "competitive" ? (

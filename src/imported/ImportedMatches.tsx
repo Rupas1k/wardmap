@@ -8,6 +8,8 @@ import ReplayLibrary from "./ReplayLibrary";
 import ReplaySettings from "./ReplaySettings";
 import { numericIds } from "../dataset/model";
 import { formatHeroName } from "../heroes";
+import { fetchLibraryMatch, serverLibraryRevision } from "../api/fetchLibraryMatch";
+import { refreshMatchHistory } from "../api/matchSync";
 import { emptyImportedLibrary } from "./model";
 import type { ImportedCollection, ImportedLibrary, ImportedMatch } from "./model";
 import { newestPlayerNames } from "./playerIdentity";
@@ -37,6 +39,65 @@ function fileKey(file: File) {
 
 function playerFor(match: ImportedMatch, accountIds: readonly number[]) {
   return match.players.find((player) => accountIds.includes(player.id));
+}
+
+let serverSync: Promise<void> | null = null;
+
+function syncServerLibrary(accountId: number, signal: AbortSignal) {
+  if (serverSync) {
+    return serverSync;
+  }
+
+  serverSync = (async () => {
+    const result = await refreshMatchHistory(accountId, signal);
+    let library = useImportedStore.getState().library;
+    const matches = [...library.matches];
+    let nextWardId = Math.min(
+      library.nextWardId ?? -1,
+      matches.reduce(
+        (minimum, match) => match.wards.reduce((value, ward) => Math.min(value, ward.id), minimum),
+        0,
+      ) - 1,
+    );
+    let changed = false;
+
+    for (const entry of result.history) {
+      if (signal.aborted || entry.status !== "parsed") {
+        continue;
+      }
+
+      const existingIndex = matches.findIndex((match) => match.matchId === entry.matchId);
+      const existing = matches[existingIndex];
+
+      if (
+        existing?.origin === "local" ||
+        (existing?.origin === "server" && existing.sourceRevision >= serverLibraryRevision)
+      ) {
+        continue;
+      }
+
+      const match = await fetchLibraryMatch(entry.matchId, signal);
+      match.wards = match.wards.map((ward) => ({ ...ward, id: nextWardId-- }));
+      await saveImportedMatch(match, entry.matchId);
+
+      if (existingIndex >= 0) {
+        matches.splice(existingIndex, 1, match);
+      } else {
+        matches.push(match);
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      library = { ...library, matches, nextWardId };
+      await saveImportedLibraryMetadata(library);
+      useImportedStore.getState().setLibrary(library);
+    }
+  })().finally(() => {
+    serverSync = null;
+  });
+
+  return serverSync;
 }
 
 export default function ImportedMatches({
@@ -77,6 +138,35 @@ export default function ImportedMatches({
   });
   const importRequest = useRef<AbortController | null>(null);
   const selectAllInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const accountId = library.profile.accountIds[0];
+
+    if (!ready || !accountId) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const sync = () => {
+      void syncServerLibrary(accountId, controller.signal).catch((error) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.warn("Unable to synchronize server matches", error);
+        }
+      });
+    };
+
+    const onFocus = () => sync();
+
+    sync();
+    const interval = window.setInterval(sync, 5 * 60_000);
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      controller.abort();
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [library.profile.accountIds, ready]);
 
   const playerNames = useMemo(() => newestPlayerNames(library.matches), [library.matches]);
   const players = useMemo(

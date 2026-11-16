@@ -213,7 +213,7 @@ export default function ReplayLibrary(props: ReplayLibraryProps) {
                 </select>
               </label>
               <label className="block text-slate-500">
-                Imported
+                Added
                 <select
                   className={formControlClass + " mt-1"}
                   value={importedWithinDays}
