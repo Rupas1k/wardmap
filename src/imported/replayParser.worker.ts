@@ -46,6 +46,8 @@ async function parse({ jobId, file, mapVersion }: ParseRequest): Promise<void> {
     const replay = JSON.parse(parse_replay(new Uint8Array(buffer), mapVersion)) as ImportedMatch;
     const match: ImportedMatch = {
       ...replay,
+      origin: "local",
+      sourceRevision: 1,
       wards: parseWardRecords(replay.wards),
       fileName: file.name,
       fileHash,

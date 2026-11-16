@@ -8,6 +8,8 @@ export interface ImportedPlayer {
 }
 
 export interface ImportedMatch {
+  origin: "local" | "server";
+  sourceRevision: number;
   matchId: number;
   fileName: string;
   fileHash: string;

@@ -40,6 +40,8 @@ function normalizeLibrary(value: ImportedLibrary): ImportedLibrary {
 
       return {
         ...cleaned,
+        origin: cleaned.origin ?? (cleaned.fileHash.startsWith("server:") ? "server" : "local"),
+        sourceRevision: cleaned.sourceRevision ?? 1,
         wards: parseWardRecords(cleaned.wards),
       };
     });
