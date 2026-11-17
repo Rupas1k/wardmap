@@ -195,10 +195,12 @@ export default function ReplaySettings({
 
         while (active.length && !controller.signal.aborted) {
           await wait(5_000, controller.signal);
-          const history = await fetchMatchStatuses(
-            result.history.map((match) => match.matchId),
+          const updates = await fetchMatchStatuses(
+            active.map((match) => match.matchId),
             controller.signal,
           );
+          const updatesById = new Map(updates.map((match) => [match.matchId, match]));
+          const history = result.history.map((match) => updatesById.get(match.matchId) ?? match);
           result = { ...result, history };
           setSyncResult(result);
 
